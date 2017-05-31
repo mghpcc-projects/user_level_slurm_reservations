@@ -1,0 +1,10 @@
+#! /bin/bash
+
+#SBATCH --partition=debug
+#SBATCH --nodes=1
+#SBATCH --time=00:00:30
+#SBATCH --output=output/hil_reserve_%j.out
+#SBATCH --error=output/hil_reserve_%j.err
+
+echo 'Reserving HIL nodes'
+exit 0
