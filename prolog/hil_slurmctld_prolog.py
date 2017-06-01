@@ -69,14 +69,15 @@ def get_job_data(env):
     '''
     
 
-def _create_HIL_reservation(resname, env, pdata_dict):
+def _create_hil_reservation(resname, env, pdata_dict):
     '''
     Create a HIL reservation using the passed reservation name
     '''
-    resdata_dict, err_data = exec_scontrol_cmd('create', 'reservation', resname)
+    print 'Creating HIL reservation %s' % resname
+    resdata_dict, err_data = exec_scontrol_cmd('create', 'reservation', resname, debug=True)
 
 
-def _generate_HIL_reservation_name(env):
+def _generate_hil_reservation_name(env):
     ''' 
     Create a reservation name, combining the HIL reservation prefix,
     the username, the job ID, and the ToD (YMD_HMS)
@@ -91,11 +92,14 @@ def _generate_HIL_reservation_name(env):
 
 def _hil_reserve_cmd(env, pdata_dict):
     # Check if a reservation exists.  If not, create it
-    resname = _generate_HIL_reservation_name(env)
-    resdata_dict, err_data = exec_scontrol_cmd('show', 'reservation', resname)
+    resname = _generate_hil_reservation_name(env)
+    resdata_dict, err_data = exec_scontrol_cmd('show', 'reservation', resname, output_to_dict=True)
 
     if 'not found' in err_data:
-        _generate_hil_reservation(resname, env, pdata_dict)
+        print 'Reservation %s not found' % resname
+        print env
+        print pdata_dict
+        _create_hil_reservation(resname, env, pdata_dict)
 
     
 def _hil_release_cmd(env, pdata_dict):
@@ -112,7 +116,7 @@ def main(argv=[]):
 
     pdata_dict = get_partition_data(env)
     if pdata_dict:
-        print 'prolog: Entry checks done, processing...'
+        print 'prolog: Entry checks done, processing reservation request.'
 
     if (hil_cmd == 'hil_reserve'):
         _hil_reserve_cmd(env, pdata_dict)

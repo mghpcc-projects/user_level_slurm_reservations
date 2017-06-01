@@ -13,12 +13,12 @@ from subprocess import call, Popen, PIPE
 from hil_slurm_settings import (HIL_CMD_NAMES, HIL_PARTITION_PREFIX,
                                 SLURM_INSTALL_DIR, DEBUG)
 
-def exec_subprocess_cmd(cmd):
-    if DEBUG:
+def exec_subprocess_cmd(cmd, debug=False):
+    if debug:
         print 'Command:  ', cmd
     p = Popen(cmd, stdout=PIPE)
     stdout_data, stderr_data = p.communicate()
-    if DEBUG:
+    if debug:
         print 'stdout is %s' % stdout_data,
         print 'stderr is %s' % stderr_data
     return stdout_data, stderr_data
@@ -36,19 +36,23 @@ def _scontrol_stdout_to_dict(stdout_data, stderr_data):
     return stdout_dict
 
 
-def exec_scontrol_cmd(verb, entity, entity_id, **kwargs):
+def exec_scontrol_cmd(verb, entity, entity_id, debug=False, output_to_dict=False, **kwargs):
     '''
     Build an scontrol command, then pass it to an executor function
     Specify single-line output to support stdout postprocessing
     '''
     cmd = [os.path.join(SLURM_INSTALL_DIR, 'scontrol')]
-    cmd += [verb, entity, entity_id, '-o']
+    cmd += [verb, entity, entity_id]
+    if verb is 'show':
+        cmd += ['-o']
 
     if kwargs is not None:
         for k, v in kwargs.iteritems():
             cmd.append('--%s=%s' % (k, v))
 
-    stdout_data, stderr_data = exec_subprocess_cmd(cmd)
+    print 'Command is ', cmd
+
+    stdout_data, stderr_data = exec_subprocess_cmd(cmd, debug)
 
     # If there is no error, and there is valid output in the 
     # expected 'foo=bar' one-line format, convert to a dictionary
@@ -61,7 +65,8 @@ def exec_scontrol_cmd(verb, entity, entity_id, **kwargs):
             stderr_data = stdout_data
 
     # Convert to a dict if stderr_data is None
-    stdout_dict = _scontrol_stdout_to_dict(stdout_data, stderr_data)
+
+    stdout_dict = _scontrol_stdout_to_dict(stdout_data, stderr_data) if output_to_dict else None
     return stdout_dict, stderr_data
 
 
