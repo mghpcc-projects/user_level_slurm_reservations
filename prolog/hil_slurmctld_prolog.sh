@@ -1,12 +1,18 @@
 #!/bin/bash
 
-PATH=/bin:/usr/bin:$PATH
-HOME=/vagrant
-LOGFILE=$HOME/output/prolog.log
+PATH=/bin:/usr/bin
+LOGFILE=/var/log/slurm-llnl/prolog.log
+HOME=/vagrant/user_level_slurm_reservations
+DATE=`date`
 
-source $HOME/ve/bin/activate
-python $HOME/prolog/slurmctrld_hil_prolog.py 2>&1 >> $LOGFILE
+echo "" >> $LOGFILE
+echo $DATE >> $LOGFILE
+# echo $PATH >> $LOGFILE
+# echo $HOME >> $LOGFILE
+
+source ${HOME}/../ve/bin/activate
+python $HOME/prolog/hil_slurmctld_prolog.py >> $LOGFILE 2>&1
 deactivate
 
-# exit 0
+exit 0
 
