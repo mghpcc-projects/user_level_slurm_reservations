@@ -13,13 +13,18 @@ from subprocess import call, Popen, PIPE
 from hil_slurm_settings import (HIL_CMD_NAMES, HIL_PARTITION_PREFIX,
                                 SLURM_INSTALL_DIR, DEBUG)
 
-def exec_subprocess_cmd(cmd, debug=False):
+def exec_subprocess_cmd(cmd, debug=True):
+    '''
+    Execute a command in a subprocess and wait for completion
+    '''
+    try:
+        p = Popen(cmd, stdout=PIPE)
+        stdout_data, stderr_data = p.communicate()
+    except:
+        print 'Exception on Popen or communicate'
+
     if debug:
-        print 'Command:  ', cmd
-    p = Popen(cmd, stdout=PIPE)
-    stdout_data, stderr_data = p.communicate()
-    if debug:
-        print 'stdout is %s' % stdout_data,
+        print 'stdout is %s' % stdout_data
         print 'stderr is %s' % stderr_data
     return stdout_data, stderr_data
 
@@ -36,21 +41,39 @@ def _scontrol_stdout_to_dict(stdout_data, stderr_data):
     return stdout_dict
 
 
-def exec_scontrol_cmd(verb, entity, entity_id, debug=False, output_to_dict=False, **kwargs):
+def exec_scontrol_create_cmd(entity, entity_id, debug=False, **kwargs):
     '''
-    Build an scontrol command, then pass it to an executor function
-    Specify single-line output to support stdout postprocessing
+    Build an scontrol create command, then pass it to an executor function
     '''
     cmd = [os.path.join(SLURM_INSTALL_DIR, 'scontrol')]
-    cmd += [verb, entity, entity_id]
-    if verb is 'show':
-        cmd += ['-o']
+    cmd += ['create', entity, entity_id]
 
     if kwargs is not None:
         for k, v in kwargs.iteritems():
             cmd.append('--%s=%s' % (k, v))
 
-    print 'Command is ', cmd
+    if debug:
+        print 'Command is ', cmd
+
+    stdout_data, stderr_data = exec_subprocess_cmd(cmd, debug)
+    return stdout_data, stderr_data
+
+
+def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
+    '''
+    Build an scontrol command, then pass it to an executor function
+    Specify single-line output to support stdout postprocessing
+    Optionally convert output to a dictionary
+    '''
+    cmd = [os.path.join(SLURM_INSTALL_DIR, 'scontrol')]
+    cmd += ['show', entity, entity_id, '-o']
+
+    if kwargs is not None:
+        for k, v in kwargs.iteritems():
+            cmd.append('--%s=%s' % (k, v))
+
+    if debug:
+        print 'Command is ', cmd
 
     stdout_data, stderr_data = exec_subprocess_cmd(cmd, debug)
 
@@ -66,7 +89,7 @@ def exec_scontrol_cmd(verb, entity, entity_id, debug=False, output_to_dict=False
 
     # Convert to a dict if stderr_data is None
 
-    stdout_dict = _scontrol_stdout_to_dict(stdout_data, stderr_data) if output_to_dict else None
+    stdout_dict = _scontrol_stdout_to_dict(stdout_data, stderr_data)
     return stdout_dict, stderr_data
 
 

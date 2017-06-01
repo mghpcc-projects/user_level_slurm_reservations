@@ -13,7 +13,7 @@ from time import gmtime, strftime
 from hil_slurm_settings import (HIL_CMD_NAMES, HIL_PARTITION_PREFIX,
                                 HIL_RESERVATION_PREFIX,
                                 RES_TIME_FMT, RES_FLAGS, DEBUG)
-from hil_slurm_helpers import exec_scontrol_cmd
+from hil_slurm_helpers import exec_scontrol_show_cmd, exec_scontrol_create_cmd
 
 
 def get_prolog_env():
@@ -55,7 +55,7 @@ def get_partition_data(env):
     '''
     pdata_dict = []
     pname = env['partition']
-    pdata_dict, err_data = exec_scontrol_cmd('show', 'partition', pname)
+    pdata_dict, err_data = exec_scontrol_show_cmd('partition', pname)
     if err_data:
         print "Error: Failed to retrieve data for partition '%s'" % pname
         print "  ", err_data
@@ -74,7 +74,7 @@ def _create_hil_reservation(resname, env, pdata_dict):
     Create a HIL reservation using the passed reservation name
     '''
     print 'Creating HIL reservation %s' % resname
-    resdata_dict, err_data = exec_scontrol_cmd('create', 'reservation', resname, debug=True)
+    resdata_dict, err_data = exec_scontrol_create_cmd('reservation', resname, debug=True)
 
 
 def _generate_hil_reservation_name(env):
@@ -93,7 +93,7 @@ def _generate_hil_reservation_name(env):
 def _hil_reserve_cmd(env, pdata_dict):
     # Check if a reservation exists.  If not, create it
     resname = _generate_hil_reservation_name(env)
-    resdata_dict, err_data = exec_scontrol_cmd('show', 'reservation', resname, output_to_dict=True)
+    resdata_dict, err_data = exec_scontrol_show_cmd('reservation', resname)
 
     if 'not found' in err_data:
         print 'Reservation %s not found' % resname
@@ -104,7 +104,7 @@ def _hil_reserve_cmd(env, pdata_dict):
     
 def _hil_release_cmd(env, pdata_dict):
     # Release a HIL reservation
-    resdata_dict, err_data = exec_scontrol_cmd('show', 'reservation', resname)
+    resdata_dict, err_data = exec_scontrol_show_cmd('reservation', resname)
 
  
 def main(argv=[]):
