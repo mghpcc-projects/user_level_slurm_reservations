@@ -6,17 +6,21 @@ Slurm Control Daemon - HIL Reservation Prolog
 May 2017, Tim Donahue	tpd001@gmail.com
 """
 
+import logging
 import os
 import sys
 from time import gmtime, strftime
 
 from hil_slurm_settings import (HIL_CMD_NAMES, HIL_PARTITION_PREFIX,
                                 HIL_RESERVATION_PREFIX,
-                                RES_TIME_FMT, RES_FLAGS, DEBUG)
+                                RES_TIME_FMT, RES_FLAGS, DEBUG,
+                                HIL_SLURMCTLD_PROLOG_LOGFILE)
+
 from hil_slurm_helpers import exec_scontrol_show_cmd, exec_scontrol_create_cmd
 
+from hil_slurm_logging import log_init, log_info, log_warning, log_debug
 
-def get_prolog_env():
+def _get_prolog_environment():
     '''
     Returns a dict containing the job's prolog environment
     '''
@@ -31,25 +35,23 @@ def get_prolog_env():
            for env_var, slurm_env_var in env_map.iteritems()}
 
 
-def check_prolog_env(env):
+def _check_prolog_env(env):
     # If the partition is not an HIL partition, or if the 
     # command is not an HIL reservation command, do nothing
     pname = env['partition']
     if not pname.startswith(HIL_PARTITION_PREFIX):
-        if DEBUG:
-            print "Partition '%s' is not an HIL partition, continuing " % pname
+        log_debug("Partition '%s' is not an HIL partition, continuing " % pname)
         return None
 
     jobname= env['jobname'] 
     if jobname not in HIL_CMD_NAMES:
-        if DEBUG:
-            print "'%s' is not an HIL reservation command, continuing" % jobname
+        log_debug("Jobname '%s' is not a HIL reservation command, nothing to do." % jobname)
         return None
 
     return jobname
 
 
-def get_partition_data(env):
+def _get_partition_data(env):
     '''
     Check if the partition exists and, if so, retrieve data via 'scontrol show'
     '''
@@ -57,8 +59,8 @@ def get_partition_data(env):
     pname = env['partition']
     pdata_dict, err_data = exec_scontrol_show_cmd('partition', pname)
     if err_data:
-        print "Error: Failed to retrieve data for partition '%s'" % pname
-        print "  ", err_data
+        log_error("Error: Failed to retrieve data for partition '%s'" % pname)
+        log_error("  ", err_data)
         
     return pdata_dict
 
@@ -73,7 +75,7 @@ def _create_hil_reservation(resname, env, pdata_dict):
     '''
     Create a HIL reservation using the passed reservation name
     '''
-    print 'Creating HIL reservation %s' % resname
+    log_info('Creating HIL reservation %s' % resname)
     resdata_dict, err_data = exec_scontrol_create_cmd('reservation', resname, debug=True)
 
 
@@ -85,8 +87,7 @@ def _generate_hil_reservation_name(env):
     resname = HIL_RESERVATION_PREFIX + env['username'] + '_'
     resname += env['job_uid'] + '_'
     resname += strftime(RES_TIME_FMT)
-    if DEBUG:
-        print 'Reservation name is %s' % resname
+    log_debug('Reservation name is %s' % resname)
     return resname
 
 
@@ -96,9 +97,9 @@ def _hil_reserve_cmd(env, pdata_dict):
     resdata_dict, err_data = exec_scontrol_show_cmd('reservation', resname)
 
     if 'not found' in err_data:
-        print 'Reservation %s not found' % resname
-        print env
-        print pdata_dict
+        log_info('Reservation %s not found' % resname)
+        log_debug(env)
+        log_debug(pdata_dict)
         _create_hil_reservation(resname, env, pdata_dict)
 
     
@@ -109,14 +110,17 @@ def _hil_release_cmd(env, pdata_dict):
  
 def main(argv=[]):
 
-    env = get_prolog_env()
-    hil_cmd = check_prolog_env(env)
+    log_init('hil_slurmctld.prolog', HIL_SLURMCTLD_PROLOG_LOGFILE, logging.DEBUG)
+    log_info('HIL Slurmctld Prolog', separator=True)
+
+    env = _get_prolog_environment()
+    hil_cmd = _check_prolog_env(env)
     if hil_cmd is None:
         exit(0)
 
-    pdata_dict = get_partition_data(env)
+    pdata_dict = _get_partition_data(env)
     if pdata_dict:
-        print 'prolog: Entry checks done, processing reservation request.'
+        log_debug('prolog: Entry checks done, processing reservation request.')
 
     if (hil_cmd == 'hil_reserve'):
         _hil_reserve_cmd(env, pdata_dict)

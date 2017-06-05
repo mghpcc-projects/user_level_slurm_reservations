@@ -10,6 +10,8 @@ DEBUG = True
 
 SLURM_INSTALL_DIR = '/usr/bin/'
 
+HIL_SLURMCTLD_PROLOG_LOGFILE = '/var/log/slurm-llnl/prolog.log'
+
 HIL_CMD_NAMES = ('hil_reserve', 'hil_release')
 HIL_PARTITION_PREFIX = 'HIL_partition_'
 HIL_PARTITION_PREFIX = 'debug'

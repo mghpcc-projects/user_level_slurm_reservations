@@ -5,8 +5,8 @@ LOGFILE=/var/log/slurm-llnl/prolog.log
 HOME=/vagrant/user_level_slurm_reservations
 DATE=`date`
 
-echo "" >> $LOGFILE
-echo $DATE >> $LOGFILE
+# echo "" >> $LOGFILE
+# echo $DATE >> $LOGFILE
 # echo $PATH >> $LOGFILE
 # echo $HOME >> $LOGFILE
 
