@@ -11,7 +11,7 @@ import string
 from subprocess import call, Popen, PIPE
 from hil_slurm_settings import (HIL_CMD_NAMES, HIL_PARTITION_PREFIX,
                                 SLURM_INSTALL_DIR, DEBUG)
-from hil_slurm_logging import log_debug
+from hil_slurm_logging import log_debug, log_error
 
 
 def exec_subprocess_cmd(cmd, debug=True):
@@ -41,16 +41,16 @@ def _scontrol_stdout_to_dict(stdout_data, stderr_data):
     return stdout_dict
 
 
-def exec_scontrol_create_cmd(entity, entity_id, debug=False, **kwargs):
+def exec_scontrol_create_cmd(entity, debug=False, **kwargs):
     '''
     Build an scontrol create command, then pass it to an executor function
     '''
     cmd = [os.path.join(SLURM_INSTALL_DIR, 'scontrol')]
-    cmd += ['create', entity, entity_id]
+    cmd += ['create', entity]
 
     if kwargs is not None:
         for k, v in kwargs.iteritems():
-            cmd.append('--%s=%s' % (k, v))
+            cmd.append('%s=%s' % (k, v))
 
     log_debug('exec_scontrol_create_cmd():  %s' % cmd)
 
