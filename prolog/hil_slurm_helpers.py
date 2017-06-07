@@ -30,13 +30,20 @@ def exec_subprocess_cmd(cmd, debug=True):
 
 
 def _scontrol_stdout_to_dict(stdout_data, stderr_data):
+    '''
+    Convert the scontrol stdout data to a dict.
+    Nearly all params are of the form "keyword=value".  
+    If they all were, a neat functional one-liner would go here.
+    '''
+    stdout_dict = {}
 
-    # Convert the stdout output from scontrol to a dict, making
-    # assumptions about the format
     if stderr_data is None:
-        stdout_dict = dict(x.split('=') for x in stdout_data.split(' '))
-    else:
-        stdout_dict = []
+        for kv_pair in stdout_data.split(' '):
+            kv = kv_pair.split('=')
+            if (len(kv) == 2):
+                stdout_dict[kv[0]] = kv[1]
+            else:
+                log_debug('Failed to convert `%s`' % kv_pair)
 
     return stdout_dict
 
@@ -78,11 +85,17 @@ def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
     # If there is no error, and there is valid output in the
     # expected 'foo=bar' one-line format, convert to a dictionary
     #
-    # Note if we went looking for an HIL reservation and it does
-    # not exist, stderr is None and stdout includes "not found"
+    # Failure indications:
+    #  Reservation:  stdout includes 'not found'
+    #  Job: stdout includes 'Invalid job id'
+    # In these cases set stderr to stdout and return a null dict
     #
-    if (entity == 'reservation'):
-        if 'not found' in stdout_data:
+    entity_error_dict = {
+        'reservation': 'not found',
+        'job': 'Invalid job id'
+        }
+    if (entity in entity_error_dict):
+        if (entity_error_dict[entity] in stdout_data):
             stderr_data = stdout_data
 
     # Convert to a dict if stderr_data is None
