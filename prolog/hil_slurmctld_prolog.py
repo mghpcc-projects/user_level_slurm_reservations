@@ -9,24 +9,22 @@ May 2017, Tim Donahue	tpd001@gmail.com
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from hil_slurm_helpers import (get_partition_data, get_partition_data, get_job_data,
                                exec_scontrol_show_cmd, exec_scontrol_create_cmd, 
                                create_slurm_reservation)
-
+from hil_slurm_constants import (RES_NAME_TIME_FMT, SHOW_OBJ_TIME_FMT, 
+                                 SHOW_PARTITION_MAXTIME_FMT,
+                                 RES_CREATE_TIME_FMT, RES_CREATE_FLAGS)
 from hil_slurm_logging import log_init, log_info, log_warning, log_debug, log_error
 from hil_slurm_settings import (HIL_CMD_NAMES, HIL_PARTITION_PREFIX,
                                 HIL_RESERVATION_PREFIX,
                                 RES_CHECK_DEFAULT_PARTITION, RES_CHECK_EXCLUSIVE_PARTITION, 
                                 RES_CHECK_SHARED_PARTITION, RES_CHECK_PARTITION_STATE,
-                                HIL_SLURMCTLD_PROLOG_LOGFILE,
-                                HIL_USER_LOGFILE)
+                                HIL_RESERVATION_DEFAULT_DURATION, HIL_RESERVATION_GRACE_PERIOD,
+                                HIL_SLURMCTLD_PROLOG_LOGFILE, HIL_USER_LOGFILE)
 
-from hil_slurm_constants import RES_NAME_TIME_FMT, SHOW_OBJ_TIME_FMT, RES_CREATE_TIME_FMT, RES_FLAGS
-
-
-SHOW_PARTITION_MAXTIME_FMT = '-%H:%M%S'
 
 
 def _get_prolog_environment():
@@ -111,14 +109,15 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
     '''
     t_job_start_s = jobdata_dict['StartTime']
     t_job_end_s = jobdata_dict['EndTime']
+    log_debug('Job start and end times %s %s' % (t_job_start_s, t_job_end_s))
 
     t_start_dt = datetime.strptime(t_job_start_s, SHOW_OBJ_TIME_FMT)
 
-    if 'UNKNOWN' not in t_job_end_s:
+    if 'Unknown' not in t_job_end_s:
         # Job has a defined end time.  Use it.
 
         t_end_dt = datetime.strptime(t_job_end_s, SHOW_OBJ_TIME_FMT)
-        t_end_dt += datetime.timedelta(seconds=HIL_RESERVATION_GRACE_PERIOD)
+        t_end_dt += timedelta(seconds=HIL_RESERVATION_GRACE_PERIOD)
 
     else:
         # Job does not have a defined end time.  See if there's a time limit.
@@ -132,7 +131,7 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
             if 'UNLIMITED' in p_max_time_s:
 
                 # Partition does not have a max time, use HIL default.
-                t_end_dt = t_start_dt + datetime.timedelta(seconds=HIL_RESERVATION_DEFAULT_DURATION)
+                t_end_dt = t_start_dt + timedelta(seconds=HIL_RESERVATION_DEFAULT_DURATION)
 
             else:
 
@@ -140,17 +139,17 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
                 d_hms = p_max_time_s.split('-')
                 if (len(d_hms) == 1):
                     p_max_hms_dt = datetime.strptime(d_hms[0], HMS_TIME_FMT)
-                    p_max_timedelta = datetime.timedelta(hours=p_max_hms_dt.hour, 
-                                                         minutes=p_max_hms_dt.minute,
-                                                         seconds=p_max_hms_dt.second)
+                    p_max_timedelta = timedelta(hours=p_max_hms_dt.hour, 
+                                                minutes=p_max_hms_dt.minute,
+                                                seconds=p_max_hms_dt.second)
                 elif (len(d_hms) == 2):
                     # Days field is present
                     p_max_days_timedelta = datetime.timedelta(days=int(d_hms[0]))
 
                     p_max_hms_dt = datetime.strptime(d_hms[1], HMS_TIME_FMT)
-                    p_max_hms_timedelta = datetime.timedelta(hours=p_max_dt.hour, 
-                                                             minutes=p_max_dt.minute,
-                                                             seconds=p_max_dt.second)
+                    p_max_hms_timedelta = timedelta(hours=p_max_dt.hour, 
+                                                    minutes=p_max_dt.minute,
+                                                    seconds=p_max_dt.second)
                     p_max_timedelta = p_max_days_timedelta + p_max_hms_timedelta
                     log_debug(p_max_timedelta)
                     t_end_dt = t_start_dt + p_max_timedelta
@@ -183,15 +182,18 @@ def _create_hil_reservation(env_dict, pdata_dict, jobdata_dict):
 
     # Check if reservation exists.  If so, do nothing
     resdata_dict, err_data = exec_scontrol_show_cmd('reservation', resname)
+
     if 'not found' not in err_data:
         log_info('HIL reservation `%s` already exists' % resname) 
         return resname, err_data
 
-    log_info('Creating HIL reservation %s, ending %s' % (resname, t_end_s))
+    log_info('Creating HIL reservation `%s`, ending %s' % (resname, t_end_s))
 
-    stdout_data, stderr_data = create_slurm_reservation(resname, t_start_s, t_end_s,
-                                                        nodes=None, flags=RES_FLAGS,
+    stdout_data, stderr_data = create_slurm_reservation(resname, env_dict['username'], 
+                                                        t_start_s, t_end_s,
+                                                        nodes=None, flags=RES_CREATE_FLAGS,
                                                         debug=True)
+    return resname, stderr_data
 
 
 def _get_hil_reservation_name(env_dict, t_start_s):
@@ -251,16 +253,19 @@ def main(argv=[]):
     jobdata_dict = get_job_data(env_dict['job_id'])
 
     if not pdata_dict or not jobdata_dict or not env_dict:
-        exit(0)
+        log_debug('One of pdata_dict, jobdata_dict, or env_dict is empty')
+        log_debug('Job data', jobdata_dict)
+        log_debug('P   data', pdata_dict)
+        return
 
     if not _check_hil_partition(env_dict, pdata_dict):
-        exit(0)
+        return
 
     # Verify the command is a HIL command.  If so, process it.
 
     hil_cmd = _check_hil_command(env_dict)
     if not hil_cmd:
-        exit(0)
+        return
 
     log_debug('Processing reservation request.')
 

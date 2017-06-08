@@ -9,35 +9,39 @@ May 2017, Tim Donahue	tpd001@gmail.com
 import os
 import string
 from subprocess import call, Popen, PIPE
+
+from hil_slurm_constants import RES_CREATE_FLAGS
 from hil_slurm_settings import (HIL_CMD_NAMES, HIL_PARTITION_PREFIX,
                                 SLURM_INSTALL_DIR, DEBUG)
 from hil_slurm_logging import log_debug, log_error
-
 
 def exec_subprocess_cmd(cmd, debug=True):
     '''
     Execute a command in a subprocess and wait for completion
     '''
+    log_debug('exec_subprocess_cmd(): cmd is %s' % cmd)
     try:
-        p = Popen(cmd, stdout=PIPE)
-        stdout_data, stderr_data = p.communicate()
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+        (stdout_data, stderr_data) = p.communicate()
     except:
-        log_error('Exception on Popen or communicate')
+        log_debug('Exception on Popen or communicate')
 
     log_debug('exec_subprocess_cmd():  stdout is %s' % stdout_data)
     log_debug('exec_subprocess_cmd():  stderr is %s' % stderr_data)
     return stdout_data, stderr_data
 
 
-def _scontrol_stdout_to_dict(stdout_data, stderr_data):
+def _scontrol_show_stdout_to_dict(stdout_data, stderr_data):
     '''
-    Convert the scontrol stdout data to a dict.
+    Convert the 'scontrol show' stdout data to a dict.
     Nearly all params are of the form "keyword=value".
     If they all were, a neat functional one-liner would go here.
     '''
     stdout_dict = {}
 
-    if stderr_data is None:
+    if not stderr_data:
+#        log_debug('STDERR_DATA: %s %s %s' % (stderr_data, len(stderr_data), type(stderr_data)))
+#        log_debug('STDOUT_DATA: %s %s %s' % (stdout_data, len(stdout_data), type(stdout_data)))
         for kv_pair in stdout_data.split(' '):
             kv = kv_pair.split('=')
             if (len(kv) == 2):
@@ -45,6 +49,7 @@ def _scontrol_stdout_to_dict(stdout_data, stderr_data):
             else:
                 log_debug('Failed to convert `%s`' % kv_pair)
 
+#    log_debug('STDOUT_DICT: %s %s %s' % (stdout_dict, len(stdout_dict), type(stdout_dict)))
     return stdout_dict
 
 
@@ -60,20 +65,24 @@ def exec_scontrol_create_cmd(entity, debug=False, **kwargs):
         for k, v in kwargs.iteritems():
             cmd.append('%s=%s' % (k, v))
 
-    log_debug('exec_scontrol_create_cmd():  %s' % cmd)
+    log_debug('exec_scontrol_create_cmd(): Command  %s' % cmd)
 
-    stdout_data, stderr_data = exec_subprocess_cmd(cmd, debug)
+    stdout_data, stderr_data = exec_subprocess_cmd(cmd, debug=debug)
 
-    # Check for failure indications by checking for the absence of success indications
-    # If a lack of success, copy stdout to stderr and clear stdout
-    entity_success_dict = {
-        'reservation': 'Reservation created'
+    log_debug('exec_scontrol_create_cmd(): Stdout  %s' % stdout_data)
+    log_debug('exec_scontrol_create_cmd(): Stderr  %s' % stderr_data)
+
+    # Check for failure indications
+    entity_error_dict = {
+        'reservation': ['No reservation created', 'error']
         }
 
+    # For `scontrol create` commands, failure indications are written to stderr
     if (entity in entity_error_dict):
-        if (entity_success_dict[entity] not in stdout_data):
-            stderr_data = stdout_data
-            stdout_data = None
+        for errstring in entity_error_dict[entity]:
+            if errstring in stderr_data:
+                stderr_data = stdout_data
+                stdout_data = None
 
     return stdout_data, stderr_data
 
@@ -91,55 +100,67 @@ def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
         for k, v in kwargs.iteritems():
             cmd.append('--%s=%s' % (k, v))
 
-    log_debug('exec_scontrol_show_cmd():  %s' % cmd)
+    stdout_data, stderr_data = exec_subprocess_cmd(cmd, debug=debug)
+#    log_debug('exec_scontrol_show_cmd(): stdout is: %s' % stdout_data)
+#    log_debug('exec_scontrol_show_cmd(): stderr is: %s' % stderr_data)
 
-    stdout_data, stderr_data = exec_subprocess_cmd(cmd, debug)
+    # Check for errors.
+    # If anything in stderr, return it
+    # Next, check if stdout includes various error strings - 'scontrol show'
+    #     writes error output to stdout.  
+    #     Failure indications:
+    #  	      Reservation:  stdout includes 'not found'
+    #         Job: stdout includes 'Invalid job id'
+    #     Copy stdout to stderr if found.
+    # If stderr is empty, and stdout does not contain an error string,
+    #     convert stdout to a dict and return that
 
-    # If there is no error, and there is valid output in the
-    # expected 'foo=bar' one-line format, convert to a dictionary
-    #
-    # Failure indications:
-    #  Reservation:  stdout includes 'not found'
-    #  Job: stdout includes 'Invalid job id'
-    # In these cases set stderr to stdout and return a null dict
-    #
+    stdout_dict = {}
+
     entity_error_dict = {
         'reservation': 'not found',
         'job': 'Invalid job id'
         }
-    if (entity in entity_error_dict):
+    
+    if stderr_data:
+        log_debug('Command `%s` failed, stderr is: %s' % (cmd, stderr_data))
+
+    elif (entity in entity_error_dict):
         if (entity_error_dict[entity] in stdout_data):
-            stderr_data = stdout_data
+            log_debug('Command `%s` failed: %s' % (cmd, stdout_data))
+            stdout_data = None
+    else:
+        log_debug('Converting stdout %s' % stdout_data)
+        stdout_dict = _scontrol_show_stdout_to_dict(stdout_data, stderr_data)
 
-    # Convert to a dict if stderr_data is None
-
-    stdout_dict = _scontrol_stdout_to_dict(stdout_data, stderr_data)
-    return stdout_dict, stderr_data
+    return stdout_dict, stdout_data, stderr_data
 
 
-def create_slurm_reservation(name, t_start_s, t_end_s, flags, nodes=None, debug=False):
+def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None, flags=RES_CREATE_FLAGS, debug=False):
     '''
     Create a Slurm reservation via 'scontrol create reservation'
     '''
     if nodes is None:
         nodes = 'ALL'
 
-    resdata_dict, err_data = exec_scontrol_create_cmd('reservation', debug=debug,
-                                                      ReservationName=name,
-                                                      starttime=t_start_s, endttime=t_end_s,
-                                                      nodes=nodes, flags=flags)
+    return exec_scontrol_create_cmd('reservation', debug=debug, 
+                                    ReservationName=name,
+                                    starttime=t_start_s, endtime=t_end_s, 
+                                    user=user, nodes=nodes, flags=flags)
 
 
 def get_object_data(what_obj, obj_id, debug=False):
     '''
     Get a dictionary of information on the object, via 'scontrol show <what_object> <object_id>'
     '''
-    objdata_dict, err_data = exec_scontrol_show_cmd(what_obj, obj_id, debug=debug)
-    if err_data:
-        log_error('Failed to retrieve data for %s `%s`' % (what_obj, obj_id))
-        log_error('  ', err_data)
+    log_debug('get_object_data(): %s %s' % (what_obj, obj_id))
+    objdata_dict, stdout_data, stderr_data = exec_scontrol_show_cmd(what_obj, obj_id, debug=debug)
+    log_debug('%s %s %s' % (stderr_data, len(stderr_data), type(stderr_data)))
+    if stderr_data:
+        log_debug('Failed to retrieve data for %s `%s`' % (what_obj, obj_id))
+        log_debug('  %s' % stderr_data)
     else:
-        log_debug(objdata_dict)
+        log_debug('get_object_data(): %s' % objdata_dict)
 
     return objdata_dict
 
@@ -148,6 +169,7 @@ def get_partition_data(partition_id):
     '''
     Get a dictionary of information on the partition, via 'scontrol show partition'
     '''
+    log_debug('get_partition_data()')
     return get_object_data('partition', partition_id)
 
 
