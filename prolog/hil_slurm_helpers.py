@@ -32,7 +32,7 @@ def exec_subprocess_cmd(cmd, debug=True):
 def _scontrol_stdout_to_dict(stdout_data, stderr_data):
     '''
     Convert the scontrol stdout data to a dict.
-    Nearly all params are of the form "keyword=value".  
+    Nearly all params are of the form "keyword=value".
     If they all were, a neat functional one-liner would go here.
     '''
     stdout_dict = {}
@@ -51,6 +51,7 @@ def _scontrol_stdout_to_dict(stdout_data, stderr_data):
 def exec_scontrol_create_cmd(entity, debug=False, **kwargs):
     '''
     Build an scontrol create command, then pass it to an executor function
+    Returns stdout and stderr strings
     '''
     cmd = [os.path.join(SLURM_INSTALL_DIR, 'scontrol')]
     cmd += ['create', entity]
@@ -62,6 +63,18 @@ def exec_scontrol_create_cmd(entity, debug=False, **kwargs):
     log_debug('exec_scontrol_create_cmd():  %s' % cmd)
 
     stdout_data, stderr_data = exec_subprocess_cmd(cmd, debug)
+
+    # Check for failure indications by checking for the absence of success indications
+    # If a lack of success, copy stdout to stderr and clear stdout
+    entity_success_dict = {
+        'reservation': 'Reservation created'
+        }
+
+    if (entity in entity_error_dict):
+        if (entity_success_dict[entity] not in stdout_data):
+            stderr_data = stdout_data
+            stdout_data = None
+
     return stdout_data, stderr_data
 
 
@@ -102,6 +115,47 @@ def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
 
     stdout_dict = _scontrol_stdout_to_dict(stdout_data, stderr_data)
     return stdout_dict, stderr_data
+
+
+def create_slurm_reservation(name, t_start_s, t_end_s, flags, nodes=None, debug=False):
+    '''
+    Create a Slurm reservation via 'scontrol create reservation'
+    '''
+    if nodes is None:
+        nodes = 'ALL'
+
+    resdata_dict, err_data = exec_scontrol_create_cmd('reservation', debug=debug,
+                                                      ReservationName=name,
+                                                      starttime=t_start_s, endttime=t_end_s,
+                                                      nodes=nodes, flags=flags)
+
+
+def get_object_data(what_obj, obj_id, debug=False):
+    '''
+    Get a dictionary of information on the object, via 'scontrol show <what_object> <object_id>'
+    '''
+    objdata_dict, err_data = exec_scontrol_show_cmd(what_obj, obj_id, debug=debug)
+    if err_data:
+        log_error('Failed to retrieve data for %s `%s`' % (what_obj, obj_id))
+        log_error('  ', err_data)
+    else:
+        log_debug(objdata_dict)
+
+    return objdata_dict
+
+
+def get_partition_data(partition_id):
+    '''
+    Get a dictionary of information on the partition, via 'scontrol show partition'
+    '''
+    return get_object_data('partition', partition_id)
+
+
+def get_job_data(job_id):
+    '''
+    Get a dictionary of information on the job, via 'scontrol show job'
+    '''
+    return get_object_data('job', job_id)
 
 
 # EOF

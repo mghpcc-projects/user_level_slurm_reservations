@@ -24,9 +24,6 @@ HIL_RESERVATION_GRACE_PERIOD = 4*60*60 			# Seconds
 
 HIL_RESERVATION_PREFIX = 'flexalloc_MOC_'
 
-RES_TIME_FMT = '%Y%m%d_%H%M%S'
-RES_FLAGS = 'MAINT, DOWN, ignore_jobs'
-
 # Partition validation controls
 
 RES_CHECK_DEFAULT_PARTITION = False
