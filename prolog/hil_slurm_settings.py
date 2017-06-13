@@ -10,7 +10,10 @@ DEBUG = True
 
 SLURM_INSTALL_DIR = '/usr/bin/'
 
-HIL_SLURMCTLD_PROLOG_LOGFILE = '/var/log/slurm-llnl/prolog.log'
+HIL_SLURMCTLD_PROLOG_LOGFILE = '/var/log/slurm-llnl/hil_prolog.log'
+HIL_MONITOR_LOGFILE = '/var/log/slurm-llnl/hil_monitor.log'
+
+HIL_RESERVATIONS_FILE = '/var/local/slurm-llnl/hil_reservations.txt'
 
 HIL_USER_LOGFILE = 'hil_reservations.log'
 

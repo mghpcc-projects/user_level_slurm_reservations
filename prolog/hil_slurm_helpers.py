@@ -23,6 +23,8 @@ def _exec_subprocess_cmd(cmd):
         p = Popen(cmd, stdout=PIPE, stderr=PIPE)
         (stdout_data, stderr_data) = p.communicate()
     except:
+        stdout_data = None
+        stderr_data ='error: Exception on Popen or communicate'
         log_debug('Exception on Popen or communicate')
 
     if debug:
@@ -97,9 +99,12 @@ def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
     Optionally convert output to a dictionary
     '''
     cmd = [os.path.join(SLURM_INSTALL_DIR, 'scontrol')]
-    cmd += ['show', entity, entity_id, '-o']
+    cmd += ['show', entity]
+    if entity_id:
+        cmd += [entity_id]
+    cmd += ['-o']
 
-    if kwargs is not None:
+    if kwargs:
         for k, v in kwargs.iteritems():
             cmd.append('--%s=%s' % (k, v))
 
