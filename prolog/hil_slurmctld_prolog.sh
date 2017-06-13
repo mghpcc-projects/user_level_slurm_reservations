@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PATH=/bin:/usr/bin
-LOGFILE=/var/log/slurm-llnl/prolog.log
+LOGFILE=/var/log/slurm-llnl/hil_prolog.log
 HOME=/vagrant/user_level_slurm_reservations
 DATE=`date`
 
