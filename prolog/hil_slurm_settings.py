@@ -15,7 +15,9 @@ HIL_MONITOR_LOGFILE = '/var/log/slurm-llnl/hil_monitor.log'
 
 HIL_RESERVATIONS_FILE = '/var/local/slurm-llnl/hil_reservations.txt'
 
-HIL_USER_LOGFILE = 'hil_reservations.log'
+USER_HIL_SUBDIR = '.hil'
+USER_HIL_LOGFILE = 'hil_reservations.log'
+USER_HIL_RES_RELEASE_FILE = '.hil_release'
 
 HIL_CMD_NAMES = ('hil_reserve', 'hil_release')
 
@@ -30,8 +32,8 @@ HIL_RESERVATION_PREFIX = 'flexalloc_MOC_'
 # Partition validation controls
 
 RES_CHECK_DEFAULT_PARTITION = False
-RES_CHECK_EXCLUSIVE_PARTITION = True
-RES_CHECK_SHARED_PARTITION = True
+RES_CHECK_EXCLUSIVE_PARTITION = False
+RES_CHECK_SHARED_PARTITION = False
 RES_CHECK_PARTITION_STATE = True
 
 # EOF

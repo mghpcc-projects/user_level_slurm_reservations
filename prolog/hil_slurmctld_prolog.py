@@ -26,7 +26,8 @@ from hil_slurm_settings import (HIL_CMD_NAMES, HIL_PARTITION_PREFIX,
                                 RES_CHECK_PARTITION_STATE,
                                 HIL_RESERVATION_DEFAULT_DURATION,
                                 HIL_RESERVATION_GRACE_PERIOD,
-                                HIL_SLURMCTLD_PROLOG_LOGFILE, HIL_USER_LOGFILE)
+                                HIL_SLURMCTLD_PROLOG_LOGFILE, USER_HIL_LOGFILE, 
+                                USER_HIL_SUBDIR, USER_HIL_RES_RELEASE_FILE)
 
 
 def _get_prolog_environment():
@@ -46,6 +47,11 @@ def _get_prolog_environment():
             for env_var, slurm_env_var in env_map.iteritems()}
 
 
+def _get_user_hil_subdir(env_dict):
+    home = os.path.expanduser('~' + env_dict['username'])
+    return os.path.join(home, USER_HIL_SUBDIR)
+
+    
 def _check_hil_partition(env_dict, pdata_dict):
     '''
     Check if the partition exists and, if so, is properly named
@@ -197,6 +203,19 @@ def _create_hil_reservation(env_dict, pdata_dict, jobdata_dict):
     return resname, stderr_data
 
 
+def _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname):
+    '''
+    '''
+    log_info('Deleting HIL reservation `%s`' % resname)
+
+    # Minimally validate the specified reservation has the correct name and format
+    if not resname.startswith(HIL_RESERVATION_PREFIX + env_dict['username']):
+        log_info('Error in HIL reservation name (`%s`)' % resname)
+        return None, 'hil_release: error: Invalid reservation name'
+
+    stdout_data, stderr_data = delete_slurm_reservation(resname, debug=False)
+
+
 def _get_hil_reservation_name(env_dict, t_start_s):
     '''
     Create a reservation name, combining the HIL reservation prefix,
@@ -208,22 +227,15 @@ def _get_hil_reservation_name(env_dict, t_start_s):
     return resname
 
 
-def _set_partition_state(pdata_dict):
-    '''
-    Update the state of the partition.
-    Constrain final state and transition.
-    '''
-    pass
-
-
-def _log_hil_reservation(resname, env_dict, message=None):
+def _log_hil_reservation(resname, action, env_dict, message=None):
     '''
     Log the reservation to the user's reservation log file
     '''
-    home = os.path.expanduser('~' + env_dict['username'])
-    user_hil_logfile = os.path.join(home, HIL_USER_LOGFILE)
+    user_hil_subdir = _get_user_hil_subdir(env_dict)
+    user_hil_logfile = os.path.join(user_hil_subdir, USER_HIL_LOGFILE)
     f = open(user_hil_logfile, 'a')
-    f.write('Created HIL reservation %s' % resname)
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    f.write('%s %s HIL reservation `%s`\n' % (ts, action, resname))
     f.close()
 
 
@@ -232,12 +244,36 @@ def _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict):
     Create a HIL reservation if it does not already exist.
     '''
     resname, stderr_data = _create_hil_reservation(env_dict, pdata_dict, jobdata_dict)
-    # _log_hil_reservation(resname, env_dict)
+    _log_hil_reservation(resname, 'Created', env_dict)
 
 
 def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
-    # Release a HIL reservation
+    '''
+    Release a HIL reservation
+    1. Check if the user has a ~/.hil/.release file
+    2. If so, see if the reservation matching that name exists
+    3. If so, delete that reservation
+    4. Delete the ~/.hil/.release file
+    '''
+    user_hil_subdir = _get_user_hil_subdir(env_dict)
+    user_res_release_file = os.path.join(user_hil_subdir, USER_HIL_RES_RELEASE_FILE)
+
+    res_release_list = []
+
+    with open(user_res_release_file, 'rw') as f:
+        for line in f:
+            res_release_list.append(line)
+
+    if (len(res_release_list) == 0):
+        return
+
     resdata_dict, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', resname)
+
+    for resname in res_release_list:
+        if resname in resdata_dict:
+            stderr_data = _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname)
+            if (len(stderr_data) == 0):
+                _log_hil_reservation(resname, 'Released', env_dict)
 
 
 def main(argv=[]):

@@ -56,6 +56,32 @@ def _scontrol_show_stdout_to_dict(stdout_data, stderr_data, debug=False):
     return stdout_dict
 
 
+def exec_scontrol_create_or_delete_cmd(create_or_delete, entity, debug=False, **kwargs):
+    '''
+    Build an `scontrol create` or `scontrol delete` command, then pass it 
+    to an executor function.
+    Returns stdout and stderr strings
+    '''
+    cmd = [os.path.join(SLURM_INSTALL_DIR, 'scontrol'), create_or_delete]
+    if entity:
+        cmd.append(entity)
+
+    if kwargs is not None:
+        for k, v in kwargs.iteritems():
+            cmd.append('%s=%s' % (k,v))
+
+    if debug:
+        log_debug('exec_scontrol_create_or_delete_cmd(): Command  %s' % cmd)
+
+    stdout_data, stderr_data = _exec_subprocess_cmd(cmd)
+
+    if debug:
+        log_debug('exec_scontrol_create_or_delete_cmd(): Stdout  %s' % stdout_data)
+        log_debug('exec_scontrol_create_or_delete_cmd(): Stderr  %s' % stderr_data)
+
+    return stdout_data, stderr_data
+
+
 def exec_scontrol_create_cmd(entity, debug=False, **kwargs):
     '''
     Build an scontrol create command, then pass it to an executor function
@@ -66,7 +92,7 @@ def exec_scontrol_create_cmd(entity, debug=False, **kwargs):
 
     if kwargs is not None:
         for k, v in kwargs.iteritems():
-            cmd.append('%s=%s' % (k, v))
+            cmd.append('%s=%s' % (k,v))
 
     if debug:
         log_debug('exec_scontrol_create_cmd(): Command  %s' % cmd)
@@ -77,17 +103,29 @@ def exec_scontrol_create_cmd(entity, debug=False, **kwargs):
         log_debug('exec_scontrol_create_cmd(): Stdout  %s' % stdout_data)
         log_debug('exec_scontrol_create_cmd(): Stderr  %s' % stderr_data)
 
-    # Check for failure indications
-    entity_error_dict = {
-        'reservation': ['No reservation created', 'error']
-        }
+    return stdout_data, stderr_data
 
-    # For `scontrol create` commands, failure indications are written to stderr
-    if (entity in entity_error_dict):
-        for errstring in entity_error_dict[entity]:
-            if errstring in stderr_data:
-                stderr_data = stdout_data
-                stdout_data = None
+
+def exec_scontrol_delete_cmd(entity, debug=False, **kwargs):
+    '''
+    Build an scontrol delete command, then pass it to an executor function
+    Returns stdout and stderr strings
+    '''
+    cmd = [os.path.join(SLURM_INSTALL_DIR, 'scontrol')]
+    cmd += ['delete', entity]
+
+    if kwargs is not None:
+        for k, v in kwargs.iteritems():
+            cmd.append('%s=%s' % (k,v))
+
+    if debug:
+        log_debug('exec_scontrol_delete_cmd(): Command  %s' % cmd)
+
+    stdout_data, stderr_data = _exec_subprocess_cmd(cmd)
+
+    if debug:
+        log_debug('exec_scontrol_delete_cmd(): Stdout  %s' % stdout_data)
+        log_debug('exec_scontrol_delete_cmd(): Stderr  %s' % stderr_data)
 
     return stdout_data, stderr_data
 
@@ -152,10 +190,17 @@ def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None, flags=R
     if nodes is None:
         nodes = 'ALL'
 
-    return exec_scontrol_create_cmd('reservation', debug=debug,
-                                    ReservationName=name,
-                                    starttime=t_start_s, endtime=t_end_s,
-                                    user=user, nodes=nodes, flags=flags)
+    return exec_scontrol_create_or_delete_cmd('create', 'reservation', debug=debug,
+                                              ReservationName=name,
+                                              starttime=t_start_s, endtime=t_end_s,
+                                              user=user, nodes=nodes, flags=flags)
+
+
+def delete_slurm_reservation(name, debug=False):
+    '''
+    Delete a Slurm reservation via 'scontrol delete reservation=<name>'
+    '''
+    return exec_scontrol_create_or_delete_cmd('delete', None, debug=True, reservation=name)
 
 
 def get_object_data(what_obj, obj_id, debug=False):
