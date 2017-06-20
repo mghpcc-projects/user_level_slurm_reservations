@@ -56,97 +56,37 @@ def _scontrol_show_stdout_to_dict(stdout_data, stderr_data, debug=False):
     return stdout_dict
 
 
-def exec_scontrol_create_or_delete_cmd(create_or_delete, entity, debug=False, **kwargs):
+def exec_scontrol_cmd(action, entity, entity_id=None, debug=False, **kwargs):
     '''
-    Build an `scontrol create` or `scontrol delete` command, then pass it 
-    to an executor function.
-    Returns stdout and stderr strings
+    Build an 'scontrol <action> <entity>' command and pass to an executor
+    Specify single-line output to support stdout postprocessing
     '''
-    cmd = [os.path.join(SLURM_INSTALL_DIR, 'scontrol'), create_or_delete]
-    if entity:
-        cmd.append(entity)
+    cmd = [os.path.join(SLURM_INSTALL_DIR, 'scontrol'), action, entity, '-o']
 
-    if kwargs is not None:
+    if entity_id:
+        cmd.append(entity_id)
+
+    if kwargs:
         for k, v in kwargs.iteritems():
             cmd.append('%s=%s' % (k,v))
 
     if debug:
-        log_debug('exec_scontrol_create_or_delete_cmd(): Command  %s' % cmd)
+        log_debug('exec_scontrol_cmd(): Command  %s' % cmd)
 
     stdout_data, stderr_data = _exec_subprocess_cmd(cmd)
 
     if debug:
-        log_debug('exec_scontrol_create_or_delete_cmd(): Stdout  %s' % stdout_data)
-        log_debug('exec_scontrol_create_or_delete_cmd(): Stderr  %s' % stderr_data)
-
-    return stdout_data, stderr_data
-
-
-def exec_scontrol_create_cmd(entity, debug=False, **kwargs):
-    '''
-    Build an scontrol create command, then pass it to an executor function
-    Returns stdout and stderr strings
-    '''
-    cmd = [os.path.join(SLURM_INSTALL_DIR, 'scontrol')]
-    cmd += ['create', entity]
-
-    if kwargs is not None:
-        for k, v in kwargs.iteritems():
-            cmd.append('%s=%s' % (k,v))
-
-    if debug:
-        log_debug('exec_scontrol_create_cmd(): Command  %s' % cmd)
-
-    stdout_data, stderr_data = _exec_subprocess_cmd(cmd)
-
-    if debug:
-        log_debug('exec_scontrol_create_cmd(): Stdout  %s' % stdout_data)
-        log_debug('exec_scontrol_create_cmd(): Stderr  %s' % stderr_data)
-
-    return stdout_data, stderr_data
-
-
-def exec_scontrol_delete_cmd(entity, debug=False, **kwargs):
-    '''
-    Build an scontrol delete command, then pass it to an executor function
-    Returns stdout and stderr strings
-    '''
-    cmd = [os.path.join(SLURM_INSTALL_DIR, 'scontrol')]
-    cmd += ['delete', entity]
-
-    if kwargs is not None:
-        for k, v in kwargs.iteritems():
-            cmd.append('%s=%s' % (k,v))
-
-    if debug:
-        log_debug('exec_scontrol_delete_cmd(): Command  %s' % cmd)
-
-    stdout_data, stderr_data = _exec_subprocess_cmd(cmd)
-
-    if debug:
-        log_debug('exec_scontrol_delete_cmd(): Stdout  %s' % stdout_data)
-        log_debug('exec_scontrol_delete_cmd(): Stderr  %s' % stderr_data)
+        log_debug('exec_scontrol_cmd(): Stdout  %s' % stdout_data)
+        log_debug('exec_scontrol_cmd(): Stderr  %s' % stderr_data)
 
     return stdout_data, stderr_data
 
 
 def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
     '''
-    Build an scontrol command, then pass it to an executor function
-    Specify single-line output to support stdout postprocessing
     Optionally convert output to a dictionary
     '''
-    cmd = [os.path.join(SLURM_INSTALL_DIR, 'scontrol')]
-    cmd += ['show', entity]
-    if entity_id:
-        cmd += [entity_id]
-    cmd += ['-o']
-
-    if kwargs:
-        for k, v in kwargs.iteritems():
-            cmd.append('--%s=%s' % (k, v))
-
-    stdout_data, stderr_data = _exec_subprocess_cmd(cmd)
+    stdout_data, stderr_data = exec_scontrol_cmd('show', entity, entity_id, debug=debug, **kwargs)
 
     # Check for errors.
     # If anything in stderr, return it
@@ -190,17 +130,16 @@ def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None, flags=R
     if nodes is None:
         nodes = 'ALL'
 
-    return exec_scontrol_create_or_delete_cmd('create', 'reservation', debug=debug,
-                                              ReservationName=name,
-                                              starttime=t_start_s, endtime=t_end_s,
-                                              user=user, nodes=nodes, flags=flags)
+    return exec_scontrol_cmd('create', 'reservation', entity_id=None, debug=debug, 
+                             ReservationName=name, starttime=t_start_s, endtime=t_end_s,
+                             user=user, nodes=nodes, flags=flags)
 
 
 def delete_slurm_reservation(name, debug=False):
     '''
     Delete a Slurm reservation via 'scontrol delete reservation=<name>'
     '''
-    return exec_scontrol_create_or_delete_cmd('delete', None, debug=True, reservation=name)
+    return exec_scontrol_cmd('delete', 'reservation', debug=True, reservation=name)
 
 
 def get_object_data(what_obj, obj_id, debug=False):

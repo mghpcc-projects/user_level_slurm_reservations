@@ -6,17 +6,18 @@ Slurm Control Daemon - HIL Reservation Prolog
 May 2017, Tim Donahue	tpd001@gmail.com
 """
 
+import argparse
 import logging
 import os
 import sys
 from datetime import datetime, timedelta
 
 from hil_slurm_helpers import (get_partition_data, get_job_data,
-                               exec_scontrol_show_cmd,
+                               exec_scontrol_cmd, exec_scontrol_show_cmd,
                                create_slurm_reservation)
 from hil_slurm_constants import (SHOW_OBJ_TIME_FMT, RES_CREATE_TIME_FMT,
                                  SHOW_PARTITION_MAXTIME_HMS_FMT,
-                                 RES_CREATE_FLAGS)
+                                 RES_CREATE_FLAGS, RES_RELEASE_FLAGS)
 from hil_slurm_logging import log_init, log_info, log_debug, log_error
 from hil_slurm_settings import (HIL_CMD_NAMES, HIL_PARTITION_PREFIX,
                                 HIL_RESERVATION_PREFIX,
@@ -26,7 +27,7 @@ from hil_slurm_settings import (HIL_CMD_NAMES, HIL_PARTITION_PREFIX,
                                 RES_CHECK_PARTITION_STATE,
                                 HIL_RESERVATION_DEFAULT_DURATION,
                                 HIL_RESERVATION_GRACE_PERIOD,
-                                HIL_SLURMCTLD_PROLOG_LOGFILE, USER_HIL_LOGFILE, 
+                                HIL_SLURMCTLD_PROLOG_LOGFILE, USER_HIL_LOGFILE,
                                 USER_HIL_SUBDIR, USER_HIL_RES_RELEASE_FILE)
 
 
@@ -51,7 +52,7 @@ def _get_user_hil_subdir(env_dict):
     home = os.path.expanduser('~' + env_dict['username'])
     return os.path.join(home, USER_HIL_SUBDIR)
 
-    
+
 def _check_hil_partition(env_dict, pdata_dict):
     '''
     Check if the partition exists and, if so, is properly named
@@ -101,6 +102,8 @@ def _check_hil_command(env_dict):
     if jobname not in HIL_CMD_NAMES:
         log_debug('Jobname `%s` is not a HIL reservation command, nothing to do.' % jobname)
         return None
+
+    # $$$ Verify hil_release as been run against a HIL reservation
 
     return jobname
 
@@ -247,6 +250,48 @@ def _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict):
     _log_hil_reservation(resname, 'Created', env_dict)
 
 
+def _hil_prepare_release(env_dict, pdata_dict, jobdata_dict):
+    '''
+    Called by the prolog when the 'hil_release' command has been passed.
+    Determine the target reservation from the node list
+    WARNING: This assumes the nodes in the reservation are marked as not shared
+    '''
+    this_job_nodelist = env_dict['nodelist']
+    resdata_dict, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
+
+    log_info(env_dict['nodelist'])
+
+    # Find a reservation containing the nodes running the release job
+    # Find all reservations via 'scontrol show', then iterate until one
+    # is found which contains a node in the nodelist
+
+    # $$$ BEGIN PUT IN A SUBROUTINE
+    resdata_dict, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
+
+    found = False
+    resname = None
+
+    for resname, resdata in resdata_dict.iteritems():
+        for resnode in resdata['Nodes']:
+            if resnode in this_job_nodelist:
+                found = True
+                break
+        if found:
+            break
+    # $$$ END PUT IN A SUBROUTINE
+
+    # Clear the MAINT flag on the reservation so the release job can actually run
+
+    stdout_data, stderr_data = exec_scontrol_cmd('update', 'reservation', 
+                                                 debug=True,
+                                                 ReservationName=resname, 
+                                                 flags=RES_RELEASE_FLAGS)
+
+    # Reservation is now ready for deletion by the epilog
+
+    return stdout_data, stderr_data
+
+
 def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
     '''
     Release a HIL reservation
@@ -276,12 +321,32 @@ def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
                 _log_hil_reservation(resname, 'Released', env_dict)
 
 
+def process_args():
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--hil_prolog', action='store_true', default=False,
+                        help='Function as the HIL prolog')
+    parser.add_argument('--hil_epilog', action='store_true', default=False,
+                        help='Function as the HIL epilog')
+
+    return parser.parse_args()
+
+
 def main(argv=[]):
 
+    args = process_args()
     log_init('hil_slurmctld.prolog', HIL_SLURMCTLD_PROLOG_LOGFILE, logging.DEBUG)
-    log_info('HIL Slurmctld Prolog', separator=True)
 
-    # Collect prolog environment, job data, and partition data into dictionaries,
+    if args.hil_prolog:
+        log_info('HIL Slurmctld Prolog', separator=True)
+    elif args.hil_epilog:
+        log_info('HIL Slurmctld Epilog', separator=True)
+    else:
+        log_debug('Must specify one of --hil_prolog or --hil_epilog', separator=True)
+        return
+
+    # Collect prolog/epilog environment, job data, and partition data into dictionaries,
     # perform basic sanity checks
 
     env_dict = _get_prolog_environment()
@@ -303,12 +368,19 @@ def main(argv=[]):
     if not hil_cmd:
         return
 
-    log_debug('Processing reservation request.')
+    if args.hil_prolog:
+        if (hil_cmd == 'hil_reserve'):
+            log_debug('Processing reservation request.')
+            _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict)
 
-    if (hil_cmd == 'hil_reserve'):
-        _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict)
-    elif (hil_cmd == 'hil_release'):
+        elif (hil_cmd == 'hil_release'):
+            log_debug('Processing release request.')
+            _hil_prepare_release(env_dict, pdata_dict, jobdata_dict)
+
+    elif args.hil_epilog:
         _hil_release_cmd(env_dict, pdata_dict, jobdata_dict)
+
+    return
 
 
 if __name__ == '__main__':
