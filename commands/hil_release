@@ -1,10 +1,3 @@
 #! /bin/bash
 
-RESERVATION=$1
-
-USER_HIL_RES_RELEASE_FILE=.hil_release
-USER_HIL_SUBDIR=.hil
-
-echo Releasing nodes from HIL reservation "$RESERVATION"
-echo $RESERVATION > ~/$USER_HIL_SUBDIR/$USER_HIL_RES_RELEASE_FILE
 exit 0

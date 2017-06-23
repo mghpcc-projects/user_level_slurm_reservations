@@ -7,6 +7,7 @@ May 2017, Tim Donahue	tpd001@gmail.com
 """
 
 import argparse
+import hostlist
 import logging
 import os
 import sys
@@ -14,7 +15,8 @@ from datetime import datetime, timedelta
 
 from hil_slurm_helpers import (get_partition_data, get_job_data,
                                exec_scontrol_cmd, exec_scontrol_show_cmd,
-                               create_slurm_reservation)
+                               create_slurm_reservation,
+                               delete_slurm_reservation)
 from hil_slurm_constants import (SHOW_OBJ_TIME_FMT, RES_CREATE_TIME_FMT,
                                  SHOW_PARTITION_MAXTIME_HMS_FMT,
                                  RES_CREATE_FLAGS, RES_RELEASE_FLAGS)
@@ -59,6 +61,7 @@ def _check_hil_partition(env_dict, pdata_dict):
     Retrieve partition data via 'scontrol show'
     '''
     status = True
+
     pname = pdata_dict['PartitionName']
     if not pname.startswith(HIL_PARTITION_PREFIX):
         log_info('Partition name `%s` does not match `%s*`' % (pname,
@@ -122,13 +125,13 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
     '''
     t_job_start_s = jobdata_dict['StartTime']
     t_job_end_s = jobdata_dict['EndTime']
-    log_debug('Job start %s  Job end %s' % (t_job_start_s, t_job_end_s))
+#   log_debug('Job start %s  Job end %s' % (t_job_start_s, t_job_end_s))
 
     t_start_dt = datetime.strptime(t_job_start_s, SHOW_OBJ_TIME_FMT)
 
     if 'Unknown' not in t_job_end_s:
+        log_debug('Using job end time')
         # Job has a defined end time.  Use it.
-
         t_end_dt = datetime.strptime(t_job_end_s, SHOW_OBJ_TIME_FMT)
         t_end_dt += timedelta(seconds=HIL_RESERVATION_GRACE_PERIOD)
 
@@ -141,14 +144,17 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
             # If so, use that. If not, use the HIL default duration.
 
             p_max_time_s = pdata_dict['MaxTime']
+            log_debug('Partition MaxTime is %s' % p_max_time_s)
             if 'UNLIMITED' in p_max_time_s:
 
                 # Partition does not have a max time, use HIL default.
+                log_debug('No job or partition time limit, using HIL default reservation duration')
                 t_end_dt = t_start_dt + timedelta(seconds=HIL_RESERVATION_DEFAULT_DURATION)
 
             else:
 
                 # Partition has a max time, parse it. Output format is [days-]H:M:S.
+                log_debug('Using partition time limit')
                 d_hms = p_max_time_s.split('-')
                 if (len(d_hms) == 1):
                     p_max_hms_dt = datetime.strptime(d_hms[0], SHOW_PARTITION_MAXTIME_HMS_FMT)
@@ -171,14 +177,18 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
         else:
             # Job has a time limit. Use it.
             # $$$ FIX
+            log_debug('Job has a time limit! Unsupported!')
             pass
 
-        # We now have a defined reservation t_start and t_end in datetime format.
-        # Convert to strings and return.
-        t_start_s = t_start_dt.strftime(RES_CREATE_TIME_FMT)
-        t_end_s = t_end_dt.strftime(RES_CREATE_TIME_FMT)
+    # We now have a defined reservation t_start and t_end in datetime format.
+    # Convert to strings and return.
+    t_start_s = t_start_dt.strftime(RES_CREATE_TIME_FMT)
+    t_end_s = t_end_dt.strftime(RES_CREATE_TIME_FMT)
 
-        return t_start_s, t_end_s
+    # log_debug('Start time %s' % t_start_s)
+    # log_debug('End time %s' % t_end_s)
+
+    return t_start_s, t_end_s
 
 
 def _create_hil_reservation(env_dict, pdata_dict, jobdata_dict):
@@ -192,7 +202,7 @@ def _create_hil_reservation(env_dict, pdata_dict, jobdata_dict):
     resname = _get_hil_reservation_name(env_dict, t_start_s)
 
     # Check if reservation exists.  If so, do nothing
-    resdata_dict, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', resname)
+    resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', resname)
     if (stderr_data) and ('not found' not in stderr_data):
         log_info('HIL reservation `%s` already exists' % resname)
         return resname, stderr_data
@@ -216,7 +226,7 @@ def _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname):
         log_info('Error in HIL reservation name (`%s`)' % resname)
         return None, 'hil_release: error: Invalid reservation name'
 
-    stdout_data, stderr_data = delete_slurm_reservation(resname, debug=False)
+    return delete_slurm_reservation(resname, debug=False)
 
 
 def _get_hil_reservation_name(env_dict, t_start_s):
@@ -250,47 +260,57 @@ def _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict):
     _log_hil_reservation(resname, 'Created', env_dict)
 
 
+def _slurm_find_reservations(name_prefix, jobdata_dict):
+    '''
+    Find Slurm reservations with names matching the name prefix and,
+    if necessary, nodes matching the node prefix
+    '''
+    # Obtain a dictionary of all reservations active in the system
+    resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
+    if len(stderr_data):
+        return []
+
+    # Find reservations with names matching the name prefix
+    # If there's more than one, try a nodelist match
+    resdata_dict_list = filter(lambda x: name_prefix in x['ReservationName'], resdata_dict_list)
+
+    # If more than one remaining reservation, find a matching nodelist
+    if (len(resdata_dict_list) <= 1):
+        return resdata_dict_list
+
+    job_nodelist = jobdata_dict['NodeList']
+    resdata_dict_list = filter(lambda x: job_nodelist == x['Nodes'])
+
+    log_debug('Candidates for release:')
+    for resdata_dict in resdata_dict_list:
+        log_debug('  %s' % resdata_dict['ReservationName'])
+
+    return resdata_dict_list
+
+
 def _hil_prepare_release(env_dict, pdata_dict, jobdata_dict):
     '''
     Called by the prolog when the 'hil_release' command has been passed.
-    Determine the target reservation from the node list
+    Since we cannot pass the reservation name to the prolog, find the target 
+    reservations using the username and job node list.
     WARNING: This assumes the nodes in the reservation are marked as not shared
     '''
-    this_job_nodelist = env_dict['nodelist']
-    resdata_dict, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
+    resname_prefix = HIL_RESERVATION_PREFIX + env_dict['username']
+    resdata_dict_list = _slurm_find_reservations(resname_prefix, jobdata_dict)
 
-    log_info(env_dict['nodelist'])
+    user_hil_subdir = _get_user_hil_subdir(env_dict)
+    user_res_release_file = os.path.join(user_hil_subdir, USER_HIL_RES_RELEASE_FILE)
 
-    # Find a reservation containing the nodes running the release job
-    # Find all reservations via 'scontrol show', then iterate until one
-    # is found which contains a node in the nodelist
+    res_release_list = []
 
-    # $$$ BEGIN PUT IN A SUBROUTINE
-    resdata_dict, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
+    with open(user_res_release_file, 'a') as f:
+        for resdata_dict in resdata_dict_list:
+            # $$$ Add time and date
+            f.write(resdata_dict['ReservationName'] + '\n')
 
-    found = False
-    resname = None
-
-    for resname, resdata in resdata_dict.iteritems():
-        for resnode in resdata['Nodes']:
-            if resnode in this_job_nodelist:
-                found = True
-                break
-        if found:
-            break
-    # $$$ END PUT IN A SUBROUTINE
-
-    # Clear the MAINT flag on the reservation so the release job can actually run
-
-    stdout_data, stderr_data = exec_scontrol_cmd('update', 'reservation', 
-                                                 debug=True,
-                                                 ReservationName=resname, 
-                                                 flags=RES_RELEASE_FLAGS)
-
+            log_debug('Wrote %s to deletion file' % resdata_dict['ReservationName'] + '\n')
     # Reservation is now ready for deletion by the epilog
-
-    return stdout_data, stderr_data
-
+        
 
 def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
     '''
@@ -305,20 +325,22 @@ def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
 
     res_release_list = []
 
-    with open(user_res_release_file, 'rw') as f:
+    with open(user_res_release_file, 'r') as f:
         for line in f:
-            res_release_list.append(line)
+            res_release_list.append(line.strip(os.linesep))
+
+    log_debug('Deletion file list %s' % res_release_list)
 
     if (len(res_release_list) == 0):
         return
 
-    resdata_dict, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', resname)
-
     for resname in res_release_list:
-        if resname in resdata_dict:
-            stderr_data = _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname)
-            if (len(stderr_data) == 0):
-                _log_hil_reservation(resname, 'Released', env_dict)
+        log_debug('HIL epilog: Deleting reservation %s' % resname)
+        stdout_data, stderr_data = _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname)
+        if (len(stderr_data) == 0):
+            _log_hil_reservation(resname, 'Released', env_dict)
+
+    os.remove(user_res_release_file)
 
 
 def process_args():
@@ -348,10 +370,11 @@ def main(argv=[]):
 
     # Collect prolog/epilog environment, job data, and partition data into dictionaries,
     # perform basic sanity checks
+    # Since data for one partition and one job is expected, select the first dict in the list
 
     env_dict = _get_prolog_environment()
-    pdata_dict = get_partition_data(env_dict['partition'])
-    jobdata_dict = get_job_data(env_dict['job_id'])
+    pdata_dict = get_partition_data(env_dict['partition'])[0]
+    jobdata_dict = get_job_data(env_dict['job_id'])[0]
 
     if not pdata_dict or not jobdata_dict or not env_dict:
         log_debug('One of pdata_dict, jobdata_dict, or env_dict is empty')
