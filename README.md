@@ -75,7 +75,7 @@ flexalloc_MOC_ubuntu_1000_2017-06-26T17:20:32
 The ```start_time``` is the start time of the job.
 
 
-# Assumptions and Restrictions
+# Assumptions, Restrictions, Notes
 
   1. All nodes in the HIL reservation pool are configured in a single
   Slurm partition.  
@@ -84,22 +84,35 @@ The ```start_time``` is the start time of the job.
   HIL operations.
 
   3. Slurm compute nodes must be marked with the HIL feature in order
-  to be reserved.  To add a feature to a node, use the ```scontrol
-  update``` command:
+  to be reserved.  Features are defined in the slurm.conf file or may
+  be added to a node by a privileged user via the ```scontrol
+  update``` command.
 
-  ```
-  $scontrol update node=server1 feature=HIL
-  ```
-
-
-## Behavior of a HIL Node in a HIL Reservation
+  4. HIL nodes may be released from a HIL reservation through the use
+  of ```hil_release``` even though they are not up and running.
 
 
+# Logging
 
-# Configuration Requirements
+Slurm and the HIL reservation system maintain several log files which
+may be reviewed as necessary to gain insight into system behavior.
+
+  * The Slurm control daemon (slurmctld) running on the Slurm
+  controller node writes to a log file, the location of which is
+  defined by the ```SlurmctldLogFile``` parameter in the
+  ```slurm.conf``` file.
+
+  * HIL reservation operations are logged to a file on the Slurm
+    controller node.  The location of this file is configured in the
+    ```hil_slurm_settings.py`` file.  By default.
+
+By default, the following paths are used:
+```/var/log/slurm-llnl/slurmctld.log
+   /var/log/slurm-llnl/hil_prolog.log
+```
 
 
-## Partition Configuration
+# Installation and Configuration
 
 ## SlurmCtld Prolog and Epilog
 
