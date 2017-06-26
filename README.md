@@ -74,24 +74,25 @@ flexalloc_MOC_ubuntu_1000_2017-06-26T17:20:32
 
 The ```start_time``` is the start time of the job.
 
-## Reservation Verification
-
-HIL reservation creation may be verified using the `scontrol show
-reservation` command:
-
-```
-$ scontrol show reservation
-```
-
-
-## Behavior of a HIL Node in a HIL Reservation
 
 # Assumptions and Restrictions
 
-All nodes in the HIL reservation pool are configured in a single Slurm
-partition.  The Slurm controller node in the partition is not
-available for HIL operations.
+  1. All nodes in the HIL reservation pool are configured in a single
+  Slurm partition.  
 
+  2. The Slurm controller node in the partition is not available for
+  HIL operations.
+
+  3. Slurm compute nodes must be marked with the HIL feature in order
+  to be reserved.  To add a feature to a node, use the ```scontrol
+  update``` command:
+
+  ```
+  $scontrol update node=server1 feature=HIL
+  ```
+
+
+## Behavior of a HIL Node in a HIL Reservation
 
 
 
