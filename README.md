@@ -91,28 +91,58 @@ The ```start_time``` is the start time of the job.
   4. HIL nodes may be released from a HIL reservation through the use
   of ```hil_release``` even though they are not up and running.
 
+  5. Python version 2.7 is installed on the Slurm controller node.
+
 
 # Logging
 
 Slurm and the HIL reservation system maintain several log files which
 may be reviewed as necessary to gain insight into system behavior.
 
-  * The Slurm control daemon (slurmctld) running on the Slurm
+  * The Slurm control daemon (```slurmctld```) running on the Slurm
   controller node writes to a log file, the location of which is
   defined by the ```SlurmctldLogFile``` parameter in the
   ```slurm.conf``` file.
 
   * HIL reservation operations are logged to a file on the Slurm
     controller node.  The location of this file is configured in the
-    ```hil_slurm_settings.py`` file.  By default.
+    ```hil_slurm_settings.py``` file.
 
 By default, the following paths are used:
-```/var/log/slurm-llnl/slurmctld.log
-   /var/log/slurm-llnl/hil_prolog.log
+```/var/log/slurm-llnl/slurmctld.log```
+```/var/log/slurm-llnl/hil_prolog.log```
+
+
+# Implementation Details
+
+## Slurm Control Daemon Prolog and Epilog
+
+## HIL Reservation Commands
+
+##
+
+
+# Software Installation 
+
+## HIL Software Installation
+
+## Support Libraries
+
+### python-hostlist
+
+Install python-hostlist on the Slurm controller node:
+```
+$ cd /usr/local/lib/python2.7/site-packages
+$ wget https://www.nsc.liu.se/~kent/python-hostlist/python-hostlist-1.17.tar.gz
+$ tar xvf python-hostlist-1.17.tar.gz
+$ cd python-hostlist-1.17
+$ python setup.py build
+$ python setup.py install
 ```
 
+## User .hil Subdirectory
 
-# Installation and Configuration
+# Software Configuration
 
 ## SlurmCtld Prolog and Epilog
 
@@ -133,20 +163,7 @@ The illustrated times are arbitrary.
 
 PartitionName=debug Nodes=server[1] Default=YES DefaultTime=00:05:00 MaxTime=06:00:00 State=UP Shared=No
 
-## Logging
 
-
-# Software Requirements
-
-* python-hostlist
-
-Install python-hostlist 
-
-$ cd /usr/local/lib/python2.7/site-packages
-$ wget https://www.nsc.liu.se/~kent/python-hostlist/python-hostlist-1.17.tar.gz
-$ tar xvf python-hostlist-1.17.tar.gz
-$ cd python-hostlist-1.17
-$ python setup.py build
-$ python setup.py install
+<EOF>
 
 
