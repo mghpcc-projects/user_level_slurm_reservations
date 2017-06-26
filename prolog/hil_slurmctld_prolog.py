@@ -130,7 +130,7 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
     t_start_dt = datetime.strptime(t_job_start_s, SHOW_OBJ_TIME_FMT)
 
     if 'Unknown' not in t_job_end_s:
-        log_debug('Using job end time')
+        log_debug('Using job end time for reservation')
         # Job has a defined end time.  Use it.
         t_end_dt = datetime.strptime(t_job_end_s, SHOW_OBJ_TIME_FMT)
         t_end_dt += timedelta(seconds=HIL_RESERVATION_GRACE_PERIOD)
@@ -154,7 +154,7 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
             else:
 
                 # Partition has a max time, parse it. Output format is [days-]H:M:S.
-                log_debug('Using partition time limit')
+                log_debug('Using partition time limit to calculate reservation end time')
                 d_hms = p_max_time_s.split('-')
                 if (len(d_hms) == 1):
                     p_max_hms_dt = datetime.strptime(d_hms[0], SHOW_PARTITION_MAXTIME_HMS_FMT)
@@ -218,6 +218,9 @@ def _create_hil_reservation(env_dict, pdata_dict, jobdata_dict):
 
 def _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname):
     '''
+    Delete a HIL reservation after validating HIL name prefix and owner name
+    The latter restricts 'hil_release' of a reservation to the owner
+    It is always possible to delete the reservation with 'scontrol delete'.
     '''
     log_info('Deleting HIL reservation `%s`' % resname)
 
@@ -236,7 +239,6 @@ def _get_hil_reservation_name(env_dict, t_start_s):
     '''
     resname = HIL_RESERVATION_PREFIX + env_dict['username'] + '_'
     resname += env_dict['job_uid'] + '_' + t_start_s
-    log_debug('Reservation name is %s' % resname)
     return resname
 
 
@@ -308,7 +310,7 @@ def _hil_prepare_release(env_dict, pdata_dict, jobdata_dict):
             # $$$ Add time and date
             f.write(resdata_dict['ReservationName'] + '\n')
 
-            log_debug('Wrote %s to deletion file' % resdata_dict['ReservationName'] + '\n')
+            log_debug('Wrote `%s` to %s' % (resdata_dict['ReservationName'], user_res_release_file))
     # Reservation is now ready for deletion by the epilog
         
 
@@ -329,13 +331,12 @@ def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
         for line in f:
             res_release_list.append(line.strip(os.linesep))
 
-    log_debug('Deletion file list %s' % res_release_list)
+#   log_debug('Deletion file list %s' % res_release_list)
 
     if (len(res_release_list) == 0):
         return
 
     for resname in res_release_list:
-        log_debug('HIL epilog: Deleting reservation %s' % resname)
         stdout_data, stderr_data = _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname)
         if (len(stderr_data) == 0):
             _log_hil_reservation(resname, 'Released', env_dict)
@@ -361,9 +362,9 @@ def main(argv=[]):
     log_init('hil_slurmctld.prolog', HIL_SLURMCTLD_PROLOG_LOGFILE, logging.DEBUG)
 
     if args.hil_prolog:
-        log_info('HIL Slurmctld Prolog', separator=True)
+        pass
     elif args.hil_epilog:
-        log_info('HIL Slurmctld Epilog', separator=True)
+        pass
     else:
         log_debug('Must specify one of --hil_prolog or --hil_epilog', separator=True)
         return
@@ -393,15 +394,19 @@ def main(argv=[]):
 
     if args.hil_prolog:
         if (hil_cmd == 'hil_reserve'):
-            log_debug('Processing reservation request.')
+            log_info('HIL Slurmctld Prolog', separator=True)
+            log_debug('Processing reservation request')
             _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict)
 
         elif (hil_cmd == 'hil_release'):
-            log_debug('Processing release request.')
+            log_info('HIL Slurmctld Epilog', separator=True)
+            log_debug('Prolog: Processing release request')
             _hil_prepare_release(env_dict, pdata_dict, jobdata_dict)
 
     elif args.hil_epilog:
-        _hil_release_cmd(env_dict, pdata_dict, jobdata_dict)
+        if (hil_cmd == 'hil_release'):
+            log_debug('Epilog: Completing release request')
+            _hil_release_cmd(env_dict, pdata_dict, jobdata_dict)
 
     return
 

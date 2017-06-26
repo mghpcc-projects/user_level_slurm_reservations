@@ -157,7 +157,7 @@ def delete_slurm_reservation(name, debug=False):
     '''
     Delete a Slurm reservation via 'scontrol delete reservation=<name>'
     '''
-    return exec_scontrol_cmd('delete', None, debug=True, reservation=name)
+    return exec_scontrol_cmd('delete', None, debug=debug, reservation=name)
 
 
 def get_object_data(what_obj, obj_id, debug=False):
