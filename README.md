@@ -7,29 +7,29 @@ V0.1 26-Jun-2017
 # Introduction
 
 HIL reservations allow a nonprivileged Slurm user to reserve Slurm
-compute nodes for HIL operations.  The nodes may later be released
+compute nodes for HIL operations.  The nodes may be later released
 and returned to the pool of Slurm compute nodes for use by others.
 
 At present, two commands are used to manage HIL reservations:
 
-  * hil_reserve
-  * hil_release
+  * ```hil_reserve```
+  * ```hil_release```
 
-These commands are executed as Slurm jobs via srun(1) and sbatch(1).
+These commands are executed as Slurm jobs via ```srun(1)``` and ```sbatch(1).```
 
 In future, additional commands may be made available to conduct
 low-level HIL node operations.  For example:
 
-  * hil_init - Iniitialize HIL nodes and networking infrastructure to
+  * hil_init - Initialize HIL nodes and networking infrastructure to a
   desired state
-  * hil_restore - Restore a HIL node to the Slurm partition, behaving
-  as a Slurm compute node 
+  * hil_restore - Restore a HIL node to a Slurm partition, with it
+  again behaving as a Slurm compute node 
 
 
 ## Usage
 
 To reserve a HIL node, specify the ```hil_reserve``` command as a job
-to the Slurm srun(1) or sbatch(1) command:
+to the Slurm ```srun(1)``` or ```sbatch(1)``` command:
 
 ```
 $ srun hil_reserve
@@ -41,14 +41,25 @@ reservation``` command:
 ``` 
 $ scontrol show reservation
 ```
+If successful, a reservation similiar to the following should appear:
+
+```
+ReservationName=flexalloc_MOC_ubuntu_1000_2017-06-26T17:20:32
+StartTime=2017-06-26T17:20:32 EndTime=2017-06-26T21:25:32
+Duration=04:05:00 Nodes=server1 NodeCnt=1 CoreCnt=1 Features=(null)
+PartitionName=(null) Flags=MAINT,IGNORE_JOBS,S PEC_NODES,ALL_NODES
+TRES=cpu=1 Users=ubuntu Accounts=(null) Licenses=(null) State=ACTIVE
+BurstBuffer=(null) Watts=n/a 
+```
 
 When finished, to release a HIL node, specify the ```hil_release```
-command to srun(1) or sbatch(1):
+command to ```srun(1)``` or ```sbatch(1)```, additionally specifying
+**the HIL reservation to be released** as the reservation in which to
+run the job:
 
 ```
-$ srun hil_release
+$ srun --reservation=flexalloc_MOC_ubuntu_1000_2017-06-26T17:20:32 hil_release
 ```
-
 
 ## Reservation Naming
 
@@ -56,13 +67,22 @@ HIL reservations created using ```hil_reserve``` are named as follows:
 ```
 flexalloc_MOC_<username>_<uid>_<start_time>
 ```
-
 An example:
 ```
 flexalloc_MOC_ubuntu_1000_2017-06-26T17:20:32
 ```
 
+The ```start_time``` is the start time of the job.
+
 ## Reservation Verification
+
+HIL reservation creation may be verified using the `scontrol show
+reservation` command:
+
+```
+$ scontrol show reservation
+```
+
 
 ## Behavior of a HIL Node in a HIL Reservation
 
