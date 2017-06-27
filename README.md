@@ -84,14 +84,15 @@ The ```start_time``` is the start time of the job.
   HIL operations.
 
   3. Slurm compute nodes must be marked with the HIL feature in order
-  to be reserved.  Features are defined in the slurm.conf file or may
-  be added to a node by a privileged user via the ```scontrol
+  to be reserved.  Features are defined in the ```slurm.conf``` file
+  or may be added to a node by a privileged user via the ```scontrol
   update``` command.
 
-  4. HIL nodes may be released from a HIL reservation through the use
-  of ```hil_release``` even though they are not up and running.
+  4. HIL nodes may be released from a HIL reservation through
+  ```hil_release```, even though they are not up and running Linux.
+  Some error messages may appear in the Slurmctld log file.
 
-  5. Python version 2.7 is installed on the Slurm controller node.
+  5. Python version 2.7 must be installed on the Slurm controller node.
 
 
 # Logging
@@ -109,20 +110,56 @@ may be reviewed as necessary to gain insight into system behavior.
     ```hil_slurm_settings.py``` file.
 
 By default, the following paths are used:
-```/var/log/slurm-llnl/slurmctld.log```
+```/var/log/slurm-llnl/slurmctld.log``` and 
 ```/var/log/slurm-llnl/hil_prolog.log```
 
 
 # Implementation Details
 
-## Slurm Control Daemon Prolog and Epilog
-
 ## HIL Reservation Commands
 
-##
+The ```hil_reserve``` and ```hil_release``` commands are implemented
+as bash(1) shell scripts, which do little more than cause the
+```slurmctld`` prolog and epilog to run and recognize that the user
+wishes to reserve or release HIL nodes.
+
+## Slurm Control Daemon Prolog and Epilog
+
+The ```slurmctld``` prolog performs all the work required to place
+nodes in a HIL reservation.   The prolog consists of a ```bash```
+script which invokes a common Python program used for both the prolog
+and the epilog.  Prolog function is selected via an argument to the
+Python script.
+
+The work required to release nodes from a HIL reservation is split (in
+time) between the ```slurmctld``` prolog and the epilog.  State
+information is passed from the prolog to the epilog by means of a
+temorary dot file (```~/.hil/.hil_release```) created in the
+```.hil``` subdirectory of the user's home directory.  This file
+contains the names of the reservations to be released and is deleted
+when the epilog finishes.
+
+The ```~/.hil`` subdirectory must exist and be writeable by the Slurm
+user.
+
+## Communication between Components
+
+The ```slurmctld``` prolog and epilog execution environment provides
+very limited ability for communication between the user, the user's
+job, and the prolog and epilog, apart from Linux file system I/O.  For
+example, it is not possible for the prolog or epilog to write status
+information to the user's TTY, nor is is possible for the user's job
+to pass arguments to the prolog or epilog.   Note: It may be possible
+to output information to the user through a SPANK plugin, but that
+possibility is not considered further here.
+
+The name of the job submitted via ```srun``` or ```sbatch``` is
+available to the prolog and epilog through a very limited set of
+environment variables.  Also available in the environment are the user
+name, user ID, and job node list.
 
 
-# Software Installation 
+# Software Installation
 
 ## HIL Software Installation
 
