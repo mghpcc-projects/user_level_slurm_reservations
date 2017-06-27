@@ -129,7 +129,7 @@ The ```slurmctld``` prolog performs all the work required to place
 nodes in a HIL reservation.   The prolog consists of a ```bash```
 script which invokes a common Python program used for both the prolog
 and the epilog.  Prolog function is selected via an argument to the
-Python script.
+Python script.  The epilog is implemented in an identical manner.
 
 The work required to release nodes from a HIL reservation is split (in
 time) between the ```slurmctld``` prolog and the epilog.  State
@@ -145,11 +145,11 @@ user.
 ## Communication between Components
 
 The ```slurmctld``` prolog and epilog execution environment provides
-very limited ability for communication between the user, the user's
+very limited support for communication between the user, the user's
 job, and the prolog and epilog, apart from Linux file system I/O.  For
 example, it is not possible for the prolog or epilog to write status
 information to the user's TTY, nor is is possible for the user's job
-to pass arguments to the prolog or epilog.   Note: It may be possible
+to pass arguments to the prolog or epilog.  Note: It may be possible
 to output information to the user through a SPANK plugin, but that
 possibility is not considered further here.
 
@@ -163,11 +163,33 @@ name, user ID, and job node list.
 
 ## HIL Software Installation
 
+TEMPORARY
+
+(The following assumes Slurm-LLNL version 15 or greater is installed
+and running.  The installation is targeted on the Slurm controller node)
+
+On the Slurm controller node, create a virtual environment:
+```
+$ mkdir <HIL_INSTALL_DIR>
+$ cd <HIL_INSTALL_DIR>
+$ virtualenv ve
+$ source ve/bin/activate
+```
+Fetch the software from GitHub:
+``` 
+$ git clone git@github.com:mghpcc-projects/user_level_slurm_reservations.git
+$ cd user_level_slurm_reservations
+```
+
+_CAVEAT_: This must be repeated on all nodes in the Slurm partition, or
+filesystem sharing must be used/
+
+
 ## Support Libraries
 
 ### python-hostlist
 
-Install python-hostlist on the Slurm controller node:
+Install the ```python-hostlist``` package on the Slurm controller node:
 ```
 $ cd /usr/local/lib/python2.7/site-packages
 $ wget https://www.nsc.liu.se/~kent/python-hostlist/python-hostlist-1.17.tar.gz
@@ -178,6 +200,15 @@ $ python setup.py install
 ```
 
 ## User .hil Subdirectory
+
+All users which intend to use the HIL reservation system must create a
+```.hil``` subdirectory beneath their home directory.  This
+subdirectory must be writable by the Slurm user.
+```
+$ cd ~
+$ mkdir .hil
+$ chmod 755 .hil
+```
 
 # Software Configuration
 
