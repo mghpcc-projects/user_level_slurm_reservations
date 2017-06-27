@@ -210,7 +210,15 @@ $ mkdir .hil
 $ chmod 755 .hil
 ```
 
-# Software Configuration
+# Slurm Software Configuration
+
+Slurm software configuration is performed via the ```slurm.conf```
+file.  Once changes to this file have been made, copies must be pushed
+to all nodes in the Slurm cluster.  In order for changes to take
+effect, the ```slurmctld``` must be restarted on the controller, and
+the ```slurmd``` must be restarted on the compute nodes.
+
+By default, the ```slurm.conf``` file resides in ```/etc/slurm-llnl/slurm.conf.```
 
 ## SlurmCtld Prolog and Epilog
 
@@ -219,7 +227,9 @@ The SlurmCtld prolog and epilog must be specified:
 PrologSlurmctld=/<install_dir>/prolog/hil_slurmctld_prolog.sh
 EpilogSlurmctld=/<install_dir>/prolog/hil_slurmctld_epilog.sh
 
-### MaxTime and DefaultTime
+## Compute Nodes Marked with HIL Feature
+
+## Partition MaxTime and DefaultTime
 
 The partition MaxTime and DefaultTime must be set so that to values
 other than 'INFINITE' or 'UNLIMITED', so that the hil_reserve and (in
