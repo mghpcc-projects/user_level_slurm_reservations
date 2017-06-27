@@ -2,7 +2,7 @@
 
 (Also known as 'user_level_slurm_reservations')
 
-V0.1 26-Jun-2017
+V0.2  27-Jun-2017
 
 # Introduction
 
