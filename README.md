@@ -125,22 +125,17 @@ wishes to reserve or release HIL nodes.
 
 ## Slurm Control Daemon Prolog and Epilog
 
-The ```slurmctld``` prolog performs all the work required to place
-nodes in a HIL reservation.   The prolog consists of a ```bash```
+The ```slurmctld``` prolog performs does the work required to place
+nodes in a HIL reservation.  The prolog consists of a ```bash```
 script which invokes a common Python program used for both the prolog
 and the epilog.  Prolog function is selected via an argument to the
 Python script.  The epilog is implemented in an identical manner.
 
-The work required to release nodes from a HIL reservation is split (in
-time) between the ```slurmctld``` prolog and the epilog.  State
-information is passed from the prolog to the epilog by means of a
-temorary dot file (```~/.hil/.hil_release```) created in the
-```.hil``` subdirectory of the user's home directory.  This file
-contains the names of the reservations to be released and is deleted
-when the epilog finishes.
-
-The ```~/.hil`` subdirectory must exist and be writeable by the Slurm
-user.
+The work required to release nodes from a HIL reservation is performed
+by the ```slurmctld``` epilog.  As the reservation to be released is
+in use at the time the prolog runs (it will be used to run the
+```hil_release``` job), it is not possible to delete the reservation
+in the prolog.
 
 ## Communication between Components
 
@@ -156,7 +151,9 @@ possibility is not considered further here.
 The name of the job submitted via ```srun``` or ```sbatch``` is
 available to the prolog and epilog through a very limited set of
 environment variables.  Also available in the environment are the user
-name, user ID, and job node list.
+name, user ID, and job node list.  Other information regarding the
+Slurm execution environment is available through subprocess execution
+of various ```scontrol show``` commands, for example, ```scontrol show job```.
 
 
 # Software Installation
@@ -199,16 +196,6 @@ $ python setup.py build
 $ python setup.py install
 ```
 
-## User .hil Subdirectory
-
-All users which intend to use the HIL reservation system must create a
-```.hil``` subdirectory beneath their home directory.  This
-subdirectory must be writable by the Slurm user.
-```
-$ cd ~
-$ mkdir .hil
-$ chmod 755 .hil
-```
 
 # Slurm Software Configuration
 
@@ -220,7 +207,9 @@ the ```slurmd``` must be restarted on the compute nodes.
 
 By default, the ```slurm.conf``` file resides in ```/etc/slurm-llnl/slurm.conf.```
 
-## SlurmCtld Prolog and Epilog
+## SlurmCtld Prolog and Epilog Installation
+
+[NEEDS UPDATE]
 
 The SlurmCtld prolog and epilog must be specified:
 
@@ -229,18 +218,34 @@ EpilogSlurmctld=/<install_dir>/prolog/hil_slurmctld_epilog.sh
 
 ## Compute Nodes Marked with HIL Feature
 
+[NOT YET IMPLEMENTED IN THE CODE]
+
+Slurm compute nodes which are intended to be placed in a HIL
+reservation must be marked in the Slurm cluster configuration as
+having the Slurm feature 'HIL'.
+
 ## Partition MaxTime and DefaultTime
 
 The partition MaxTime and DefaultTime must be set so that to values
-other than 'INFINITE' or 'UNLIMITED', so that the hil_reserve and (in
-particular) hil_release commands are not queued and blocked when other
-reservations, starting at future times, exist in the partition and
-include the
+other than 'INFINITE' or 'UNLIMITED'.  Otherwise, the
+```hil_reserve``` and ```hil_release``` commands may be queued and
+blocked when other reservations, starting at future times, exist in
+the partition and include the Slurm compute nodes intended for use by
+HIL.
 
-The illustrated times are arbitrary.
+In the following example, the illustrated times are arbitrary.
 
+```
 PartitionName=debug Nodes=server[1] Default=YES DefaultTime=00:05:00 MaxTime=06:00:00 State=UP Shared=No
+```
 
+# Default Noes
+
+Might not want a HIL node to be among the partition default nodes.
+
+# Node Sharing and Oversubscription
+
+Must be disabled.
 
 <EOF>
 

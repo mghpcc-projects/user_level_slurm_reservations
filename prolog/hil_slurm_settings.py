@@ -17,7 +17,6 @@ HIL_RESERVATIONS_FILE = '/var/local/slurm-llnl/hil_reservations.txt'
 
 USER_HIL_SUBDIR = '.hil'
 USER_HIL_LOGFILE = 'hil_reservations.log'
-USER_HIL_RES_RELEASE_FILE = '.hil_release'
 
 HIL_CMD_NAMES = ('hil_reserve', 'hil_release')
 

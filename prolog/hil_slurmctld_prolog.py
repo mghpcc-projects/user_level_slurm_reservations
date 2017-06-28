@@ -29,9 +29,8 @@ from hil_slurm_settings import (HIL_CMD_NAMES, HIL_PARTITION_PREFIX,
                                 RES_CHECK_PARTITION_STATE,
                                 HIL_RESERVATION_DEFAULT_DURATION,
                                 HIL_RESERVATION_GRACE_PERIOD,
-                                HIL_SLURMCTLD_PROLOG_LOGFILE, USER_HIL_LOGFILE,
-                                USER_HIL_SUBDIR, USER_HIL_RES_RELEASE_FILE)
-
+                                HIL_SLURMCTLD_PROLOG_LOGFILE, 
+                                USER_HIL_SUBDIR, USER_HIL_LOGFILE)
 
 def _get_prolog_environment():
     '''
@@ -244,6 +243,13 @@ def _get_hil_reservation_name(env_dict, t_start_s):
 
 def _log_hil_reservation(resname, action, env_dict, message=None):
     '''
+    The need for this function is under review
+    ''' 
+    pass
+
+
+def _X_log_hil_reservation(resname, action, env_dict, message=None):
+    '''
     Log the reservation to the user's reservation log file
     '''
     user_hil_subdir = _get_user_hil_subdir(env_dict)
@@ -262,86 +268,21 @@ def _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict):
     _log_hil_reservation(resname, 'Created', env_dict)
 
 
-def _slurm_find_reservations(name_prefix, jobdata_dict):
-    '''
-    Find Slurm reservations with names matching the name prefix and,
-    if necessary, nodes matching the node prefix
-    '''
-    # Obtain a dictionary of all reservations active in the system
-    resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
-    if len(stderr_data):
-        return []
-
-    # Find reservations with names matching the name prefix
-    # If there's more than one, try a nodelist match
-    resdata_dict_list = filter(lambda x: name_prefix in x['ReservationName'], resdata_dict_list)
-
-    # If more than one remaining reservation, find a matching nodelist
-    if (len(resdata_dict_list) <= 1):
-        return resdata_dict_list
-
-    job_nodelist = jobdata_dict['NodeList']
-    resdata_dict_list = filter(lambda x: job_nodelist == x['Nodes'])
-
-    log_debug('Candidates for release:')
-    for resdata_dict in resdata_dict_list:
-        log_debug('  %s' % resdata_dict['ReservationName'])
-
-    return resdata_dict_list
-
-
-def _hil_prepare_release(env_dict, pdata_dict, jobdata_dict):
-    '''
-    Called by the prolog when the 'hil_release' command has been passed.
-    Since we cannot pass the reservation name to the prolog, find the target 
-    reservations using the username and job node list.
-    WARNING: This assumes the nodes in the reservation are marked as not shared
-    '''
-    resname_prefix = HIL_RESERVATION_PREFIX + env_dict['username']
-    resdata_dict_list = _slurm_find_reservations(resname_prefix, jobdata_dict)
-
-    user_hil_subdir = _get_user_hil_subdir(env_dict)
-    user_res_release_file = os.path.join(user_hil_subdir, USER_HIL_RES_RELEASE_FILE)
-
-    res_release_list = []
-
-    with open(user_res_release_file, 'a') as f:
-        for resdata_dict in resdata_dict_list:
-            # $$$ Add time and date
-            f.write(resdata_dict['ReservationName'] + '\n')
-
-            log_debug('Wrote `%s` to %s' % (resdata_dict['ReservationName'], user_res_release_file))
-    # Reservation is now ready for deletion by the epilog
-        
-
 def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
     '''
-    Release a HIL reservation
-    1. Check if the user has a ~/.hil/.release file
-    2. If so, see if the reservation matching that name exists
-    3. If so, delete that reservation
-    4. Delete the ~/.hil/.release file
+    Delete the reservation in which the release job was run,
+    once validated
     '''
-    user_hil_subdir = _get_user_hil_subdir(env_dict)
-    user_res_release_file = os.path.join(user_hil_subdir, USER_HIL_RES_RELEASE_FILE)
-
-    res_release_list = []
-
-    with open(user_res_release_file, 'r') as f:
-        for line in f:
-            res_release_list.append(line.strip(os.linesep))
-
-#   log_debug('Deletion file list %s' % res_release_list)
-
-    if (len(res_release_list) == 0):
-        return
-
-    for resname in res_release_list:
-        stdout_data, stderr_data = _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname)
-        if (len(stderr_data) == 0):
-            _log_hil_reservation(resname, 'Released', env_dict)
-
-    os.remove(user_res_release_file)
+    resname = jobdata_dict['Reservation']
+    if resname:
+        if env_dict['username'] not in resname:
+            log_error('Reservation `%s` not owned by user `%s`' % (resname, env_dict['username']))
+        else:
+            stdout_data, stderr_data = _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname)
+            if (len(stderr_data) == 0):
+                _log_hil_reservation(resname, 'Released', env_dict)
+    else:
+        log_error('No reservation name specified to `%s` command' % jobdata_dict['JobName'])
 
 
 def process_args():
@@ -398,16 +339,10 @@ def main(argv=[]):
             log_debug('Processing reservation request')
             _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict)
 
-        elif (hil_cmd == 'hil_release'):
-            log_info('HIL Slurmctld Epilog', separator=True)
-            log_debug('Prolog: Processing release request')
-            _hil_prepare_release(env_dict, pdata_dict, jobdata_dict)
-
     elif args.hil_epilog:
         if (hil_cmd == 'hil_release'):
-            log_debug('Epilog: Completing release request')
+            log_debug('Processing reservation release request')
             _hil_release_cmd(env_dict, pdata_dict, jobdata_dict)
-
     return
 
 

@@ -67,7 +67,7 @@ def _scontrol_show_stdout_to_dict_list(stdout_data, stderr_data, debug=False):
     return stdout_dict_list
 
 
-def exec_scontrol_cmd(action, entity, entity_id=None, debug=False, **kwargs):
+def exec_scontrol_cmd(action, entity, entity_id=None, debug=True, **kwargs):
     '''
     Build an 'scontrol <action> <entity>' command and pass to an executor
     Specify single-line output to support stdout postprocessing
