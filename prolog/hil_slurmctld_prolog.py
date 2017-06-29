@@ -23,6 +23,7 @@ from hil_slurm_helpers import (get_partition_data, get_job_data,
                                delete_slurm_reservation)
 from hil_slurm_constants import (SHOW_OBJ_TIME_FMT, RES_CREATE_TIME_FMT,
                                  SHOW_PARTITION_MAXTIME_HMS_FMT,
+                                 RES_CREATE_HIL_FEATURES,
                                  RES_CREATE_FLAGS, RES_RELEASE_FLAGS)
 from hil_slurm_logging import log_init, log_info, log_debug, log_error
 from hil_slurm_settings import (HIL_CMD_NAMES, HIL_PARTITION_PREFIX,
@@ -215,6 +216,8 @@ def _create_hil_reservation(env_dict, pdata_dict, jobdata_dict):
     stdout_data, stderr_data = create_slurm_reservation(resname, env_dict['username'],
                                                         t_start_s, t_end_s,
                                                         nodes=None, flags=RES_CREATE_FLAGS,
+                                                        features=RES_CREATE_HIL_FEATURES,
+                                                        
                                                         debug=False)
     return resname, stderr_data
 

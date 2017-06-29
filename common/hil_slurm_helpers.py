@@ -141,7 +141,7 @@ def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
 
 
 def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None, 
-                             flags=RES_CREATE_FLAGS, debug=False):
+                             flags=RES_CREATE_FLAGS, features=None, debug=False):
     '''
     Create a Slurm reservation via 'scontrol create reservation'
     '''
@@ -150,7 +150,7 @@ def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None,
 
     return exec_scontrol_cmd('create', 'reservation', entity_id=None, debug=debug, 
                              ReservationName=name, starttime=t_start_s, endtime=t_end_s,
-                             user=user, nodes=nodes, flags=flags)
+                             user=user, nodes=nodes, flags=flags, features=features)
 
 
 def delete_slurm_reservation(name, debug=False):
