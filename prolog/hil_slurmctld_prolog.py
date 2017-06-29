@@ -8,10 +8,14 @@ May 2017, Tim Donahue	tpd001@gmail.com
 
 import argparse
 import hostlist
+import inspect
 import logging
 import os
 import sys
 from datetime import datetime, timedelta
+
+libdir = os.path.realpath(os.path.join(os.path.dirname(inspect.getfile(inspect.currentframe())), '../common'))
+sys.path.append(libdir)
 
 from hil_slurm_helpers import (get_partition_data, get_job_data,
                                exec_scontrol_cmd, exec_scontrol_show_cmd,

@@ -6,9 +6,14 @@ Slurm / HIL Reservation Monitor
 May 2017, Tim Donahue	tpd001@gmail.com
 """
 
-import logging
 import fileinput
+import inspect
+import logging
+import os
 import sys
+
+libdir = os.path.realpath(os.path.join(os.path.dirname(inspect.getfile(inspect.currentframe())), '../common'))
+sys.path.append(libdir)
 
 from hil_slurm_settings import HIL_RESERVATION_PREFIX, HIL_MONITOR_LOGFILE
 from hil_slurm_helpers import exec_scontrol_show_cmd
