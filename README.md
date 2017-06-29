@@ -209,12 +209,14 @@ By default, the ```slurm.conf``` file resides in ```/etc/slurm-llnl/slurm.conf.`
 
 ## SlurmCtld Prolog and Epilog Installation
 
-[NEEDS UPDATE]
+[NEEDS UPDATE to reflect coexistence with other Slurm prolog / epilog modules]
 
 The SlurmCtld prolog and epilog must be specified:
 
+```
 PrologSlurmctld=/<install_dir>/prolog/hil_slurmctld_prolog.sh
 EpilogSlurmctld=/<install_dir>/prolog/hil_slurmctld_epilog.sh
+```
 
 ## Compute Nodes Marked with HIL Feature
 
@@ -239,11 +241,11 @@ In the following example, the illustrated times are arbitrary.
 PartitionName=debug Nodes=server[1] Default=YES DefaultTime=00:05:00 MaxTime=06:00:00 State=UP Shared=No
 ```
 
-# Default Noes
+## Default Nodes
 
 Might not want a HIL node to be among the partition default nodes.
 
-# Node Sharing and Oversubscription
+## Node Sharing and Oversubscription
 
 Must be disabled.
 
