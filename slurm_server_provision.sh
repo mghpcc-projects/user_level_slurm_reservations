@@ -29,9 +29,40 @@ apt-get -y install make
 apt-get -y install gcc
 apt-get -y install python2.7
 ln -s /usr/bin/python2.7 /usr/bin/python
-apt-get -y install emacs
-apt-get -y install nfs-common
-apg-get -y install munge
+apt-get install -y emacs
+apt-get install -y nfs-common
+apg-get install -y munge
+
+echo "export SYSTEMD_EDITOR=emacs" >> ~/.bashrc
+
+useradd slurm 
+
+mkdir -p /var/spool/slurmd.spool
+chmod 755 /var/spool/slurmd.spool
+chown slurm:slurm /var/spool/slurmd.spool
+
+mkdir -p /var/log/slurm-llnl
+chmod 755 /var/log/slurm-llnl
+chown slurm:slurm /var/log/slurm-llnl
+
+mkdir -p /var/run/slurm-llnl
+chmod 755 /var/run/slurm-llnl
+chown slurm:slurm /var/run/slurm-llnl
+
+mkdir -p /var/spool/slurmd.spool
+chmod 755 /var/spool/slurmd.spool
+chown slurm:slurm /var/spool/slurmd.spool
+
+mkdir -p /var/spool/slurm.state
+chmod 755 /var/spool/slurm.state
+chown slurm:slurm /var/spool/slurm.state
+
+useradd munge
+
+chmod 700 /etc/munge
+chmod 711 /var/lib/munge
+chmod 700 /var/log/munge
+chmod 755 /var/run/munge
 echo "massopencloud" > /etc/munge/munge.key
 chmod 400 /etc/munge/munge.key
 
@@ -66,14 +97,17 @@ cd packages
 
 # Munge again
 
+cp /shared/munge/munge.key /etc/munge/munge.key
+chmod 400 /etc/munge/munge.key
 /etc/init.d/munge start
 
 # NFS
 
-mkdir -p /local/slurm
-chmod 777 /local/slurm
-mount controller:/slurm /local/slurm
-echo "controller:/slurm /local/slurm nfs rsize=8192,wsize=8192,timeo=14,intr" >> /etc/fstab
+mkdir /shared
+chmod 777 /shared
+chown nobody:nogroup /shared
+mount controller:/shared /shared
+echo "controller:/shared /shared nfs rsize=8192,wsize=8192,timeo=14,intr" >> /etc/fstab
 
 # Slurm Daemon
 

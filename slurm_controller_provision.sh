@@ -27,10 +27,36 @@ apt-get -y install make
 apt-get -y install gcc
 apt-get -y install python2.7
 ln -s /usr/bin/python2.7 /usr/bin/python
-apt-get -y install emacs
-apt-get -y install nfs-common
-apt-get -y install nfs-kernel-server
-apg-get -y install munge
+apt-get install -y emacs
+apt-get install -y nfs-common
+apt-get install -y nfs-kernel-server
+apg-get install -y munge
+
+echo "export SYSTEMD_EDITOR=emacs" >> ~/.bashrc
+
+useradd slurm 
+
+mkdir -p /var/spool/slurmd.spool
+chmod 755 /var/spool/slurmd.spool
+chown slurm:slurm /var/spool/slurmd.spool
+
+mkdir -p /var/log/slurm-llnl
+chmod 755 /var/log/slurm-llnl
+chown slurm:slurm /var/log/slurm-llnl
+
+mkdir -p /var/run/slurm-llnl
+chmod 755 /var/run/slurm-llnl
+chown slurm:slurm /var/run/slurm-llnl
+
+mkdir -p /var/spool/slurmd.spool
+chmod 755 /var/spool/slurmd.spool
+chown slurm:slurm /var/spool/slurmd.spool
+
+mkdir -p /var/spool/slurm.state
+chmod 755 /var/spool/slurm.state
+chown slurm:slurm /var/spool/slurm.state
+
+useradd munge
 
 chmod 700 /etc/munge
 chmod 711 /var/lib/munge
@@ -64,19 +90,39 @@ tar xvf slurm-17-02-6-1.tar.gz
 cd slurm-slurm-17-02-6-1
 ./configure
 make install
+cd
+cd packages
+
+# MOC User Level Slurm Reservations - 
+#
+# This needs to be accessible via a public repo
+#
+# wget https://github.com/mghpcc-projects/user_level_slurm_reservations/archive/v0.0.2.tar.gz
+# tar xvf v0.0.2.tar.gz
 
 cd 
 cd packages
 
 # NFS
 
-mkdir -p /slurm
-chmod 777 /slurm
-chown nobody:nogroup /slurm
+mkdir /shared
+chmod 777 /shared
+chown nobody:nogroup /shared
 sudo systemctl enable nfs-kernel-server
 
-echo "/slurm *(rw,sync,no_root_squash)" >> /etc/exports
+echo "/shared *(rw,sync,no_root_squash)" >> /etc/exports
 exportfs -a
+
+mkdir /shared/slurm
+chmod 755 /shared/slurm
+chown slurm:slurm /shared/slurm
+
+mkdir /shared/munge
+chmod 700 /shared/munge
+chown munge:munge /shared/munge
+
+cp /etc/munge/munge.key /shared/munge
+chmod 400 /share/munge/munge.key
 
 # Munge again
 
