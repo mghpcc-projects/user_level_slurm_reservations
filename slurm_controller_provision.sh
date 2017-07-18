@@ -16,7 +16,7 @@ echo "127.0.0.1 `hostname`" >> /etc/hosts
 
 # Update the server node list and addresses as appropriate
 
-echo "10.0.0.7 server1" >> /etc/hosts
+echo "10.0.0.5 server1" >> /etc/hosts
 echo "10.0.0.10 server2" >> /etc/hosts
 echo "10.0.0.15 server3" >> /etc/hosts
 echo "10.0.0.16 server4" >> /etc/hosts
@@ -32,6 +32,7 @@ apt-get -y install emacs
 apt-get -y install nfs-common
 apt-get -y install nfs-kernel-server
 apt-get -y install munge
+apt-get -y install virtualenv
 
 echo "export SYSTEMD_EDITOR=emacs" >> ~/.bashrc
 
@@ -88,7 +89,6 @@ tar xvf slurm-17-02-6-1.tar.gz
 cd slurm-slurm-17-02-6-1
 ./configure
 make install
-
 cd /opt/packages
 
 # MOC User Level Slurm Reservations - 
@@ -121,14 +121,32 @@ chown munge:munge /shared/munge
 cp /etc/munge/munge.key /shared/munge
 chmod 400 /shared/munge/munge.key
 
+touch /var/log/munge/munged.log
 chown root:root /var/log/munge/munged.log
 
 # Munge again
 
 /etc/init.d/munge start
 
+# HIL
+
+mkdir /shared/hil
+chmod 755 /shared/hil
+cd /shared/hil
+virtualenv -p python2.7 ve
+source ve/bin/activate
+
+git clone https://github.com/mghpcc-project/user_level_slurm_reservations.git
+cp -p /shared/hil/user_level_slurm_reservations/test/slurm.conf /usr/local/etc/slurm.conf
+chown slurm:slurm /usr/local/etc/slurm/slurm.conf
+
+chown -R slurm:slurm /shared/hil
+
 # Slurm Daemon
 
 systemctl enable slurmctld
+
+# Cleanup
+
 rm -f /opt/packages/*.gz
 rm -f /opt/packages/*.bz2

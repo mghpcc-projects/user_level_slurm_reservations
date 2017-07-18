@@ -13,7 +13,7 @@
 
 set -x
 
-echo "10.0.0.8 controller" >> /etc/hosts
+echo "10.0.0.13 controller" >> /etc/hosts
 echo "127.0.0.1 `hostname`" >> /etc/hosts
 
 # Update the server node addresses as appropriate
@@ -105,8 +105,16 @@ echo "controller:/shared /shared nfs rsize=8192,wsize=8192,timeo=14,intr" >> /et
 
 cp /shared/munge/munge.key /etc/munge/munge.key
 chmod 400 /etc/munge/munge.key
-chown root:root /var/log/munge/munged.log
+touch /var/log/munge/munged.log
+chown munge:munge /var/log/munge/munged.log
 /etc/init.d/munge start
+
+# HIL
+
+cd /shared/hil
+source ve/bin/activate
+cp -p /shared/hil/user_level_slurm_reservations/test/slurm.conf /usr/local/etc/slurm.conf
+chown slurm:slurm /usr/local/etc/slurm/slurm.conf
 
 # Start Slurmd
 
