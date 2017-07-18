@@ -57,42 +57,39 @@ mkdir -p /var/spool/slurm.state
 chmod 755 /var/spool/slurm.state
 chown slurm:slurm /var/spool/slurm.state
 
-useradd munge
-
 chmod 700 /etc/munge
 chmod 711 /var/lib/munge
 chmod 700 /var/log/munge
 chmod 755 /var/run/munge
-echo "massopencloud" > /etc/munge/munge.key
+echo "massopencloudajointprojectamonghubuniversities" > /etc/munge/munge.key
 chmod 400 /etc/munge/munge.key
 
-cd 
-mkdir packages
-cd packages
+mkdir /opt/packages
+cd /opt/packages
 
 wget https://www.gnupg.org/ftp/gcrypt/libgpg-error/libgpg-error-1.27.tar.bz2
 tar xvf libgpg-error-1.27.tar.bz2
 cd libgpg-error-1.27
 ./configure
 make install
-cd 
-cd packages
+
+cd /opt/packages
 
 wget https://www.gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-1.7.8.tar.bz2
 tar xvf libgcrypt-1.7.8.tar.bz2
 cd libgcrypt-1.7.8
 ./configure
 make install
-cd 
-cd packages
+
+cd /opt/packages
 
 wget https://github.com/SchedMD/slurm/archive/slurm-17-02-6-1.tar.gz
 tar xvf slurm-17-02-6-1.tar.gz
 cd slurm-slurm-17-02-6-1
 ./configure
 make install
-cd
-cd packages
+
+cd /opt/packages
 
 # MOC User Level Slurm Reservations - 
 #
@@ -101,8 +98,7 @@ cd packages
 # wget https://github.com/mghpcc-projects/user_level_slurm_reservations/archive/v0.0.2.tar.gz
 # tar xvf v0.0.2.tar.gz
 
-cd 
-cd packages
+cd /opt/packages
 
 # NFS
 
@@ -123,7 +119,9 @@ chmod 700 /shared/munge
 chown munge:munge /shared/munge
 
 cp /etc/munge/munge.key /shared/munge
-chmod 400 /share/munge/munge.key
+chmod 400 /shared/munge/munge.key
+
+chown root:root /var/log/munge/munged.log
 
 # Munge again
 
@@ -132,5 +130,5 @@ chmod 400 /share/munge/munge.key
 # Slurm Daemon
 
 systemctl enable slurmctld
-
-
+rm -f /opt/packages/*.gz
+rm -f /opt/packages/*.bz2

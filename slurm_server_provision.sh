@@ -2,7 +2,7 @@
 #
 # slurm_sever_provision.sh - SLURM MOC Server VM Provisioning Script
 #
-# Run on the Slurm compute nodes
+# Run on the Slurm compute nodes, AFTER the controller is initialized
 #
 # Notes
 #   Assumes Ubuntu environment (16.04 LTS, YMMV)
@@ -59,8 +59,6 @@ mkdir -p /var/spool/slurm.state
 chmod 755 /var/spool/slurm.state
 chown slurm:slurm /var/spool/slurm.state
 
-useradd munge
-
 chmod 700 /etc/munge
 chmod 711 /var/lib/munge
 chmod 700 /var/log/munge
@@ -68,25 +66,24 @@ chmod 755 /var/run/munge
 echo "massopencloud" > /etc/munge/munge.key
 chmod 400 /etc/munge/munge.key
 
-cd 
-mkdir packages
-cd packages
+mkdir /opt/packages
+cd /opt/packages
 
 wget https://www.gnupg.org/ftp/gcrypt/libgpg-error/libgpg-error-1.27.tar.bz2
 tar xvf libgpg-error-1.27.tar.bz2
 cd libgpg-error-1.27
 ./configure
 make install
-cd 
-cd packages
+
+cd /opt/packages
 
 wget https://www.gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-1.7.8.tar.bz2
 tar xvf libgcrypt-1.7.8.tar.bz2
 cd libgcrypt-1.7.8
 ./configure
 make install
-cd 
-cd packages
+
+cd /opt/packages
 
 wget https://github.com/SchedMD/slurm/archive/slurm-17-02-6-1.tar.gz
 tar xvf slurm-17-02-6-1.tar.gz
@@ -94,16 +91,9 @@ cd slurm-slurm-17-02-6-1
 ./configure
 make install
 
-cd 
-cd packages
+cd /opt/packages
 
-# Munge again
-
-cp /shared/munge/munge.key /etc/munge/munge.key
-chmod 400 /etc/munge/munge.key
-/etc/init.d/munge start
-
-# NFS
+# Mount shared FS
 
 mkdir /shared
 chmod 777 /shared
@@ -111,7 +101,18 @@ chown nobody:nogroup /shared
 mount controller:/shared /shared
 echo "controller:/shared /shared nfs rsize=8192,wsize=8192,timeo=14,intr" >> /etc/fstab
 
-# Slurm Daemon
+# Get Munge key and start Munge daemon
+
+cp /shared/munge/munge.key /etc/munge/munge.key
+chmod 400 /etc/munge/munge.key
+chown root:root /var/log/munge/munged.log
+/etc/init.d/munge start
+
+# Start Slurmd
 
 systemctl enable slurmd
 
+# Cleanup
+
+rm -f /opt/packages/*.gz
+rm -f /opt/packages/*.bz2
