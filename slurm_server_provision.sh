@@ -1,4 +1,4 @@
-#!bash
+#!/usr/bin/env bash
 #
 # slurm_sever_provision.sh - SLURM MOC Server VM Provisioning Script
 #
@@ -25,13 +25,15 @@ echo "127.0.0.1 `hostname`" >> /etc/hosts
 # echo "10.0.0.11 server5" >> /etc/hosts
 # echo "10.0.0.12 server6" >> /etc/hosts
 
+
+apt-get update
 apt-get -y install make
 apt-get -y install gcc
 apt-get -y install python2.7
 ln -s /usr/bin/python2.7 /usr/bin/python
-apt-get install -y emacs
-apt-get install -y nfs-common
-apg-get install -y munge
+apt-get -y install emacs
+apt-get -y install nfs-common
+apt-get -y install munge
 
 echo "export SYSTEMD_EDITOR=emacs" >> ~/.bashrc
 
