@@ -92,6 +92,15 @@ cd slurm-slurm-17-02-6-1
 ./configure
 make install
 
+# Python Hostlist
+
+cd /usr/local/lib/python2.7/site-packages
+wget https://www.nsc.liu.se/~kent/python-hostlist/python-hostlist-1.17.tar.gz
+tar xvf python-hostlist-1.17.tar.gz
+cd python-hostlist-1.17
+python setup.py build
+python setup.py install
+
 cd /opt/packages
 
 # Mount shared FS

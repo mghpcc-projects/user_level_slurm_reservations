@@ -90,14 +90,40 @@ tar xvf slurm-17-02-6-1.tar.gz
 cd slurm-slurm-17-02-6-1
 ./configure
 make install
-cd /opt/packages
 
-# MOC User Level Slurm Reservations - 
-#
-# This needs to be accessible via a public repo
-#
-# wget https://github.com/mghpcc-projects/user_level_slurm_reservations/archive/v0.0.2.tar.gz
-# tar xvf v0.0.2.tar.gz
+# MOC HIL
+
+cd /opt/packages
+mkdir -p /opt/packages/moc-hil
+chmod 755 /opt/packages/moc-hil
+cd /opt/packages/moc-hil
+virtualenv -p python2.7 ve
+
+wget https://github.com/mghpcc-projects/user_level_slurm_reservations/archive/moc-hil-v0.0.3.tar.gz
+tar xvf moc-hil-v0.0.3.tar.gz
+cd user_level_slurm_reservations-v0.0.3
+cp -p test/slurm.conf /usr/local/etc/slurm/slurm.conf
+chown slurm:slurm /usr/local/etc/slurm/slurm.conf
+
+cp commands/hil_reserve /usr/local/bin/
+cp commands/hil_release /usr/local/bin/
+chmod 755 /usr/loca/bin/hil_reserve
+chmod 755 /usr/loca/bin/hil_release
+
+# Need to deal with prolog here
+
+# cp prolog/hil_slurmctld_epilog.sh /usr/local/bin
+# cp prolog/hil_slurmctld_prolog.sh /usr/local/bin
+# cp prolog/hil_slurmctld_prolog.py WHER
+
+# Python Hostlist
+
+cd /usr/local/lib/python2.7/site-packages
+wget https://www.nsc.liu.se/~kent/python-hostlist/python-hostlist-1.17.tar.gz
+tar xvf python-hostlist-1.17.tar.gz
+cd python-hostlist-1.17
+python setup.py build
+python setup.py install
 
 cd /opt/packages
 
@@ -128,20 +154,6 @@ chown root:root /var/log/munge/munged.log
 # Munge again
 
 /etc/init.d/munge start
-
-# HIL
-
-mkdir /shared/hil
-chmod 755 /shared/hil
-cd /shared/hil
-virtualenv -p python2.7 ve
-source ve/bin/activate
-
-git clone https://github.com/mghpcc-project/user_level_slurm_reservations.git
-cp -p /shared/hil/user_level_slurm_reservations/test/slurm.conf /usr/local/etc/slurm.conf
-chown slurm:slurm /usr/local/etc/slurm/slurm.conf
-
-chown -R slurm:slurm /shared/hil
 
 # Slurm Daemon
 
