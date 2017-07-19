@@ -32,6 +32,7 @@ apt-get -y install emacs
 apt-get -y install nfs-common
 apt-get -y install nfs-kernel-server
 apt-get -y install munge
+apt-get -y install libmunge-dev
 apt-get -y install virtualenv
 
 echo "export SYSTEMD_EDITOR=emacs" >> ~/.bashrc

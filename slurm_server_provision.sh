@@ -34,6 +34,7 @@ ln -s /usr/bin/python2.7 /usr/bin/python
 apt-get -y install emacs
 apt-get -y install nfs-common
 apt-get -y install munge
+apt-get -y install libmunge-dev
 
 echo "export SYSTEMD_EDITOR=emacs" >> ~/.bashrc
 
