@@ -60,12 +60,29 @@ mkdir -p /var/spool/slurm.state
 chmod 755 /var/spool/slurm.state
 chown slurm:slurm /var/spool/slurm.state
 
+# NFS: Mount shared FS exported by controller
+
+mkdir /shared
+chmod 777 /shared
+chown nobody:nogroup /shared
+mount controller:/shared /shared
+echo "controller:/shared /shared nfs rsize=8192,wsize=8192,timeo=14,intr" >> /etc/fstab
+
+# Add Munge system directories and log file
+# Copy the Munge key exported by the controller
+
 chmod 700 /etc/munge
 chmod 711 /var/lib/munge
 chmod 700 /var/log/munge
 chmod 755 /var/run/munge
-echo "massopencloud" > /etc/munge/munge.key
+
+touch /var/log/munge/munged.log
+chown root:root /var/log/munge/munged.log
+
+cp -p /shared/munge/munge.key /etc/munge
 chmod 400 /etc/munge/munge.key
+
+# Create package download directory and download required software
 
 mkdir /opt/packages
 cd /opt/packages
@@ -103,28 +120,18 @@ python setup.py install
 
 cd /opt/packages
 
-# Mount shared FS
-
-mkdir /shared
-chmod 777 /shared
-chown nobody:nogroup /shared
-mount controller:/shared /shared
-echo "controller:/shared /shared nfs rsize=8192,wsize=8192,timeo=14,intr" >> /etc/fstab
-
 # Get Munge key and start Munge daemon
 
-cp /shared/munge/munge.key /etc/munge/munge.key
-chmod 400 /etc/munge/munge.key
-touch /var/log/munge/munged.log
-chown munge:munge /var/log/munge/munged.log
 /etc/init.d/munge start
 
-# HIL
+# Get Slurm config file from controller
 
-cd /shared/hil
-source ve/bin/activate
-cp -p /shared/hil/user_level_slurm_reservations/test/slurm.conf /usr/local/etc/slurm.conf
+mkdir -p /usr/local/etc/slurm
+cp -p /shared/slurm/slurm.conf /usr/local/etc/slurm.conf
 chown slurm:slurm /usr/local/etc/slurm/slurm.conf
+
+chmod 755 /usr/local/etc/slurm
+chown slurm:slurm /usr/local/etc/slurm
 
 # Start Slurmd
 
