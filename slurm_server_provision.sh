@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# slurm_sever_provision.sh - SLURM MOC Server VM Provisioning Script
+# slurm_sever_provision.sh - SLURM MOC HIL Server VM Provisioning Script
 #
-# Run on the Slurm compute nodes, AFTER the controller is initialized
+# Run on the compute nodes, AFTER the controller is initialized
+# Installs Slurm, assumes no prior Slurm installation
 #
 # Notes
 #   Assumes Ubuntu environment (16.04 LTS, YMMV)
@@ -13,10 +14,11 @@
 
 set -x
 
-echo "10.0.0.13 controller" >> /etc/hosts
-echo "127.0.0.1 `hostname`" >> /etc/hosts
+# Update the controller and server node addresses in /etc/hosts as appropriate after 
+# VM creation
 
-# Update the server node addresses as appropriate
+echo "10.0.0.7 controller" >> /etc/hosts
+echo "127.0.0.1 `hostname`" >> /etc/hosts
 
 # echo "10.0.0.7 server1" >> /etc/hosts
 # echo "10.0.0.10 server2" >> /etc/hosts
@@ -24,7 +26,6 @@ echo "127.0.0.1 `hostname`" >> /etc/hosts
 # echo "10.0.0.16 server4" >> /etc/hosts
 # echo "10.0.0.11 server5" >> /etc/hosts
 # echo "10.0.0.12 server6" >> /etc/hosts
-
 
 apt-get update
 apt-get -y install make
@@ -77,7 +78,7 @@ chmod 700 /var/log/munge
 chmod 755 /var/run/munge
 
 touch /var/log/munge/munged.log
-chown root:root /var/log/munge/munged.log
+chown munge:munge /var/log/munge/munged.log
 
 cp -p /shared/munge/munge.key /etc/munge
 chmod 400 /etc/munge/munge.key
@@ -120,22 +121,24 @@ python setup.py install
 
 cd /opt/packages
 
-# Get Munge key and start Munge daemon
+# Start Munge daemon
 
 /etc/init.d/munge start
 
 # Get Slurm config file from controller
 
-mkdir -p /usr/local/etc/slurm
 cp -p /shared/slurm/slurm.conf /usr/local/etc/slurm.conf
-chown slurm:slurm /usr/local/etc/slurm/slurm.conf
+chown slurm:slurm /usr/local/etc/slurm.conf
 
-chmod 755 /usr/local/etc/slurm
-chown slurm:slurm /usr/local/etc/slurm
+# Create Slurm directory for reference by slurmd
+
+mkdir -p /home/slurm/bin
+mkdir -p /home/slurm/scripts
+chown -R slurm:slurm /home/slurm
 
 # Start Slurmd
 
-systemctl enable slurmd
+/usr/local/sbin/slurmd
 
 # Cleanup
 

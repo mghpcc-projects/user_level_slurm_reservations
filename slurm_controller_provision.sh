@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# slurm_controller_provision.sh - SLURM MOC Controller VM Provisioning Script
+# slurm_controller_provision.sh - SLURM MOC HIL Controller VM Provisioning Script
 #
-# Run on the Slurm controller node
+# Run on the controller node
+# Installs Slurm, assumes no prior Slurm installation
 #
 # Notes
 #   Assumes Ubuntu environment (16.04 LTS, YMMV)
@@ -14,7 +15,8 @@ set -x
 
 echo "127.0.0.1 `hostname`" >> /etc/hosts
 
-# Update the server node list and addresses as appropriate
+# Update the compute server node list and addresses in /etc/hosts as appropriate after 
+# VM creation
 
 echo "10.0.0.5 server1" >> /etc/hosts
 echo "10.0.0.10 server2" >> /etc/hosts
@@ -72,10 +74,6 @@ sudo systemctl enable nfs-kernel-server
 echo "/shared *(rw,sync,no_root_squash)" >> /etc/exports
 exportfs -a
 
-mkdir /shared/slurm
-chmod 755 /shared/slurm
-chown slurm:slurm /shared/slurm
-
 mkdir /shared/munge
 chmod 700 /shared/munge
 chown munge:munge /shared/munge
@@ -125,12 +123,12 @@ make install
 
 # Python Hostlist
 
-cd /usr/local/lib/python2.7/site-packages
-wget https://www.nsc.liu.se/~kent/python-hostlist/python-hostlist-1.17.tar.gz
-tar xvf python-hostlist-1.17.tar.gz
-cd python-hostlist-1.17
-python setup.py build
-python setup.py install
+# cd /usr/local/lib/python2.7/site-packages
+# wget https://www.nsc.liu.se/~kent/python-hostlist/python-hostlist-1.17.tar.gz
+# tar xvf python-hostlist-1.17.tar.gz
+# cd python-hostlist-1.17
+# python setup.py build
+# python setup.py install
 
 # Install MOC HIL, including the slurm.conf file
 # Export the slurm.conf file to server nodes
@@ -163,6 +161,19 @@ cd /home/slurm/scripts
 
 virtualenv -p python2.7 ./ve
 
+source ./ve/bin/activate
+pip install python-hostlist
+
+# Replace the following with a setup.py structure
+
+cd ./ve/lib/python2.7/site-packages
+cp /opt/packages/user_level_slurm_reservations-0.0.2/prolog/hil_slurm_constants.py .
+cp /opt/packages/user_level_slurm_reservations-0.0.2/prolog/hil_slurm_logging.py .
+cp /opt/packages/user_level_slurm_reservations-0.0.2/prolog/hil_slurm_helpers.py .
+cp /opt/packages/user_level_slurm_reservations-0.0.2/prolog/hil_slurm_settings.py .
+chown slurm:slurm ./hil_slurm*.py
+deactivate
+
 cp /opt/packages/user_level_slurm_reservations-0.0.2/prolog/hil_slurmctld_prolog.sh .
 cp /opt/packages/user_level_slurm_reservations-0.0.2/prolog/hil_slurmctld_prolog.py .
 cp /opt/packages/user_level_slurm_reservations-0.0.2/prolog/hil_slurmctld_epilog.sh .
@@ -173,12 +184,12 @@ chown -R slurm:slurm /home/slurm
 # Install MOC HIL prerequisites
 # Python Hostlist
 
-cd /usr/local/lib/python2.7/site-packages
-wget https://www.nsc.liu.se/~kent/python-hostlist/python-hostlist-1.17.tar.gz
-tar xvf python-hostlist-1.17.tar.gz
-cd python-hostlist-1.17
-python setup.py build
-python setup.py install
+# cd /usr/local/lib/python2.7/site-packages
+# wget https://www.nsc.liu.se/~kent/python-hostlist/python-hostlist-1.17.tar.gz
+# tar xvf python-hostlist-1.17.tar.gz
+# cd python-hostlist-1.17
+# python setup.py build
+# python setup.py install
 
 cd /opt/packages
 
