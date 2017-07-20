@@ -123,6 +123,7 @@ def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
         'job': 'Invalid job id'
         }
 
+    cmd = 'scontrol show ' + entity
     if (len(stderr_data) != 0):
         log_debug('Command `%s` failed' % cmd)
         log_debug('  stderr: %s' % stderr_data)
