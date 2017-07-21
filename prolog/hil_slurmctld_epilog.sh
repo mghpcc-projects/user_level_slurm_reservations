@@ -1,15 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # HIL Slurmctrld Epilog shell script
 #
 # Runs hil_slurmctld_prolog.py with --hil_epilog, e.g. as the epilog
 #
-PATH=/bin:/usr/bin:/usr/local/bin
+PATH=/bin:/usr/bin:/usr/local/bin:/usr/local/sbin
 LOGFILE=/var/log/slurm-llnl/hil_prolog.log
-HOME=/home/slurm/scripts
+HOME=/home/slurm
 
-source ${HOME}/../ve/bin/activate
-python ${HOME}/hil_slurmctld_prolog.py --hil_epilog >> $LOGFILE 2>&1
+source ${HOME}/scripts/ve/bin/activate
+python ${HOME}/scripts/hil_slurmctld_prolog.py --hil_epilog >> $LOGFILE 2>&1
 deactivate
 
 exit 0
