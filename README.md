@@ -2,7 +2,7 @@
 
 (Also known as 'user_level_slurm_reservations')
 
-V0.2  27-Jun-2017
+V0.3  21-Jul-2017
 
 # Introduction
 
@@ -17,14 +17,11 @@ At present, two commands are used to manage HIL reservations:
 
 These commands are executed as Slurm jobs via ```srun(1)``` and ```sbatch(1).```
 
-In future, additional commands may be made available to conduct
-low-level HIL node operations.  For example:
-
-  * hil_init - Initialize HIL nodes and networking infrastructure to a
-  desired state
-  * hil_restore - Restore a HIL node to a Slurm partition, with it
-  again behaving as a Slurm compute node 
-
+Other software components (not described here at this time) are, or
+will, be used to perform HIL node and network management operations on
+nodes reserved and freed using the above commands.  A goal is to have
+these components operate automatically without user or system
+administrator intervention.
 
 ## Usage
 
@@ -77,23 +74,32 @@ The ```start_time``` is the start time of the job.
 
 # Assumptions, Restrictions, Notes
 
+Beyond any requirements imposed by the HIL software and Slurm, the
+following apply to the user level Slurm reservation software.
+
   1. All nodes in the HIL reservation pool are configured in a single
   Slurm partition.  
 
   2. The Slurm controller node in the partition is not available for
   HIL operations.
 
-  3. Slurm compute nodes must be marked with the HIL feature in order
+  3. Slurm compute nodes must be marked with the ```HIL``` feature in order
   to be reserved.  Features are defined in the ```slurm.conf``` file
   or may be added to a node by a privileged user via the ```scontrol
-  update``` command.
+  update``` command - refer to the Slurm documenation for a
+  description of how to do this.
 
   4. HIL nodes may be released from a HIL reservation through
   ```hil_release```, even though they are not up and running Linux.
-  Some error messages may appear in the Slurmctld log file.
+  Some error messages may appear in the Slurmctld log file.  Note that
+  detailed system behavior has not been fully evaluated and is likely
+  to evolve over time.
 
-  5. Python version 2.7 must be installed on the Slurm controller node.
+  5. Python v2.7 must be installed on the Slurm controller node.
 
+  6. The ```hil_reserve``` and ```hil_release``` commands must be
+  available on both the Slurm controller node and on the compute nodes
+  which form the target of the HIL bare node operations.
 
 # Logging
 
@@ -121,19 +127,23 @@ By default, the following paths are used:
 The ```hil_reserve``` and ```hil_release``` commands are implemented
 as bash(1) shell scripts, which do little more than cause the
 ```slurmctld`` prolog and epilog to run and recognize that the user
-wishes to reserve or release HIL nodes.
+wishes to reserve or release HIL nodes.  
+
+These names are reserved in that they are recognized by the Slurm
+control daemon prolog and epilog as triggers for specific user level
+HIL reservation operations.
 
 ## Slurm Control Daemon Prolog and Epilog
 
-The ```slurmctld``` prolog performs does the work required to place
-nodes in a HIL reservation.  The prolog consists of a ```bash```
-script which invokes a common Python program used for both the prolog
-and the epilog.  Prolog function is selected via an argument to the
-Python script.  The epilog is implemented in an identical manner.
+The ```slurmctld``` prolog does the work required to place nodes in a
+HIL reservation.  The prolog consists of a ```bash``` script which
+invokes a common Python program used for both the prolog and the
+epilog.  Prolog function is selected via an argument to the Python
+script.  The epilog is implemented in an identical manner.
 
 The work required to release nodes from a HIL reservation is performed
 by the ```slurmctld``` epilog.  As the reservation to be released is
-in use at the time the prolog runs (it will be used to run the
+in use at the time the prolog runs (it is used to run the
 ```hil_release``` job), it is not possible to delete the reservation
 in the prolog.
 
@@ -219,8 +229,6 @@ EpilogSlurmctld=/<install_dir>/prolog/hil_slurmctld_epilog.sh
 ```
 
 ## Compute Nodes Marked with HIL Feature
-
-[NOT YET IMPLEMENTED IN THE CODE]
 
 Slurm compute nodes which are intended to be placed in a HIL
 reservation must be marked in the Slurm cluster configuration as
