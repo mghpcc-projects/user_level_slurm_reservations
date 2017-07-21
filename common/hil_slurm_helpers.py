@@ -19,13 +19,15 @@ def _exec_subprocess_cmd(cmd):
     Execute a command in a subprocess and wait for completion
     '''
     debug = False
+    p = None
     try:
         p = Popen(cmd, stdout=PIPE, stderr=PIPE)
         (stdout_data, stderr_data) = p.communicate()
-    except:
+    except Exception as e:
         stdout_data = None
         stderr_data ='error: Exception on Popen or communicate'
         log_debug('Exception on Popen or communicate')
+        log_debug('Exception: %s' % e)
 
     if debug:
         f = _exec_subprocess_cmd.__name__
