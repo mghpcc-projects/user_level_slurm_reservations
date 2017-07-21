@@ -8,7 +8,7 @@ May 2017, Tim Donahue	tpd001@gmail.com
 
 DEBUG = True
 
-SLURM_INSTALL_DIR = '/usr/bin/'
+SLURM_INSTALL_DIR = '/usr/local/bin/'
 
 HIL_SLURMCTLD_PROLOG_LOGFILE = '/var/log/slurm-llnl/hil_prolog.log'
 HIL_MONITOR_LOGFILE = '/var/log/slurm-llnl/hil_monitor.log'
