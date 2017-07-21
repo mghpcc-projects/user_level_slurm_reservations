@@ -78,6 +78,12 @@ mkdir /shared/munge
 chmod 700 /shared/munge
 chown munge:munge /shared/munge
 
+mkdir -p /shared/hil/bin
+chmod -R 700 /shared/hil/bin
+
+mkdir -p /shared/slurm
+chown slurm:slurm /shared/slurm
+
 # Add Munge system directories and log file, create Munge key
 # Export the Munge key for use by compute nodes
 
@@ -153,6 +159,11 @@ cp commands/hil_release /usr/local/bin/
 chmod 755 /usr/local/bin/hil_reserve
 chmod 755 /usr/local/bin/hil_release
 
+# Copy HIL commands to shared FS for copy / install by compute nodes
+
+cp commands/hil_reserve /shared/hil/bin
+cp commands/hil_release /shared/hil/bin
+
 # Install Slurm prolog and epilog under Slurm user home dir
 
 mkdir -p /home/slurm/bin
@@ -164,7 +175,7 @@ virtualenv -p python2.7 ./ve
 source ./ve/bin/activate
 pip install python-hostlist
 
-# Replace the following with a setup.py structure
+# Replace the following with a setup.py / distutils structure?
 
 cd ./ve/lib/python2.7/site-packages
 cp /opt/packages/user_level_slurm_reservations-0.0.2/prolog/hil_slurm_constants.py .

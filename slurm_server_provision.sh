@@ -125,10 +125,15 @@ cd /opt/packages
 
 /etc/init.d/munge start
 
-# Get Slurm config file from controller
+# Get Slurm config and HIL commands from from controller via NFS
+# HIL commands (which are passed to srun(1) and sbatch(1) must be accessble
+# on the compute nodes as well
 
 cp -p /shared/slurm/slurm.conf /usr/local/etc/slurm.conf
 chown slurm:slurm /usr/local/etc/slurm.conf
+
+cp -p /shared/hil/bin/hil_reserve /usr/local/bin
+cp -p /shared/hil/bin/hil_release /usr/local/bin
 
 # Create Slurm directory for reference by slurmd
 
