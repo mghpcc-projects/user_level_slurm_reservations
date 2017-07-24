@@ -1,0 +1,101 @@
+MOC / HIL Project Deliverables
+
+V0.2
+
+24-Jul-2017
+
+tpd001@gmail.com
+
+
+* Introduction
+
+This note presents a proposed list of MOC / HIL project deliverables,
+developed from 1-May-2017 onwards.
+
+* System Summary
+
+The MOC / HIL system includes the following software components, some
+of which are extant today, and some of which are developed for use in
+the MOC / HIL system.
+
+1. The existing Slurm gang scheduler, used by the MOC/HIL software to
+   reserve compute nodes for subsequent HIL operations, and for
+   identifying and maintaining the state of compute nodes when not
+   under control of HIL.
+
+2. A small set of user-mode commands for reserving and releasing
+   compute nodes for HIL operations, developed for the MOC/HIL
+   project.
+
+3. A privileged monitor, developed for the MOC/HIL project, which
+   detects new reservations and initiates HIL operations on reserved
+   nodes.  The monitor also returns compute nodes released from HIL
+   operations and reservations to a known state, again participating
+   in Slurm cluster operations.
+
+4. A body of code, developed for the MOC/HIL project, which interfaces
+   the HIL monitor (#3 above) to existing or updated HIL node
+   management software.
+
+5. A related body of code, developed for the MOC/HIL project, which
+   interfaces the HIL monitor (#3 above) to new or existing code which
+   tracks the state of compute nodes and interconnecting network
+   elements.
+
+
+* Existing Software
+
+  - Slurm gang scheduler
+  - HIL node management software
+  - MOC node and network management software
+
+
+* MOC / HIL Completed Items
+
+  - hil_reserve and hil_release commands
+
+  - Slurm control daemon prolog and epilog for Slurm / MOC / HIL
+    reservation management
+
+  - Library of support routines for interface of MOC / HIL to Slurm
+    control commands
+
+  - Installation scripts for MOC / HIL setup on Slurm controller and
+    compute nodes.  Includes Slurm installation as well, to allow
+    application to new VMs for test purposes.
+
+  - HIL infrastructure (pre-existing)
+
+  - Slurm MOC / HIL reservation monitor framework
+
+
+* MOC / HIL Work Remaining
+
+1. Understand HIL functions and API
+
+2. Develop interface between MOC / HIL reservation monitor and HIL
+   infrastructure
+
+3. Develop interface between MOC / HIL reservation monitor and HIL
+   node and network state maintenance code
+
+4. Develop MOC / HIL reservation state storage, or equivalent, to
+   support hil_release operations
+
+5. Develop Additional priviliged and non-privileged software to
+   maintain MOC / HIL system, as required
+
+6. Installation infrastructure, including definition of same
+
+7. System test
+
+8. Documentation
+
+//EOF
+
+
+
+
+
+
+   
