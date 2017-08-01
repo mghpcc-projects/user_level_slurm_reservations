@@ -163,6 +163,13 @@ def delete_slurm_reservation(name, debug=False):
     return exec_scontrol_cmd('delete', None, debug=debug, reservation=name)
 
 
+def update_slurm_reservation(name, debug=False, **kwargs):
+    '''
+    Update a Slurm reservation via 'scontrol update reservation=<name> <kwargs>'
+    '''
+    return exec_scontrol_cmd('update', None, debug=debug, **kwargs)
+
+
 def get_object_data(what_obj, obj_id, debug=False):
     '''
     Get a list of dictionaries of information on the object, via 
