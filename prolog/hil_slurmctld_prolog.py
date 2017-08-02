@@ -13,6 +13,7 @@ import logging
 import os
 import sys
 from datetime import datetime, timedelta
+from time import strftime
 
 libdir = os.path.realpath(os.path.join(os.path.dirname(inspect.getfile(inspect.currentframe())), '../common'))
 sys.path.append(libdir)
@@ -221,13 +222,13 @@ def _create_hil_reservation(name_token, env_dict, pdata_dict, jobdata_dict):
     return resname, stderr_data
 
 
-def _modify_hil_reservation(env_dict, pdata_dict, jobdata_dict, **kwargs):
+def _update_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname, **kwargs):
     '''
-    Modify a HIL reservation.
+    Update (modify) a HIL reservation.
     One use is to change the start time of the release reservation to 
     the current time, after the reserve reservation has been deleted
     '''
-    return update_slurm_reservation(resname, debug=False, **kwargs):
+    return update_slurm_reservation(resname, debug=False, **kwargs)
 
 
 def _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname):
@@ -251,7 +252,7 @@ def _get_hil_reservation_name(name_token, env_dict, t_start_s):
     Create a reservation name, combining the HIL reservation prefix,
     the username, the job ID, and the ToD (YMD_HMS)
     '''
-    resname = HIL_RESERVATION_PREFIX + '_' + name_token + '_'
+    resname = HIL_RESERVATION_PREFIX + name_token + '_'
     resname += env_dict['username'] + '_'
     resname += env_dict['job_uid'] + '_' + t_start_s
     return resname
@@ -283,24 +284,38 @@ def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
     - Verify the reservation is a HIL reserve reservation
     '''
     reserve_resname = jobdata_dict['Reservation']
+
     if reserve_resname:
         if env_dict['username'] not in reserve_resname:
-            log_error('Reservation `%s` not owned by user `%s`' % (resname, env_dict['username']))
-
+            log_error('Reservation `%s` not owned by user `%s`' % (reserve_resname, 
+                                                                   env_dict['username']))
         elif HIL_RESERVE not in reserve_resname:
-            log_error('Reservation `%s` is not a HIL reserve reservation' % resname)
+            log_error('Reservation `%s` is not a HIL reserve reservation' % reserve_resname)
 
         else:
             # Basic validation done
             # Delete the reserve reservation
             # Advance the start time of the release reservation
-            stdout_data, stderr_data = _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, 
-                                                               resname)
+            stdout_data, stderr_data = _delete_hil_reservation(env_dict, pdata_dict, 
+                                                               jobdata_dict, reserve_resname)
             if (len(stderr_data) == 0):
-                _log_hil_reservation(resname, 'Released', env_dict)
+                log_info('HIL reserve reservation `%s` deleted' % reserve_resname)
+            else:
+                log_error('Error deleting HIL reserve reservation `%s`' % reserve_resname)
+                log_error(stderr_data)
 
             # Transform reserve reservation name to release reservation name
-            re.sub()
+            # then update the release reservation start time to the current time
+            release_resname = reserve_resname.replace(HIL_RESERVE, HIL_RELEASE)
+            stdout_data, stderr_data = _update_hil_reservation(env_dict, pdata_dict,
+                                                               jobdata_dict, release_resname,
+                                                               StartTime=strftime(RES_CREATE_TIME_FMT))
+            if (len(stderr_data) == 0):
+                log_info('HIL release reservation `%s` updated' % release_resname)
+            else:
+                log_error('Error updating HIL release reservation `%s`' % release_resname)
+                log_error(stderr_data)
+
     else:
         log_error('No reservation name specified to `%s` command' % jobdata_dict['JobName'])
 
