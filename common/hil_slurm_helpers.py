@@ -11,7 +11,7 @@ from subprocess import Popen, PIPE
 
 from hil_slurm_constants import RES_CREATE_FLAGS
 from hil_slurm_settings import SLURM_INSTALL_DIR
-from hil_slurm_logging import log_debug, log_error
+from hil_slurm_logging import log_debug, log_info, log_error
 
 
 def _exec_subprocess_cmd(cmd):
@@ -151,9 +151,12 @@ def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None,
     if nodes is None:
         nodes = 'ALL'
 
+    t_end_arg = {'duration': 'UNLIMITED'} if t_end_s is None else {'endtime': t_end_s}
+
     return exec_scontrol_cmd('create', 'reservation', entity_id=None, debug=debug, 
-                             ReservationName=name, starttime=t_start_s, endtime=t_end_s,
-                             user=user, nodes=nodes, flags=flags, features=features)
+                             ReservationName=name, starttime=t_start_s, 
+                             user=user, nodes=nodes, flags=flags, features=features,
+                             **t_end_arg)
 
 
 def delete_slurm_reservation(name, debug=False):
@@ -167,7 +170,7 @@ def update_slurm_reservation(name, debug=False, **kwargs):
     '''
     Update a Slurm reservation via 'scontrol update reservation=<name> <kwargs>'
     '''
-    return exec_scontrol_cmd('update', None, debug=debug, **kwargs)
+    return exec_scontrol_cmd('update', None, reservation=name, debug=debug, **kwargs)
 
 
 def get_object_data(what_obj, obj_id, debug=False):
