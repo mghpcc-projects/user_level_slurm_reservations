@@ -173,6 +173,29 @@ def update_slurm_reservation(name, debug=False, **kwargs):
     return exec_scontrol_cmd('update', None, reservation=name, debug=debug, **kwargs)
 
 
+def is_hil_reservation(resname, type_s):
+    '''
+    Check if the passed reservation name is 
+    '''
+    status = True
+
+    if not resname.startswith(HIL_RESERVATION_PREFIX):
+        return False
+
+    if type_s not in resname:
+        return False
+
+    resname = resname.replace(HIL_RESERVATION_PREFIX, '').replace(type_s)
+    uname = resname.split('_')[0]
+
+    try:
+        pws = pwd.getpwname(uname)
+    except KeyError:
+        status = False
+
+    return status
+
+
 def get_object_data(what_obj, obj_id, debug=False):
     '''
     Get a list of dictionaries of information on the object, via 

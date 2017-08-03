@@ -12,37 +12,34 @@ import inspect
 import logging
 from os import listdir
 from os.path import realpath, dirname, isfile, join
-from time import mktime, strptime
-
 import sys
+from time import time, mktime, strptime
 
 libdir = realpath(join(dirname(inspect.getfile(inspect.currentframe())), '../common'))
 sys.path.append(libdir)
 
-
-from hil_slurm_settings import HIL_RESERVATION_DELETE_PREFIX, HIL_MONITOR_LOGFILE
+from hil_slurm_settings import HIL_MONITOR_LOGFILE
+from hil_slurm_constants import HIL_RESERVATION_PREFIX, SHOW_OBJ_TIME_FMT
 from hil_slurm_helpers import exec_scontrol_show_cmd
 from hil_slurm_logging import log_init, log_info, log_debug, log_error
 
 
-RESTORATION_TMPDIR = '/var/local/hil'
+def _find_release_reservations(resdata_dict_list):
+    '''
+    Traverse the passed list of reservation dictionaries
+    Create a list of HIL reserve reservations
+    Create a dictionary of HIL release reservations
+    Remove any pairs, then return list of release reservations 
+    '''
+    release_list = []
 
-def _scrub_nodes():
-    '''
-    '''
-
-def _restore_nodes():
-    '''
-    '''
-
-def _check_reservation_status(rdict):
-    '''
-    Check the status of each of the passed reservations, to determine if any need service.
-    '''
-    for res, resdata in rdict:
-        # Check if release reservation
-        if not is_hil_release_reservation(resdata['ReservationName']):
+    for resdata_dict in resdata_dict_list:
+        # Check if reserve reservation
+        if not is_hil_reservation(resdata_dict['ReservationName'], HIL_RESERVE):
             continue
+
+        # Look for matching release reservation
+        resname = resdata_dict['ReservationName
 
 def _add_nodes_to_hil(nodelist):
     '''
@@ -69,7 +66,7 @@ def _get_hil_reservations():
     hil_release_reservations_list = []
 
     for resdata_dict in reservation_dict_list:
-        if not resdata_dict['ReservationName'].startswith(HIL_RESERVATION_DELETE_PREFIX):
+        if not resdata_dict['ReservationName'].startswith(HIL_RESERVATION_PREFIX):
             continue
 
         end_time_s = resdata_dict['EndTime']
@@ -141,17 +138,16 @@ def main(argv=[]):
 
     print 'Hello, world'
     log_init('hil_monitor', HIL_MONITOR_LOGFILE, logging.DEBUG)
-    print 'Hello, world'
 
     # Look for reservations.  If there are none, return
-    reservations_dict = _get_hil_reservations()
-    if not reservations_dict:
+    reservations_dict_list = _get_hil_reservations()
+    if not reservations_dict_list
         return
 
     log_info('HIL Reservation Monitor', separator=True)
     log_debug('')
 
-    new_reservations = check_reservation_status(reservations_dict)
+    release_reservations = _find_release_reservations(reservations_dict_list)
     
 
 if __name__ == '__main__':
