@@ -19,27 +19,43 @@ libdir = realpath(join(dirname(inspect.getfile(inspect.currentframe())), '../com
 sys.path.append(libdir)
 
 from hil_slurm_settings import HIL_MONITOR_LOGFILE
-from hil_slurm_constants import HIL_RESERVATION_PREFIX, SHOW_OBJ_TIME_FMT
-from hil_slurm_helpers import exec_scontrol_show_cmd
+from hil_slurm_constants import SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE
+from hil_slurm_helpers import exec_scontrol_show_cmd, is_hil_reservation, parse_hil_reservation_name
 from hil_slurm_logging import log_init, log_info, log_debug, log_error
 
 
-def _find_release_reservations(resdata_dict_list):
+def _find_hil_release_reservations(resdata_dict_list):
     '''
     Traverse the passed list of reservation dictionaries
-    Create a list of HIL reserve reservations
-    Create a dictionary of HIL release reservations
-    Remove any pairs, then return list of release reservations 
+    Find release reservations which do not have reserve reservations
+    Returns a list of release reservations which should be deleted
     '''
-    release_list = []
+    reserve_set = set()
+    release_set = set()
+    reservations = {}
 
     for resdata_dict in resdata_dict_list:
-        # Check if reserve reservation
-        if not is_hil_reservation(resdata_dict['ReservationName'], HIL_RESERVE):
+        resname = resdata_dict['ReservationName']
+        _, restype, _, _, _ = parse_hil_reservation_name(resname)
+
+        if restype == HIL_RESERVE:
+            reserve_set.add(resname)
+            reservations[resname] = resdata_dict
+        elif restype == HIL_RELEASE:
+            release_set.add(resname)
+            reservations[resname] = resdata_dict
+        else:
             continue
 
-        # Look for matching release reservation
-        resname = resdata_dict['ReservationName
+    delete_list = []
+
+    for resname in (release_set - reserve_set):
+        print 'Release reservation w/o reserve reservation'
+        print '  ', resname
+        delete_list.append(reservations[resname])
+
+    return delete_list
+
 
 def _add_nodes_to_hil(nodelist):
     '''
@@ -60,25 +76,16 @@ def _get_hil_reservations():
     '''
     Return a dictionary of all HIL reservations extant in the system
     '''
-    reservation_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
+    resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
+    print resdata_dict_list
 
-    print reservation_dict_list
-    hil_release_reservations_list = []
-
-    for resdata_dict in reservation_dict_list:
-        if not resdata_dict['ReservationName'].startswith(HIL_RESERVATION_PREFIX):
+    for resdata_dict in resdata_dict_list:
+        if is_hil_reservation(resdata_dict['ReservationName'], None):
             continue
+        else:
+            resdata_dict_list.remove(resdata_dict)
 
-        end_time_s = resdata_dict['EndTime']
-        if end_time_s is 'None':
-            continue
-
-        if (mktime(strptime(end_time_s, SHOW_OBJ_TIME_FMT)) > time()):
-            continue
-
-        hil_release_reservations_list.append(resdata_dict)
-            
-    return hil_release_reservations_list
+    return resdata_dict_list
 
 
 def _restore_one_node(nodename):
@@ -86,7 +93,7 @@ def _restore_one_node(nodename):
     Node has been released from HIL and may be restored.
     Invoke the restoration script and update the node restoration state file
     '''
-    
+
     pass
 
 def _restore_nodes(nodelist):
@@ -116,7 +123,7 @@ def _verify_nodes_restored():
 
 def _return_node_to_slurm():
     '''
-    
+
     '''
     pass
 
@@ -135,20 +142,21 @@ def _loan_nodes_to_hil():
 
 
 def main(argv=[]):
-
-    print 'Hello, world'
+    '''
+    '''
     log_init('hil_monitor', HIL_MONITOR_LOGFILE, logging.DEBUG)
 
-    # Look for reservations.  If there are none, return
-    reservations_dict_list = _get_hil_reservations()
-    if not reservations_dict_list
+    # Look for HIL reservations.  If there are none, return
+
+    resdata_dict_list = _get_hil_reservations()
+    if not len(resdata_dict_list):
         return
 
     log_info('HIL Reservation Monitor', separator=True)
     log_debug('')
 
-    release_reservations = _find_release_reservations(reservations_dict_list)
-    
+    release_reservations = _find_hil_release_reservations(resdata_dict_list)
+
 
 if __name__ == '__main__':
     main(sys.argv[1:])

@@ -7,9 +7,12 @@ May 2017, Tim Donahue	tpd001@gmail.com
 """
 
 import os
+from pwd import getpwnam, getpwuid
 from subprocess import Popen, PIPE
 
-from hil_slurm_constants import RES_CREATE_FLAGS
+from hil_slurm_constants import (HIL_RESNAME_PREFIX, HIL_RESNAME_FIELD_SEPARATOR,
+                                 HIL_RESERVATION_OPERATIONS, RES_CREATE_FLAGS,
+                                 HIL_RESERVE, HIL_RELEASE)
 from hil_slurm_settings import SLURM_INSTALL_DIR
 from hil_slurm_logging import log_debug, log_info, log_error
 
@@ -65,7 +68,7 @@ def _scontrol_show_stdout_to_dict_list(stdout_data, stderr_data, debug=False):
                 log_debug('Failed to convert `$s`' % kv_pair)
 
         stdout_dict_list.append(stdout_line_dict)
-    
+
     return stdout_dict_list
 
 
@@ -143,7 +146,7 @@ def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
     return stdout_dict_list, stdout_data, stderr_data
 
 
-def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None, 
+def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None,
                              flags=RES_CREATE_FLAGS, features=None, debug=False):
     '''
     Create a Slurm reservation via 'scontrol create reservation'
@@ -153,8 +156,8 @@ def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None,
 
     t_end_arg = {'duration': 'UNLIMITED'} if t_end_s is None else {'endtime': t_end_s}
 
-    return exec_scontrol_cmd('create', 'reservation', entity_id=None, debug=debug, 
-                             ReservationName=name, starttime=t_start_s, 
+    return exec_scontrol_cmd('create', 'reservation', entity_id=None, debug=debug,
+                             ReservationName=name, starttime=t_start_s,
                              user=user, nodes=nodes, flags=flags, features=features,
                              **t_end_arg)
 
@@ -173,35 +176,85 @@ def update_slurm_reservation(name, debug=False, **kwargs):
     return exec_scontrol_cmd('update', None, reservation=name, debug=debug, **kwargs)
 
 
-def is_hil_reservation(resname, type_s):
+def get_hil_reservation_name(env_dict, restype_s, t_start_s):
     '''
-    Check if the passed reservation name is 
-    '''
-    status = True
+    Create a reservation name, combining the HIL reservation prefix,
+    the username, the job ID, and the ToD (YMD_HMS)
 
-    if not resname.startswith(HIL_RESERVATION_PREFIX):
+    Structure:
+      NamePrefix _ [release|reserve] _ uname _ job_UID _ ToD
+    '''
+    resname = HIL_RESNAME_PREFIX + restype_s + HIL_RESNAME_FIELD_SEPARATOR
+    resname += env_dict['username'] + HIL_RESNAME_FIELD_SEPARATOR
+    resname += env_dict['job_uid'] + HIL_RESNAME_FIELD_SEPARATOR
+    resname += t_start_s
+    return resname
+
+
+def parse_hil_reservation_name(resname):
+    '''
+    Attempt to split a reservation name into HIL reservation name components:
+    HIL reservation prefix, reservation type, user name, uid, and time
+
+    This looks like overkill, except for the presence of other reservations in the
+    system, with semi-arbitrary names.
+    '''
+    prefix = None
+    restype = None
+    user = None
+    uid = None
+    time_s = None
+
+    if resname.startswith(HIL_RESNAME_PREFIX):
+        resname_partitions = resname.partition(HIL_RESNAME_PREFIX)
+        prefix = resname_partitions[1]
+
+        try:
+            restype, user, uid, time_s = resname_partitions[2].split(HIL_RESNAME_FIELD_SEPARATOR)
+        except:
+            pass
+
+    return prefix, restype, user, uid, time_s
+
+
+def is_hil_reservation(resname, restype):
+    '''
+    Check if the passed reservation name:
+    - Starts with the HIL reservation prefix
+    - Is a HIL reserve or release reservation
+    - Contains a valid user name and UID
+    - Optionally, is specifically a reserve or release reservation
+    - $$$ Could verify nodes have HIL property set
+    '''
+    prefix, type, uname, uid, time = parse_hil_reservation_name(resname)
+    if (prefix != HIL_RESNAME_PREFIX):
         return False
 
-    if type_s not in resname:
+    if restype:
+        if (restype != type):
+            return False
+    elif type not in HIL_RESERVATION_OPERATIONS:
         return False
-
-    resname = resname.replace(HIL_RESERVATION_PREFIX, '').replace(type_s)
-    uname = resname.split('_')[0]
 
     try:
-        pws = pwd.getpwname(uname)
-    except KeyError:
-        status = False
+        pwdbe1 = getpwnam(uname)
+        pwdbe2 = getpwuid(int(uid))
+        if pwdbe1 != pwdbe2:
+            log_error('Reservation `%s`: User and UID inconsistent' % resname)
+            return False
 
-    return status
+    except KeyError:
+        return False
+
+    return True
 
 
 def get_object_data(what_obj, obj_id, debug=False):
     '''
-    Get a list of dictionaries of information on the object, via 
+    Get a list of dictionaries of information on the object, via
     'scontrol show <what_object> <object_id>'
     '''
-    objdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd(what_obj, 
+    objdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd(what_obj,
                                                                          obj_id, debug=False)
     if (len(stderr_data) != 0):
         if debug:
@@ -213,7 +266,7 @@ def get_object_data(what_obj, obj_id, debug=False):
 
 def get_partition_data(partition_id):
     '''
-    Get a list of dictionaries of information on the partition(s), 
+    Get a list of dictionaries of information on the partition(s),
     via 'scontrol show partition'
     '''
     return get_object_data('partition', partition_id, debug=False)
@@ -221,7 +274,7 @@ def get_partition_data(partition_id):
 
 def get_job_data(job_id):
     '''
-    Get a list of dictionaries of information on the job(s), 
+    Get a list of dictionaries of information on the job(s),
     via 'scontrol show job'
     '''
     return get_object_data('job', job_id, debug=False)
