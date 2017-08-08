@@ -217,7 +217,7 @@ def parse_hil_reservation_name(resname):
     return prefix, restype, user, uid, time_s
 
 
-def is_hil_reservation(resname, restype):
+def is_hil_reservation(resname, restype_in):
     '''
     Check if the passed reservation name:
     - Starts with the HIL reservation prefix
@@ -226,24 +226,28 @@ def is_hil_reservation(resname, restype):
     - Optionally, is specifically a reserve or release reservation
     - $$$ Could verify nodes have HIL property set
     '''
-    prefix, type, uname, uid, time = parse_hil_reservation_name(resname)
+    prefix, restype, uname, uid, time = parse_hil_reservation_name(resname)
     if (prefix != HIL_RESNAME_PREFIX):
+#       log_error('No HIL reservation prefix')
         return False
 
-    if restype:
-        if (restype != type):
+    if restype_in:
+        if (restype != restype_in):
+#           log_error('Reservation type mismatch')
             return False
-    elif type not in HIL_RESERVATION_OPERATIONS:
+    elif restype not in HIL_RESERVATION_OPERATIONS:
+        log_error('Unknown reservation type')
         return False
 
     try:
         pwdbe1 = getpwnam(uname)
         pwdbe2 = getpwuid(int(uid))
         if pwdbe1 != pwdbe2:
-            log_error('Reservation `%s`: User and UID inconsistent' % resname)
+#           log_error('Reservation `%s`: User and UID inconsistent' % resname)
             return False
 
     except KeyError:
+#       log_error('Key error')
         return False
 
     return True
