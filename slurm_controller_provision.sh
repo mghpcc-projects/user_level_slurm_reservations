@@ -210,7 +210,7 @@ cd /opt/packages
 
 # Slurm Daemon
 
-/usr/local/bin/slurmctld & 
+/usr/local/sbin/slurmctld & 
 
 # Cleanup
 
