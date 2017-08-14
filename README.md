@@ -1,27 +1,25 @@
-# MOC HIL Node Reservations
+# MOC HIL User Level Slurm Reservations (ULSR)
 
-(Also known as 'user_level_slurm_reservations')
-
-V0.3  21-Jul-2017
+V0.4  14-Aug-2017
 
 # Introduction
 
-HIL reservations allow a nonprivileged Slurm user to reserve Slurm
-compute nodes for HIL operations.  The nodes may be later released
-and returned to the pool of Slurm compute nodes for use by others.
+ULSR software allows a non-privileged Slurm user to reserve Slurm
+compute nodes for HIL operations.  The nodes may be later released and
+returned to the pool of Slurm compute nodes for use by others.
 
-At present, two commands are used to manage HIL reservations:
+At present, two commands, run in the Slurm partition environment, are
+used to manage Slurm HIL reservations:
 
   * ```hil_reserve```
   * ```hil_release```
 
 These commands are executed as Slurm jobs via ```srun(1)``` and ```sbatch(1).```
 
-Other software components (not described here at this time) are, or
-will, be used to perform HIL node and network management operations on
-nodes reserved and freed using the above commands.  A goal is to have
-these components operate automatically without user or system
-administrator intervention.
+Other software components be used to perform HIL node and network
+management operations on nodes reserved and freed using the above
+commands.  A goal is to have these components execute automatically
+without user or administrator intervention.
 
 ## Usage
 
@@ -38,38 +36,79 @@ reservation``` command:
 ``` 
 $ scontrol show reservation
 ```
-If successful, a reservation similiar to the following should appear:
+If successful, two reservations similiar to the following should appear:
 
 ```
-ReservationName=flexalloc_MOC_ubuntu_1000_2017-06-26T17:20:32
+ReservationName=flexalloc_MOC_reserve_centos_1000_2017-06-26T17:20:32
 StartTime=2017-06-26T17:20:32 EndTime=2017-06-26T21:25:32
 Duration=04:05:00 Nodes=server1 NodeCnt=1 CoreCnt=1 Features=(null)
 PartitionName=(null) Flags=MAINT,IGNORE_JOBS,S PEC_NODES,ALL_NODES
-TRES=cpu=1 Users=ubuntu Accounts=(null) Licenses=(null) State=ACTIVE
+TRES=cpu=1 Users=centos Accounts=(null) Licenses=(null) State=ACTIVE
+BurstBuffer=(null) Watts=n/a 
+```
+
+```
+ReservationName=flexalloc_MOC_release_centos_1000_2017-06-26T17:20:32
+StartTime=2017-06-26T17:20:32 EndTime=2017-06-26T21:25:32
+Duration=04:05:00 Nodes=server1 NodeCnt=1 CoreCnt=1 Features=(null)
+PartitionName=(null) Flags=MAINT,IGNORE_JOBS,S PEC_NODES,ALL_NODES
+TRES=cpu=1 Users=centos Accounts=(null) Licenses=(null) State=ACTIVE
 BurstBuffer=(null) Watts=n/a 
 ```
 
 When finished, to release a HIL node, specify the ```hil_release```
 command to ```srun(1)``` or ```sbatch(1)```, additionally specifying
-**the HIL reservation to be released** as the reservation in which to
+**the HIL reserve reservation name** as the reservation in which to
 run the job:
 
 ```
-$ srun --reservation=flexalloc_MOC_ubuntu_1000_2017-06-26T17:20:32 hil_release
+$ srun --reservation=flexalloc_MOC_reserve_centos_1000_2017-06-26T17:20:32 hil_release
 ```
+
+This will ultimately cause removal of both the reserve and release
+reservations.
 
 ## Reservation Naming
 
 HIL reservations created using ```hil_reserve``` are named as follows:
 ```
-flexalloc_MOC_<username>_<uid>_<start_time>
+flexalloc_MOC_reserve_<username>_<uid>_<start_time>
 ```
+and
+```
+flexalloc_MOC_release_<username>_<uid>_<start_time>
+```
+
 An example:
 ```
-flexalloc_MOC_ubuntu_1000_2017-06-26T17:20:32
+flexalloc_MOC_reserve_centos_1000_2017-06-26T17:20:32
 ```
 
 The ```start_time``` is the start time of the job.
+
+
+## Two-Screen Management Model
+
+All HIL nodes are known, by common names, to both the Slurm partition
+and management functions and to the HIL partition and management
+functions.
+
+In the Slurm partition, nodes marked with the HIL property and perhaps
+otherwise designated by system administration may be thought of as
+available for loan to a HIL instance, or on loan to a HIL instance.
+
+  * Nodes which have been placed in a Slurm HIL reservation may be
+    considered as on loan to a HIL instance and HIL end user.
+
+  * Nodes which are not in a Slurm HIL reservation, but which are
+    marked with the ```HIL``` property, may be considered as available
+    for loan to a HIL instance and HIL end user.
+
+Once a Slurm server node has been placed in a Slurm HIL reservation
+with ```hil_reserve```, it may be necessary for the HIL end user to
+run HIL management commands to cause the server node to fully
+participate in a HIL user project.  This is a 'two-screen' management
+model.
 
 
 # Assumptions, Restrictions, Notes
@@ -122,7 +161,18 @@ By default, the following paths are used:
 
 # Implementation Details
 
-## HIL Reservation Commands
+## Software Components and Structure
+
+The ULSR software running in the context of the Slurm partition
+consists of the following:
+
+  1. The ```hil_reserve``` and ```hil_release``` user commands
+  described above.
+
+  2. A dedicated Slurm control daemon prolog function, which runs in
+  the context of the Slurm 
+
+## HIL Reservation Management Commands
 
 The ```hil_reserve``` and ```hil_release``` commands are implemented
 as bash(1) shell scripts, which do little more than cause the
