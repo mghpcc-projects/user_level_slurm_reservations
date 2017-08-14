@@ -26,37 +26,27 @@ from hil_slurm_logging import log_init, log_info, log_debug, log_error
 
 def _find_hil_release_reservations(resdata_dict_list):
     '''
-    Traverse the passed list of reservation dictionaries
+    Traverse the passed list of HIL reservation data
     Find release reservations which do not have reserve reservations
     Returns a list of release reservations which should be deleted
     '''
-    reserve_set = set()
-    release_set = set()
-    reservations = {}
+    all_reservations = {}
+    delete_list = []
 
     for resdata_dict in resdata_dict_list:
         resname = resdata_dict['ReservationName']
+        all_reservations[resname] = resdata_dict
+
+    # Look for reserve reservations matching release 
+    for resname, resdata_dict in all_reservations.iteritems():
         _, restype, _, _, _ = parse_hil_reservation_name(resname)
-
-        if restype == HIL_RESERVE:
-            reserve_set.add(resname)
-            reservations[resname] = resdata_dict
-        elif restype == HIL_RELEASE:
-            release_set.add(resname)
-            reservations[resname] = resdata_dict
-        else:
-            continue
-
-    delete_list = []
-
-    for resname in (release_set - reserve_set):
-        print 'Release reservation w/o reserve reservation'
-        print '  ', resname
-        delete_list.append(reservations[resname])
+        if restype == HIL_RELEASE:
+            if resname.replace(HIL_RELEASE, HIL_RESERVE, 1) not in all_reservations:
+                delete_list.append(resdata_dict)
 
     return delete_list
 
-
+    
 def _add_nodes_to_hil(nodelist):
     '''
     '''
