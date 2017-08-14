@@ -28,7 +28,7 @@ from hil_slurm_constants import (SHOW_OBJ_TIME_FMT, RES_CREATE_TIME_FMT,
                                  RES_CREATE_HIL_FEATURES,
                                  HIL_RESERVE, HIL_RELEASE,
                                  HIL_RESERVATION_COMMANDS,
-                                 RES_CREATE_FLAGS, RES_RELEASE_FLAGS)
+                                 RES_CREATE_FLAGS)
 from hil_slurm_logging import log_init, log_info, log_debug, log_error
 from hil_slurm_settings import (HIL_PARTITION_PREFIX,
                                 RES_CHECK_DEFAULT_PARTITION,
@@ -255,21 +255,14 @@ def _log_hil_reservation(resname, stderr_data, t_start_s=None, t_end_s=None):
 def _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict):
     '''
     Create HIL reserve and release reservations if they do not already exist.
+    Reservation times may overlap so long as the MAINT flag is set
     '''
     t_start_s, t_end_s = _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict)
-
-    resname, stderr_data = _create_hil_reservation(HIL_RESERVE, t_start_s, t_end_s,
+    
+    for restype_s in [HIL_RESERVE, HIL_RELEASE]:
+        resname, stderr_data = _create_hil_reservation(restype_s, t_start_s, t_end_s,
                                                    env_dict, pdata_dict, jobdata_dict)
-    _log_hil_reservation(resname, stderr_data, t_start_s, t_end_s)
-
-    # Set the release reservation times:
-    #    Start time is the end time of the reserve reservation
-    #    End time is unlimited
-    t_start_s = t_end_s
-    t_end_s = None
-    resname, stderr_data = _create_hil_reservation(HIL_RELEASE, t_start_s, t_end_s,
-                                                   env_dict, pdata_dict, jobdata_dict)
-    _log_hil_reservation(resname, stderr_data, t_start_s, t_end_s)
+        _log_hil_reservation(resname, stderr_data, t_start_s, t_end_s)
 
 
 def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
@@ -303,24 +296,6 @@ def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
                 log_info('Deleted  HIL reserve reservation `%s`' % reserve_resname)
             else:
                 log_error('Error deleting HIL reserve reservation `%s`' % reserve_resname)
-                log_error(stderr_data)
-
-            # Generate corresponding release reservation name
-            log_info('Reserve reservation times %s %s' % (reserve_rdata['StartTime'],
-                                                          reserve_rdata['EndTime']))
-            release_resname = get_hil_reservation_name(env_dict, HIL_RELEASE,
-                                                       reserve_rdata['EndTime'])
-
-            # Update the release reservation start time to the reserve
-            # reservation start time
-            stdout_data, stderr_data = _update_hil_reservation(env_dict, pdata_dict,
-                                                               jobdata_dict, release_resname,
-                                                               StartTime=reserve_rdata['StartTime'])
-            if (len(stderr_data) == 0):
-                log_info('Updated  HIL release reservation `%s`' % release_resname)
-            else:
-                log_error('Error updating HIL release reservation `%s`' % release_resname)
-                log_error('New start time %s' % reserve_rdata['StartTime'])
                 log_error(stderr_data)
 
     else:
