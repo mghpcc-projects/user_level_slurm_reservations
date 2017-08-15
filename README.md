@@ -77,8 +77,22 @@ may not be shared among users.
 
 ## Restrictions on User Names and UIDs
 
-It is recommended that the ```srun``` and ```sbatch``` commands
-**not** be specified with the ``a`--uid``` argument.
+Reservations are named after the user who invoked the ```srun
+hil_reserve``` command.  The user's name and UID are passed to the
+Slurmctld prolog and epilog through the ```SLURM_JOB_USER``` and
+```SLURM_JOB_UID``` environment variables.
+
+Priviliged users may specify the user ID with which to create Slurm
+reservations by specifying the ```--uid=<name>``` argument.  It is
+recommended that the ```srun``` and ```sbatch``` commands **not** be
+specified with the ```--uid``` argument, however, as processing Slurm
+HIL reservations with alternate or additional user names has not been
+tested.
+
+At present, only the user named in the reservation may release the
+reservation via ```hil_release```.  Of course, a privileged user may
+update or delete reservations using ```scontrol```, but the system
+state after such an opertion will be **undefined**.
 
 ## Reservation Naming
 
@@ -105,6 +119,7 @@ requested resources become available and the job is scheduled for
 execution.  Thus the reservation start times may be substantially
 different from the time-of-day at which the ```srun``` command is
 invoked.
+
 
 ## Two-Screen Management Model
 
@@ -261,7 +276,23 @@ of various ```scontrol show``` commands, for example, ```scontrol show job```.
 
 ## Periodic Reservation Monitor
 
-To be supplied.
+The HIL reservation monitor runs periodically on the Slurm controller
+node and looks for changes in Slurm HIL reservations.  More
+specifically, the reservation monitor looks for Slurm HIL release
+reservations which do not have corresponding reserve reservations.
+
+For each singleton release reservation found, the HIL reservation
+monitor:
+
+  1. Invokes the HIL client API to remove the nodes in the reservation
+  from the HIL user project or HIL free pool.
+
+  2. Deletes the Slurm HIL release reservation.
+
+If the HIL client operations fail, the Slurm HIL release reservation
+is left in place, so that the periodic reservation monitor can retry
+the operation.
+
 
 ## HIL Client Interface
 
