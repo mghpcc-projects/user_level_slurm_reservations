@@ -96,17 +96,15 @@ An example:
 flexalloc_MOC_reserve_centos_1000_2017-06-26T17:20:32
 ```
 
-The ```start_time``` is the start time of the job.
-
 ## Reservation Start and End Times
 
-The reserve and release reservation start times are set to the
-approximate time at which the ```hil_reserve``` command is run.  More
-specifically, the reservations are created by the ```slurmctld```
-prolog and epilog when the requested resources become available and
-the job is scheduled for execution.  Thus the reservation start times
-may be substantially different from the time-of-day at which the
-```srun``` command was run.
+The reserve and release reservation start times may differ from the
+time at which the ```hil_reserve``` command is run.  Reservations are
+created by the ```slurmctld``` prolog and epilog only when the
+requested resources become available and the job is scheduled for
+execution.  Thus the reservation start times may be substantially
+different from the time-of-day at which the ```srun``` command is
+invoked.
 
 ## Two-Screen Management Model
 
@@ -207,6 +205,15 @@ consists of the following:
   which monitor the set of Slurm reservations and invoke HIL control
   operations to move nodes between HIL projects and the HIL free pool.
 
+  4. A MOC HIL client interface, used by the ULSR code to remotely
+  execute HIL commands on the nodes placed into and freed from HIL
+  reservations, and on the switches terminating the physical network
+  links which interconnect the nodes.
+
+  5. A Slurm partition instance.
+
+  6. A MOC HIL cluster instance.
+
 
 ## HIL Reservation Management Commands
 
@@ -254,7 +261,11 @@ of various ```scontrol show``` commands, for example, ```scontrol show job```.
 
 ## Periodic Reservation Monitor
 
+To be supplied.
+
 ## HIL Client Interface
+
+To be supplied.
 
 # Software Installation
 
