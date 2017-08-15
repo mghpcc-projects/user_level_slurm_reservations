@@ -1,6 +1,6 @@
 # MOC HIL User Level Slurm Reservations (ULSR)
 
-V0.4  14-Aug-2017
+V0.5  15-Aug-2017
 
 # Introduction
 
@@ -16,10 +16,10 @@ used to manage Slurm HIL reservations:
 
 These commands are executed as Slurm jobs via ```srun(1)``` and ```sbatch(1).```
 
-Other software components be used to perform HIL node and network
-management operations on nodes reserved and freed using the above
-commands.  A goal is to have these components execute automatically
-without user or administrator intervention.
+Other software components perform HIL node and network management
+operations on nodes reserved and freed using the above commands.  A
+program goal is to have these components execute automatically without
+user or administrator intervention.
 
 ## Usage
 
@@ -56,6 +56,9 @@ TRES=cpu=1 Users=centos Accounts=(null) Licenses=(null) State=ACTIVE
 BurstBuffer=(null) Watts=n/a 
 ```
 
+Note that Slurm allows these reservations to temporally overlap due to
+the use of the ```MAINT``` flag during reservation creation.
+
 When finished, to release a HIL node, specify the ```hil_release```
 command to ```srun(1)``` or ```sbatch(1)```, additionally specifying
 **the HIL reserve reservation name** as the reservation in which to
@@ -64,9 +67,18 @@ run the job:
 ```
 $ srun --reservation=flexalloc_MOC_reserve_centos_1000_2017-06-26T17:20:32 hil_release
 ```
-
 This will ultimately cause removal of both the reserve and release
-reservations.
+reservations.  
+
+## Resource Sharing
+
+Nodes placed in a Slurm HIL reservation are marked as exclusive and
+may not be shared among users.
+
+## Restrictions on User Names and UIDs
+
+It is recommended that the ```srun``` and ```sbatch``` commands
+**not** be specified with the ``a`--uid``` argument.
 
 ## Reservation Naming
 
@@ -86,29 +98,41 @@ flexalloc_MOC_reserve_centos_1000_2017-06-26T17:20:32
 
 The ```start_time``` is the start time of the job.
 
+## Reservation Start and End Times
+
+The reserve and release reservation start times are set to the
+approximate time at which the ```hil_reserve``` command is run.  More
+specifically, the reservations are created by the ```slurmctld```
+prolog and epilog when the requested resources become available and
+the job is scheduled for execution.  Thus the reservation start times
+may be substantially different from the time-of-day at which the
+```srun``` command was run.
 
 ## Two-Screen Management Model
 
-All HIL nodes are known, by common names, to both the Slurm partition
-and management functions and to the HIL partition and management
-functions.
+All HIL nodes are known, by common names, to the Slurm management
+functions and to the HIL management functions.  The nodes exist in
+both the Slurm partition and the HIL partition simultaneously, in
+advance of any reservation and release operations.
 
 In the Slurm partition, nodes marked with the HIL property and perhaps
 otherwise designated by system administration may be thought of as
 available for loan to a HIL instance, or on loan to a HIL instance.
 
   * Nodes which have been placed in a Slurm HIL reservation may be
-    considered as on loan to a HIL instance and HIL end user.
+    considered as on loan to a HIL instance.  They may exist in the
+    HIL free pool or be allocated to a HIL project and a HIL end user.
 
   * Nodes which are not in a Slurm HIL reservation, but which are
     marked with the ```HIL``` property, may be considered as available
-    for loan to a HIL instance and HIL end user.
+    for loan to a HIL instance. They do not reside in the HIL free
+    pool nor are they part of a HIL project.
 
 Once a Slurm server node has been placed in a Slurm HIL reservation
 with ```hil_reserve```, it may be necessary for the HIL end user to
 run HIL management commands to cause the server node to fully
-participate in a HIL user project.  This is a 'two-screen' management
-model.
+participate in a HIL user project.  This requirement may be
+interpreted as consistent with a 'two-screen' management model.
 
 
 # Assumptions, Restrictions, Notes
@@ -120,13 +144,13 @@ following apply to the user level Slurm reservation software.
   Slurm partition.  
 
   2. The Slurm controller node in the partition is not available for
-  HIL operations.
+  HIL operations and is **not** marked with the ```HIL``` feature.
 
-  3. Slurm compute nodes must be marked with the ```HIL``` feature in order
-  to be reserved.  Features are defined in the ```slurm.conf``` file
-  or may be added to a node by a privileged user via the ```scontrol
-  update``` command - refer to the Slurm documenation for a
-  description of how to do this.
+  3. Slurm compute nodes must be marked with the ```HIL``` feature in
+  order to be placed in a HIL reservation.  Features are defined in
+  the ```slurm.conf``` file or may be added to a node by a privileged
+  user via the ```scontrol update``` command.  Refer to the Slurm
+  documenation for a description of how to do this.
 
   4. HIL nodes may be released from a HIL reservation through
   ```hil_release```, even though they are not up and running Linux.
@@ -138,7 +162,9 @@ following apply to the user level Slurm reservation software.
 
   6. The ```hil_reserve``` and ```hil_release``` commands must be
   available on both the Slurm controller node and on the compute nodes
-  which form the target of the HIL bare node operations.
+  which form the target of the HIL bare node operations.  This is
+  accomplished during the ULSR software installation process.
+
 
 # Logging
 
@@ -150,13 +176,17 @@ may be reviewed as necessary to gain insight into system behavior.
   defined by the ```SlurmctldLogFile``` parameter in the
   ```slurm.conf``` file.
 
-  * HIL reservation operations are logged to a file on the Slurm
-    controller node.  The location of this file is configured in the
-    ```hil_slurm_settings.py``` file.
+  * HIL reservation operations performed by the Slurmctld prolog and
+    epilog are logged to a file on the Slurm controller node.  The
+    location of this file is configured in the
+    ```hil_slurm_settings.py``` file.  By default, the location is
+    ```/var/log/slurm-llnl/hil_prolog.log```.
 
-By default, the following paths are used:
-```/var/log/slurm-llnl/slurmctld.log``` and 
-```/var/log/slurm-llnl/hil_prolog.log```
+  * HIL reservation operations performed by the HIL periodic monitor
+  are also logged to a file on the Slurm controller node.  The
+  location of this file is configured in the
+  ```hil_slurm_settings.py``` file.  By default, the location is
+  ```/var/log/slurm-llnl/hil_monitor.log```. 
 
 
 # Implementation Details
@@ -170,7 +200,13 @@ consists of the following:
   described above.
 
   2. A dedicated Slurm control daemon prolog function, which runs in
-  the context of the Slurm 
+  the context of the Slurm control daemon on the Slurm controller
+  node.
+
+  3. One or more periodic processors, scheduled by ```cron(8)```,
+  which monitor the set of Slurm reservations and invoke HIL control
+  operations to move nodes between HIL projects and the HIL free pool.
+
 
 ## HIL Reservation Management Commands
 
@@ -192,12 +228,12 @@ epilog.  Prolog function is selected via an argument to the Python
 script.  The epilog is implemented in an identical manner.
 
 The work required to release nodes from a HIL reservation is performed
-by the ```slurmctld``` epilog.  As the reservation to be released is
-in use at the time the prolog runs (it is used to run the
-```hil_release``` job), it is not possible to delete the reservation
-in the prolog.
+by the ```slurmctld``` epilog and by the Slurm HIL periodic monitor.
+As the reservation to be released is in use at the time the prolog
+runs (it is used to run the ```hil_release``` job), it is not possible
+to delete the reservation in the prolog itself.
 
-## Communication between Components
+### Communication between Slurm Components
 
 The ```slurmctld``` prolog and epilog execution environment provides
 very limited support for communication between the user, the user's
@@ -215,6 +251,10 @@ name, user ID, and job node list.  Other information regarding the
 Slurm execution environment is available through subprocess execution
 of various ```scontrol show``` commands, for example, ```scontrol show job```.
 
+
+## Periodic Reservation Monitor
+
+## HIL Client Interface
 
 # Software Installation
 
