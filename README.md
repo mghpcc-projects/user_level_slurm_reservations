@@ -1,6 +1,6 @@
 # MOC HIL User Level Slurm Reservations (ULSR)
 
-V0.5  15-Aug-2017
+V0.6  18-Aug-2017
 
 # Introduction
 
@@ -297,6 +297,23 @@ the operation.
 ## HIL Client Interface
 
 To be supplied.
+
+## Development Branching Strategy
+
+The initial source code management strategy involves use of a single
+Git repository and multiple, parallel development branches:
+
+  1. The ```master``` branch is considered (relatively) stable and is
+  used as a source for production code releases
+
+  2. The ```development``` branch is the common line of development
+  and serves as both the source of, and merge destination for, feature
+  development branches created and used by individual developers.
+
+  3. Individual development branches, per-developer and/or
+  per-feature, which merge back to the ```development`` branch. These
+  should be named in a way which includes the owner's user ID.
+
 
 # Software Installation
 
