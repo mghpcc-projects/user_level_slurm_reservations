@@ -13,6 +13,10 @@ from hil.client.base import FailedAPICallException
 from hil_slurm_logging import log_info, log_debug, log_error
 from hil_slurm_settings import HIL_ENDPOINT, HIL_USER, HIL_PW
 
+# Place holder -> need to assert that the node's Slurm proj matches this
+slurm_project = "slurm"
+
+
 
 def hil_client_connect(endpoint_ip, name, pw):
     '''
@@ -22,13 +26,15 @@ def hil_client_connect(endpoint_ip, name, pw):
 
     return Client(endpoint_ip, hil_http_client)
 
-def check_hil_interface(hilc):
-    pass
 
-def hil_reserve_nodes(hilc, nodelist):
+def check_hil_interface():
+    hil_client = hil_init()
+
+
+def hil_reserve_nodes(nodelist):
     '''
-    Cause HIL nodes to move from the Slurm loaner project tot he HIL free pool
-    
+    Cause HIL nodes to move from the Slurm loaner project to the HIL free pool.
+
     This methods first powers off the nodes, then disconnects all networks and
     then moves the node from the Slurm project to the free pool.
 
@@ -36,23 +42,49 @@ def hil_reserve_nodes(hilc, nodelist):
     network is also controlled by HIL. If we removed all networks, then we will
     not be able to perform any ipmi operations on nodes.
     '''
-    
-    # TODO: use the arguments passed by the funcion
-    
     hil_client = hil_init()
     for node in nodelist:
+        # get information from node
+        node_info = hil_client.node.show(node)
+        project = node_info['project']
+        # check that the correct project is stored
+        assert project == slurm_project
+        # prep and move the node to free pool
         hil_client.node.power_off(node)
         _remove_all_networks(node, hil_client)
         hil_client.project.detach(project, node)
-        
-def hil_free_nodes(hilc, nodelist):
-    pass
+
+
+def hil_free_nodes(nodelist):
+    '''
+    Cause HIL nodes to move from the HIL free pool to the Slurm loaner project.
+
+    This methods first powers off the nodes, then disconnects all networks and
+    then moves the node from the free pool to the Slurm project.
+
+    We power off the nodes before removing the networks because the ipmi
+    network is also controlled by HIL. If we removed all networks, then we will
+    not be able to perform any ipmi operations on nodes.
+    '''
+    hil_client = hil_init()
+    for node in nodelist:
+        # get information from node
+        node_info = hil_client.node.show(node)
+        project = node_info['project']
+        # check that the node is not in Slurm already
+        assert project != slurm_project
+        # prep and return node to Slurm
+        hil_client.node.power_off(node)
+        _remove_all_networks(node, hil_client)
+        hil_client.project.detach(project, node)
+        hil_client.project.detach(slurm_project, node)
 
 
 def hil_init():
-    hilc = hil_client_connect(HIL_ENDPOINT, HIL_USER, HIL_PW)
-    return hilc
-    
+    hil_client = hil_client_connect(HIL_ENDPOINT, HIL_USER, HIL_PW)
+    return hil_client
+
+
 def _remove_all_networks(node, hil_client):
     """remove all networks from a node's nics"""
     node_info = hil_client.node.show(node)
