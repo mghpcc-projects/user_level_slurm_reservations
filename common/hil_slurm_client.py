@@ -76,8 +76,7 @@ def hil_free_nodes(nodelist):
         # prep and return node to Slurm
         hil_client.node.power_off(node)
         _remove_all_networks(node, hil_client)
-        hil_client.project.detach(project, node)
-        hil_client.project.detach(slurm_project, node)
+        hil_client.project.connect(slurm_project, node)
 
 
 def hil_init():
