@@ -11,10 +11,7 @@ import urllib
 from hil.client.client import Client, RequestsHTTPClient
 from hil.client.base import FailedAPICallException
 from hil_slurm_logging import log_info, log_debug, log_error
-from hil_slurm_settings import HIL_ENDPOINT, HIL_USER, HIL_PW
-
-# Place holder -> need to assert that the node's Slurm proj matches this
-slurm_project = "slurm"
+from hil_slurm_settings import HIL_ENDPOINT, HIL_USER, HIL_PW, HIL_SLURM_PROJECT
 
 
 
@@ -31,9 +28,9 @@ def check_hil_interface():
     hil_client = hil_init()
 
 
-def hil_reserve_nodes(nodelist):
+def hil_reserve_nodes(nodelist, dest_project):
     '''
-    Cause HIL nodes to move from the Slurm loaner project to the HIL free pool.
+    Cause HIL nodes to move from the Slurm loaner project to a new HIL project.
 
     This methods first powers off the nodes, then disconnects all networks and
     then moves the node from the Slurm project to the free pool.
@@ -48,16 +45,17 @@ def hil_reserve_nodes(nodelist):
         node_info = hil_client.node.show(node)
         project = node_info['project']
         # check that the correct project is stored
-        assert project == slurm_project
+        assert project == HIL_SLURM_PROJECT
         # prep and move the node to free pool
         hil_client.node.power_off(node)
         _remove_all_networks(node, hil_client)
         hil_client.project.detach(project, node)
+        hil_client.project.connect(dest_project, node)
 
 
-def hil_free_nodes(nodelist):
+def hil_free_nodes(nodelist, dest_project):
     '''
-    Cause HIL nodes to move from the HIL free pool to the Slurm loaner project.
+    Cause HIL nodes to move from a HIL project to the Slurm loaner project.
 
     This methods first powers off the nodes, then disconnects all networks and
     then moves the node from the free pool to the Slurm project.
@@ -72,11 +70,11 @@ def hil_free_nodes(nodelist):
         node_info = hil_client.node.show(node)
         project = node_info['project']
         # check that the node is not in Slurm already
-        assert project != slurm_project
+        assert project != HIL_SLURM_PROJECT
         # prep and return node to Slurm
         hil_client.node.power_off(node)
         _remove_all_networks(node, hil_client)
-        hil_client.project.connect(slurm_project, node)
+        hil_client.project.connect(HIL_SLURM_PROJECT, node)
 
 
 def hil_init():
