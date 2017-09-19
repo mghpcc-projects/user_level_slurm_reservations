@@ -34,7 +34,7 @@ def hil_move_node(node, dest_project, source_project=None):
     if source_project is None:
         source_project = node_info['project']
     else:
-        assert source_project is node_info['project'], "Project mismatch"
+        assert source_project == node_info['project'], "Project mismatch"
 
     hil_client.node.power_off(node)
     _remove_all_networks(node, hil_client)
@@ -70,7 +70,7 @@ def hil_free_nodes(nodelist):
     '''
     for node in nodelist:
         hil_move_node(node, HIL_SLURM_PROJECT)
-        # should probably atach the networks back for SLURM project
+        # should probably attach the networks back for SLURM project
         # 1. either copy the network config off of some other node in SLURM
         # 2. reconnect every network in the SLURM PROJECT
         # 3. hardcode some network names in a config file that needs to be
