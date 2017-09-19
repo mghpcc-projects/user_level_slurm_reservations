@@ -28,6 +28,8 @@ HIL_PARTITION_PREFIX = 'debug'
 HIL_RESERVATION_DEFAULT_DURATION = 24 * 60 * 60		# Seconds
 HIL_RESERVATION_GRACE_PERIOD = 4 * 60 * 60		# Seconds
 
+HIL_SLURM_PROJECT = 'slurm'
+
 # Partition validation controls
 
 RES_CHECK_DEFAULT_PARTITION = False
