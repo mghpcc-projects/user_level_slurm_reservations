@@ -15,9 +15,10 @@ HIL_MONITOR_LOGFILE = '/var/log/slurm-llnl/hil_monitor.log'
 
 HIL_RESERVATIONS_FILE = '/var/local/slurm-llnl/hil_reservations.txt'
 
-HIL_ENDPOINT = "128.31.22.130:80"
+HIL_ENDPOINT = "http://128.31.22.130:80"
 HIL_USER = 'admin'
 HIL_PW = 'NavedIsSleepy'
+HIL_SLURM_PROJECT = 'slurm'
 
 USER_HIL_SUBDIR = '.hil'
 USER_HIL_LOGFILE = 'hil_reservations.log'
