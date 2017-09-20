@@ -11,11 +11,10 @@ import urllib
 from hil.client.client import Client, RequestsHTTPClient
 from hil.client.base import FailedAPICallException
 from hil_slurm_logging import log_info, log_debug, log_error
-from hil_slurm_settings import HIL_ENDPOINT, HIL_USER, HIL_PW
+from hil_slurm_settings import HIL_ENDPOINT, HIL_USER, HIL_PW, HIL_SLURM_PROJECT
 
 # Place holder -> need to assert that the node's Slurm proj matches this
-slurm_project = "slurm"
-
+slurm_project = HIL_SLURM_PROJECT
 
 
 def hil_client_connect(endpoint_ip, name, pw):
