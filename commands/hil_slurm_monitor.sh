@@ -1,6 +1,6 @@
 #!/bin/bash
 
-HOME=/vagrant/user_level_slurm_reservations
+HOME=/home/centos/user_level_slurm_reservations
 LOGFILE=/var/log/slurm-llnl/hil_monitor.log
 
 source $HOME/ve/bin/activate
