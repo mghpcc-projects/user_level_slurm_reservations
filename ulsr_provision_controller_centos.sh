@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# ulsr_provision_controller.sh - MOC HIL ULSR Controller Provisioning Script
+# ulsr_provision_controller_centos.sh - MOC HIL ULSR Slurm Controller Provisioning Script
 #
-# Run on the controller node
+# Run on the Slurm controller node
 # Installs MOC HIL User Level Slurm Reservations code
 #
 # Notes
@@ -44,7 +44,6 @@ HIL_SHARED_DIR=$NFS_SHARED_DIR/hil
 LOCAL_BIN=/usr/local/bin
 
 yum makecache -y fast
-yum install -y make
 yum install -y emacs
 yum install -y nfs-utils
 yum install -y virtualenv
