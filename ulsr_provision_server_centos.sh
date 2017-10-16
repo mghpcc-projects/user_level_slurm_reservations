@@ -15,12 +15,12 @@
 set -x
 
 SLURM_USER=slurm
-SLURM_USER_DIR=/home/slurm
+SLURM_USER_DIR=/home/$SLURM_USER
 
 INSTALL_USER=centos
 INSTALL_USER_DIR=/home/$INSTALL_USER
 
-SLURM_CONF_FILE=/home/centos/slurm.conf
+SLURM_CONF_FILE=$INSTALL_USER_DIR/slurm.conf
 
 PYTHON_VER=python2.7
 
@@ -38,6 +38,7 @@ else
     mkdir $ULSR_DIR
 fi
 
+SLURM_CONTROLLER=slurm-controller
 NFS_SHARED_DIR=/shared
 HIL_SHARED_DIR=$NFS_SHARED_DIR/hil
 
@@ -46,11 +47,9 @@ LOCAL_BIN=/usr/local/bin
 yum makecache -y fast
 yum install -y emacs
 yum install -y nfs-utils
-yum install -y virtualenv
+pip install https://github.com/pypa/virtualenv/tarball/master
 
 echo "export SYSTEMD_EDITOR=emacs" >> ~/.bashrc
-
-cd $INSTALL_USER_DIR
 
 # Set up Python virtual environment, install Python hostlist
 
@@ -81,7 +80,6 @@ EOF
 mkdir -p $SLURM_USER_DIR/bin
 mkdir -p $SLURM_USER_DIR/scripts
 chown -R $SLURM_USER:$SLURM_USER $SLURM_USER_DIR/bin
-chown -R $SLURM_USER:$SLURM_USER $SLURM_USER_DIR/scripts
 
 # Copy files to final resting places
 #
@@ -91,8 +89,7 @@ HIL_COMMAND_FILES="hil_reserve \
                    hil_release"
 
 for file in $HIL_COMMAND_FILES; do
-    cp /shared/hil/bin/$file $LOCAL_BIN
+    cp $HIL_SHARED_DIR/bin/$file $LOCAL_BIN
     chmod 755 $LOCAL_BIN/$file
 done
-
 
