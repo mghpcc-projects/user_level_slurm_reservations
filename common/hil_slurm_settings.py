@@ -10,18 +10,13 @@ DEBUG = True
 
 SLURM_INSTALL_DIR = '/usr/local/bin/'
 
-HIL_SLURMCTLD_PROLOG_LOGFILE = '/var/log/slurm-llnl/hil_prolog.log'
-HIL_MONITOR_LOGFILE = '/var/log/slurm-llnl/hil_monitor.log'
-
-HIL_RESERVATIONS_FILE = '/var/local/slurm-llnl/hil_reservations.txt'
+HIL_SLURMCTLD_PROLOG_LOGFILE = '/var/log/moc_hil_ulsr/hil_prolog.log'
+HIL_MONITOR_LOGFILE = '/var/log/moc_hil_ulsr/hil_monitor.log'
 
 HIL_ENDPOINT = "http://128.31.28.156:80"
 HIL_USER = 'admin'
 HIL_PW = 'NavedIsSleepy'
 HIL_SLURM_PROJECT = 'slurm'
-
-USER_HIL_SUBDIR = '.hil'
-USER_HIL_LOGFILE = 'hil_reservations.log'
 
 HIL_PARTITION_PREFIX = 'HIL_partition_'
 HIL_PARTITION_PREFIX = 'debug'
