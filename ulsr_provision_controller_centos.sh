@@ -64,6 +64,13 @@ else
     git checkout $ULSR_BRANCH
 fi
 
+# Create log file directory
+
+LOGFILE_DIR=/var/log/moc_hil_ulsr
+mkdir -p $LOGFILE_DIR
+chmod 755 $LOGFILE_DIR
+chown $SLURM_USER:$SLURM_USER $LOGFILE_DIR
+
 # Set up Python virtual environment, install Python hostlist
 
 virtualenv -p $PYTHON_VER $ULSR_DIR/ve
