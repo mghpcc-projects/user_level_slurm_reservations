@@ -38,7 +38,7 @@ from hil_slurm_settings import (HIL_PARTITION_PREFIX,
                                 HIL_RESERVATION_DEFAULT_DURATION,
                                 HIL_RESERVATION_GRACE_PERIOD,
                                 HIL_SLURMCTLD_PROLOG_LOGFILE,
-                                USER_HIL_SUBDIR, USER_HIL_LOGFILE)
+                                USER_HIL_SUBDIR_
 
 def _get_prolog_environment():
     '''
@@ -55,11 +55,6 @@ def _get_prolog_environment():
 
     return {env_var: os.environ.get(slurm_env_var)
             for env_var, slurm_env_var in env_map.iteritems()}
-
-
-def _get_user_hil_subdir(env_dict):
-    home = os.path.expanduser('~' + env_dict['username'])
-    return os.path.join(home, USER_HIL_SUBDIR)
 
 
 def _check_hil_partition(env_dict, pdata_dict):
