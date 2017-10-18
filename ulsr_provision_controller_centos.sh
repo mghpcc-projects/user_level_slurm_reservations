@@ -15,12 +15,12 @@
 set -x
 
 SLURM_USER=slurm
-SLURM_USER_DIR=/home/slurm
+SLURM_USER_DIR=/home/$SLURM_USER
 
 INSTALL_USER=centos
 INSTALL_USER_DIR=/home/$INSTALL_USER
 
-SLURM_CONF_FILE=/home/centos/slurm.conf
+SLURM_CONF_FILE=/etc/slurm/slurm.conf
 
 PYTHON_VER=python2.7
 
