@@ -1,7 +1,7 @@
 #!/bin/bash
 
 HOME=/home/centos/user_level_slurm_reservations
-LOGFILE=/var/log/slurm-llnl/hil_monitor.log
+LOGFILE=/var/log/moc_hil_ulsr/hil_monitor.log
 
 source $HOME/ve/bin/activate
 export PYTHONPATH=$HOME/prolog:$PYTHONPATH
