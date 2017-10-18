@@ -1,6 +1,6 @@
 # MOC HIL User Level Slurm Reservations (ULSR)
 
-V0.6  18-Aug-2017
+V1.0  18-Oct-2017
 
 # Introduction
 
@@ -20,6 +20,11 @@ Other software components perform HIL node and network management
 operations on nodes reserved and freed using the above commands.  A
 program goal is to have these components execute automatically without
 user or administrator intervention.
+
+## Supported Targets
+
+ULSR is supported on CentOS 7 on x86_64 systems, using Python 2.7.  It may work on Red Hat Enterprise
+Linux but has not been tested in that distribution environment.
 
 ## Usage
 
@@ -193,13 +198,13 @@ may be reviewed as necessary to gain insight into system behavior.
     epilog are logged to a file on the Slurm controller node.  The
     location of this file is configured in the
     ```hil_slurm_settings.py``` file.  By default, the location is
-    ```/var/log/slurm-llnl/hil_prolog.log```.
+    ```/var/log/moc_hil_ulsr/hil_prolog.log```.
 
   * HIL reservation operations performed by the HIL periodic monitor
   are also logged to a file on the Slurm controller node.  The
   location of this file is configured in the
   ```hil_slurm_settings.py``` file.  By default, the location is
-  ```/var/log/slurm-llnl/hil_monitor.log```. 
+  ```/var/log/moc_hil_ulsr/hil_monitor.log```. 
 
 
 # Implementation Details
@@ -317,64 +322,100 @@ Git repository and multiple, parallel development branches:
 
 # Software Installation
 
-## HIL Software Installation
+## MOC HIL ULSR Software Installation
 
-TEMPORARY
+NOTE: The following assumes Slurm version 15 or greater is installed
+and running in the cluster.   For background on Slurm installation
+refer to the following links:
 
-(The following assumes Slurm-LLNL version 15 or greater is installed
-and running.  The installation is targeted on the Slurm controller node)
+  * [How to Install Slurm on CentOS 7 Cluster](https://www.slothparadise.com/how-to-install-slurm-on-centos-7-cluster/)
 
-On the Slurm controller node, create a virtual environment:
+  * [Slurm on CentOS 7](https://bitsanddragons.wordpress.com/2016/08/22/slurm-on-centos-7/)
+
+
+Two scripts are provided for provisioning ULSR on the Slurm controller
+and compute server nodes:
+
+  1. ```ulsr_provision_controller_centos.sh```
+  
+  2. ```ulsr_provision_server_centos.sh```
+
+These may be run as the ```root``` user to install and partially
+configure the ULSR software.  Some modifications may be required to
+the script variable settings, depending on the Slurm installation
+configuration and local policy.  In particular, changes to the
+following may be required, in both installation scripts:
+
 ```
-$ mkdir <HIL_INSTALL_DIR>
-$ cd <HIL_INSTALL_DIR>
-$ virtualenv ve
-$ source ve/bin/activate
-```
-Fetch the software from GitHub:
-``` 
-$ git clone git@github.com:mghpcc-projects/user_level_slurm_reservations.git
-$ cd user_level_slurm_reservations
-```
+SLURM_USER=slurm
+SLURM_USER_DIR=/home/$SLURM_USER
 
-_CAVEAT_: This must be repeated on all nodes in the Slurm partition, or
-filesystem sharing must be used/
+INSTALL_USER=centos
+INSTALL_USER_DIR=/home/$INSTALL_USER
 
+SLURM_CONF_FILE=/etc/slurm/slurm.conf
 
-## Support Libraries
-
-### python-hostlist
-
-Install the ```python-hostlist``` package on the Slurm controller node:
-```
-$ cd /usr/local/lib/python2.7/site-packages
-$ wget https://www.nsc.liu.se/~kent/python-hostlist/python-hostlist-1.17.tar.gz
-$ tar xvf python-hostlist-1.17.tar.gz
-$ cd python-hostlist-1.17
-$ python setup.py build
-$ python setup.py install
+LOGFILE_DIR=/var/log/moc_hil_ulsr
 ```
 
+If the ```SLURM_USER``` variable is changed, the ```HOME```
+variable in ```hil_slurmctld_prolog.sh``` and
+```hil_slurmctld_epilog.sh``` scripts should be updated to match.
 
+If the ```LOGFILE_DIR``` variable is changed, the ```LOGFILE```
+variable in ```hil_slurmctld_prolog.sh``` and
+```hil_slurmctld_epilog.sh``` scripts should be updated to match.
+
+
+## Managing ULSR as a Linux Service
+
+On CentOS, the Slurm control daemon may be managed as a service
+through the ```systemctl``` command, on the Slurm controller node:
+
+```
+$ systemctl enable slurmctld.service
+$ systemctl start slurmctld.service
+$ systemctl stop slurmctld.service
+$ systemctl restart slurmctld.service
+$ systemctl status slurmctld.service
+```
+  
 # Slurm Software Configuration
 
 Slurm software configuration is performed via the ```slurm.conf```
-file.  Once changes to this file have been made, copies must be pushed
-to all nodes in the Slurm cluster.  In order for changes to take
-effect, the ```slurmctld``` must be restarted on the controller, and
-the ```slurmd``` must be restarted on the compute nodes.
+file.  By default, this file resides in the ```/etc/slurm```
+directory.
 
-By default, the ```slurm.conf``` file resides in ```/etc/slurm-llnl/slurm.conf.```
+Once changes to the Slurm configuration file have been made, copies
+must be pushed to all the compute nodes in the Slurm cluster, or the
+control daemon must be configured to ignore differences in the config
+file across nodes in the cluster.  
+
+```scp``` may be used to copy the config file to compute nodes.
+
+In order for changes to take effect, the ```slurmctld``` must be
+restarted on the controller, and ```slurmd``` must be restarted on the
+compute nodes.
+
 
 ## SlurmCtld Prolog and Epilog Installation
 
-[NEEDS UPDATE to reflect coexistence with other Slurm prolog / epilog modules]
+[UPDATE to reflect coexistence with other Slurm prolog / epilog modules]
 
-The SlurmCtld prolog and epilog must be specified:
+If no other Slurm control daemon prolog and/or epilog is in use, the
+SlurmCtld prolog and epilog must be specified in the ```slurm.conf``` file:
 
 ```
-PrologSlurmctld=/<install_dir>/prolog/hil_slurmctld_prolog.sh
-EpilogSlurmctld=/<install_dir>/prolog/hil_slurmctld_epilog.sh
+PrologSlurmctld=/<install_dir>/scripts/hil_slurmctld_prolog.sh
+EpilogSlurmctld=/<install_dir>/scripts/hil_slurmctld_epilog.sh
+```
+
+These lines are added to the default ```slurm.conf``` by the Slurm
+controller provisioning script.  The Slurm control daemon must be
+restarted after the configuration change:
+
+```
+$ systemctl restart slurmctld.service
 ```
 
 ## Compute Nodes Marked with HIL Feature
