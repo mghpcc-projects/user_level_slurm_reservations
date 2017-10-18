@@ -5,7 +5,7 @@
 # Runs hil_slurmctld_prolog.py with --hil_epilog, e.g. as the epilog
 #
 PATH=/bin:/usr/bin:/usr/local/bin:/usr/local/sbin
-LOGFILE=/var/log/slurm-llnl/hil_prolog.log
+LOGFILE=/var/log/moc_hil_ulsr/hil_prolog.log
 HOME=/home/slurm
 
 source ${HOME}/scripts/ve/bin/activate
