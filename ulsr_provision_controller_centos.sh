@@ -67,23 +67,23 @@ fi
 
 LOGFILE_DIR=/var/log/moc_hil_ulsr
 mkdir -p $LOGFILE_DIR
-chmod 755 $LOGFILE_DIR
+chmod 775 $LOGFILE_DIR
 chown $SLURM_USER:$SLURM_USER $LOGFILE_DIR
 
 # Set up Python virtual environment, install Python hostlist
 
-virtualenv -p $PYTHON_VER $ULSR_DIR/ve
-source $ULSR_DIR/ve/bin/activate
+virtualenv -p $PYTHON_VER $SLURM_USER_DIR/scripts/ve
+source $SLURM_USER_DIR/scripts/ve/bin/activate
 pip install python-hostlist
 deactivate
 
-PYTHON_LIB_DIR=$ULSR_DIR/ve/lib/python2.7/site-packages
+PYTHON_LIB_DIR=$SLURM_USER_DIR/scripts/ve/lib/python2.7/site-packages
 
 # Set up NFS server and shared FS, export to compute nodes
 
 mkdir -p $NFS_SHARED_DIR
 chmod 777 $NFS_SHARED_DIR
-chown nobody:nogroup $NFS_SHARED_DIR
+chown nobody:nobody $NFS_SHARED_DIR
 sudo chkconfig nfs on
 sudo service rpcbind start
 sudo service nfs start
@@ -98,11 +98,9 @@ mkdir -p $HIL_SHARED_DIR/bin
 chmod -R 700 $HIL_SHARED_DIR/bin
 chown -R $INSTALL_USER:$INSTALL_USER $HIL_SHARED_DIR/bin
 
-# Create Slurm user bin and scripts directories
+# Create Slurm user script directory
 
-mkdir -p $SLURM_USER_DIR/bin
 mkdir -p $SLURM_USER_DIR/scripts
-chown -R $SLURM_USER:$SLURM_USER $SLURM_USER_DIR/bin
 chown -R $SLURM_USER:$SLURM_USER $SLURM_USER_DIR/scripts
 
 # Copy files to final resting places
@@ -174,5 +172,7 @@ cat >> $SLURM_CONF_FILE <<EOF
 PrologSlurmctld=$SLURM_USER_DIR/scripts/hil_slurmctld_prolog.sh
 EpilogSlurmctld=$SLURM_USER_DIR/scripts/hil_slurmctld_epilog.sh
 EOF
+
+chown $SLURM_USER:$SLURM_USER $SLURM_CONF_FILE
 
 set +x

@@ -53,8 +53,8 @@ echo "export SYSTEMD_EDITOR=emacs" >> ~/.bashrc
 
 # Set up Python virtual environment, install Python hostlist
 
-virtualenv -p $PYTHON_VER $ULSR_DIR/ve
-source $ULSR_DIR/ve/bin/activate
+virtualenv -p $PYTHON_VER $SLURM_USER_DIR/scripts/ve
+source $SLURM_USER_DIR/scripts/ve/bin/activate
 pip install python-hostlist
 deactivate
 
