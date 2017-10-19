@@ -37,8 +37,7 @@ from hil_slurm_settings import (HIL_PARTITION_PREFIX,
                                 RES_CHECK_PARTITION_STATE,
                                 HIL_RESERVATION_DEFAULT_DURATION,
                                 HIL_RESERVATION_GRACE_PERIOD,
-                                HIL_SLURMCTLD_PROLOG_LOGFILE,
-                                USER_HIL_SUBDIR_
+                                HIL_SLURMCTLD_PROLOG_LOGFILE)
 
 def _get_prolog_environment():
     '''
