@@ -34,7 +34,8 @@ if [ $USE_ULSR_RELEASE = 1 ]; then
     ULSR_RELEASE_PATH=https://github.com/mghpcc-projects/user_level_slurm_reservations/archive
     ULSR_RELEASE=$ULSR_RELEASE_PATH/$ULSR_RELEASE_GZIP_FILE
 else
-    ULSR_SRC_REPO=https://github.com/mghpcc-projects/user_level_slurm_reservations.git
+    ULSR_REPO_NAME=user_level_slurm_reservations
+    ULSR_REPO_URL=https://github.com/mghpcc-projects/$ULSR_REPO_NAME.git
     ULSR_BRANCH=development
 fi
 
@@ -55,13 +56,11 @@ cd $INSTALL_USER_DIR
 if [ $USE_ULSR_RELEASE = 1 ]; then
     wget $ULSR_RELEASE
     tar xvf $ULSR_RELEASE_GZIP_FILE
-    ULSR_DIR=$INSTALL_USER_DIR/user_level_slurm_reservations-$ULSR_RELEASE_VERSION
+    mv user_level_slurm_reservations-$ULSR_RELEASE_VERSION ulsr-$ULSR_RELEASE_VERSION
+    ULSR_DIR=$INSTALL_USER_DIR/ulsr-$ULSR_RELEASE_VERSION
 else
     ULSR_DIR=$INSTALL_USER_DIR/ulsr-$ULSR_BRANCH
-    mkdir $ULSR_DIR
-    cd $ULSR_DIR
-    git clone $ULSR_SRC_REPO
-    git checkout $ULSR_BRANCH
+    git clone -branch $ULSR_BRANCH $ULSR_REPO_URL $ULSR_DIR
 fi
 
 # Create log file directory
@@ -114,8 +113,8 @@ HIL_COMMAND_FILES="hil_reserve \
                    hil_release"
 
 for file in $HIL_COMMAND_FILES; do
-    cp $ULSR_DIR/user_level_slurm_reservations/commands/$file $HIL_SHARED_DIR/bin
-    cp $ULSR_DIR/user_level_slurm_reservations/commands/$file $LOCAL_BIN
+    cp $ULSR_DIR/commands/$file $HIL_SHARED_DIR/bin
+    cp $ULSR_DIR/commands/$file $LOCAL_BIN
     chmod 755 $LOCAL_BIN/$file
 done
 
@@ -125,7 +124,7 @@ HIL_MONITOR_FILES="hil_slurm_monitor.py \
                    hil_slurm_monitor.sh"
 
 for file in $HIL_MONITOR_FILES; do
-    cp $ULSR_DIR/user_level_slurm_reservations/commands/$file $LOCAL_BIN
+    cp $ULSR_DIR/commands/$file $LOCAL_BIN
 done
 
 chmod 755 $LOCAL_BIN/hil_*.sh
@@ -139,7 +138,7 @@ HIL_COMMON_FILES="hil_slurm_client.py \
                   hil_slurm_settings.py"
 
 for file in $HIL_COMMON_FILES; do
-    cp $ULSR_DIR/user_level_slurm_reservations/common/$file $PYTHON_LIB_DIR/$file
+    cp $ULSR_DIR/common/$file $PYTHON_LIB_DIR/$file
     chown $SLURM_USER:$SLURM_USER $PYTHON_LIB_DIR/$file
 done
 
@@ -150,7 +149,7 @@ HIL_PROLOG_FILES="hil_slurmctld_epilog.sh \
                   hil_slurmctld_prolog.sh"
 
 for file in $HIL_PROLOG_FILES; do
-    cp $ULSR_DIR/user_level_slurm_reservations/prolog/$file $SLURM_USER_DIR/scripts/
+    cp $ULSR_DIR/prolog/$file $SLURM_USER_DIR/scripts/
     chown $SLURM_USER:$SLURM_USER $SLURM_USER_DIR/scripts/$file
     echo ""
 done
@@ -175,3 +174,5 @@ cat >> $SLURM_CONF_FILE <<EOF
 PrologSlurmctld=$SLURM_USER_DIR/scripts/hil_slurmctld_prolog.sh
 EpilogSlurmctld=$SLURM_USER_DIR/scripts/hil_slurmctld_epilog.sh
 EOF
+
+set +x

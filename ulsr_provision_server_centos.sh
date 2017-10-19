@@ -30,7 +30,7 @@ USE_ULSR_RELEASE=0
 
 if [ $USE_ULSR_RELEASE = 1 ]; then
     ULSR_RELEASE_VERSION=0.0.3
-    ULSR_DIR=$INSTALL_USER_DIR/user_level_slurm_reservations-$ULSR_RELEASE_VERSION
+    ULSR_DIR=$INSTALL_USER_DIR/ulsr-$ULSR_RELEASE_VERSION
     mkdir -p $ULSR_DIR
 else
     ULSR_BRANCH=development
@@ -93,3 +93,4 @@ for file in $HIL_COMMAND_FILES; do
     chmod 755 $LOCAL_BIN/$file
 done
 
+set +x
