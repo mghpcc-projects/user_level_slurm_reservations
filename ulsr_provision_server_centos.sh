@@ -26,6 +26,8 @@ SLURM_CONF_FILE=$SLURM_CONF_FILE_PATH/$SLURM_CONF_FILE_NAME
 
 PYTHON_VER=python2.7
 
+DATE_TIME=`date +%Y%m%d_%H%M%S`
+
 # Select proper release or Git repo
 
 USE_ULSR_RELEASE=0
@@ -33,10 +35,16 @@ USE_ULSR_RELEASE=0
 if [ $USE_ULSR_RELEASE = 1 ]; then
     ULSR_RELEASE_VERSION=0.0.3
     ULSR_DIR=$INSTALL_USER_DIR/ulsr-$ULSR_RELEASE_VERSION
+    if [ -d $ULSR_DIR ]; then
+	mv $ULSR_DIR $ULSR_DIR.$DATE_TIME
+    fi
     mkdir -p $ULSR_DIR
 else
     ULSR_BRANCH=development
     ULSR_DIR=$INSTALL_USER_DIR/ulsr-$ULSR_BRANCH
+    if [ -d $ULSR_DIR ]; then
+	mv $ULSR_DIR $ULSR_DIR.$DATE_TIME
+    fi
     mkdir $ULSR_DIR
 fi
 

@@ -26,6 +26,8 @@ SLURM_CONF_FILE=$SLURM_CONF_FILE_PATH/$SLURM_CONF_FILE_NAME
 
 PYTHON_VER=python2.7
 
+DATE_TIME=`date +%Y%m%d_%H%M%S`
+
 # Select proper release or Git repo
 
 USE_ULSR_RELEASE=0
@@ -56,12 +58,18 @@ echo "export SYSTEMD_EDITOR=emacs" >> ~/.bashrc
 cd $INSTALL_USER_DIR
 
 if [ $USE_ULSR_RELEASE = 1 ]; then
+    ULSR_DIR=$INSTALL_USER_DIR/ulsr-$ULSR_RELEASE_VERSION
+    if [ -d $ULSR_DIR ]; then
+	mv $ULSR_DIR $ULSR_DIR.$DATE_TIME
+    fi
     wget $ULSR_RELEASE
     tar xvf $ULSR_RELEASE_GZIP_FILE
     mv user_level_slurm_reservations-$ULSR_RELEASE_VERSION ulsr-$ULSR_RELEASE_VERSION
-    ULSR_DIR=$INSTALL_USER_DIR/ulsr-$ULSR_RELEASE_VERSION
 else
     ULSR_DIR=$INSTALL_USER_DIR/ulsr-$ULSR_BRANCH
+    if [ -d $ULSR_DIR ]; then
+	mv $ULSR_DIR $ULSR_DIR.$DATE_TIME
+    fi
     git clone --branch $ULSR_BRANCH $ULSR_REPO_URL $ULSR_DIR
 fi
 
