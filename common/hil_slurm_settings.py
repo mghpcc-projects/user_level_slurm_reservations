@@ -18,7 +18,7 @@ HIL_USER = 'admin'
 HIL_PW = 'NavedIsSleepy'
 HIL_SLURM_PROJECT = 'slurm'
 
-HIL_PARTITION_PREFIX = 'HIL_partition_'
+HIL_PARTITION_PREFIX = 'HIL_partition'
 HIL_PARTITION_PREFIX = 'debug'
 
 HIL_RESERVATION_DEFAULT_DURATION = 24 * 60 * 60		# Seconds

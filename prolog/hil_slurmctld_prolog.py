@@ -44,7 +44,7 @@ def _get_prolog_environment():
     Returns a job's prolog environment in dictionary form
     '''
     env_map = {'jobname': 'SLURM_JOB_NAME',
-               'partition': 'SLURM_JOB_PARTITION',
+               'partition': None,
                'username': 'SLURM_JOB_USER',
                'job_id': 'SLURM_JOB_ID',
                'job_uid': 'SLURM_JOB_UID',
@@ -326,10 +326,14 @@ def main(argv=[]):
     # Since data for one partition and one job is expected, select the first dict in the list
 
     env_dict = _get_prolog_environment()
+    if not env_dict['partition']:
+        log_debug('Missing Slurm control daemon prolog / epilog environment.')
+        return
+
     pdata_dict = get_partition_data(env_dict['partition'])[0]
     jobdata_dict = get_job_data(env_dict['job_id'])[0]
 
-    if not pdata_dict or not jobdata_dict or not env_dict:
+    if not pdata_dict or not jobdata_dict:
         log_debug('One of pdata_dict, jobdata_dict, or env_dict is empty')
         log_debug('Job data', jobdata_dict)
         log_debug('P   data', pdata_dict)
