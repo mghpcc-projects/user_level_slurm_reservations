@@ -60,7 +60,7 @@ if [ $USE_ULSR_RELEASE = 1 ]; then
     ULSR_DIR=$INSTALL_USER_DIR/ulsr-$ULSR_RELEASE_VERSION
 else
     ULSR_DIR=$INSTALL_USER_DIR/ulsr-$ULSR_BRANCH
-    git clone -branch $ULSR_BRANCH $ULSR_REPO_URL $ULSR_DIR
+    git clone --branch $ULSR_BRANCH $ULSR_REPO_URL $ULSR_DIR
 fi
 
 # Create log file directory
@@ -170,7 +170,7 @@ done
 
 cat >> $SLURM_CONF_FILE <<EOF
 #
-# Slurmctld Prolog and Epilog
+# Slurmctld Prolog and Epiloga
 PrologSlurmctld=$SLURM_USER_DIR/scripts/hil_slurmctld_prolog.sh
 EpilogSlurmctld=$SLURM_USER_DIR/scripts/hil_slurmctld_epilog.sh
 EOF
