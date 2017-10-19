@@ -20,7 +20,9 @@ SLURM_USER_DIR=/home/$SLURM_USER
 INSTALL_USER=centos
 INSTALL_USER_DIR=/home/$INSTALL_USER
 
-SLURM_CONF_FILE=/etc/slurm/slurm.conf
+SLURM_CONF_FILE_PATH=/etc/slurm
+SLURM_CONF_FILE_NAME=slurm.conf
+SLURM_CONF_FILE=$SLURM_CONF_FILE_PATH/$SLURM_CONF_FILE_NAME
 
 PYTHON_VER=python2.7
 
@@ -168,11 +170,13 @@ done
 
 cat >> $SLURM_CONF_FILE <<EOF
 #
-# Slurmctld Prolog and Epiloga
+# Slurmctld Prolog and Epilog
 PrologSlurmctld=$SLURM_USER_DIR/scripts/hil_slurmctld_prolog.sh
 EpilogSlurmctld=$SLURM_USER_DIR/scripts/hil_slurmctld_epilog.sh
 EOF
 
 chown $SLURM_USER:$SLURM_USER $SLURM_CONF_FILE
+cp -p $SLURM_CONF_FILE $HIL_SHARED_DIR
 
+echo 'Provision compute nodes, then restart Slurm control daemon.'
 set +x

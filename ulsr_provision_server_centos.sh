@@ -20,7 +20,9 @@ SLURM_USER_DIR=/home/$SLURM_USER
 INSTALL_USER=centos
 INSTALL_USER_DIR=/home/$INSTALL_USER
 
-SLURM_CONF_FILE=/etc/slurm/slurm.conf
+SLURM_CONF_FILE_PATH=/etc/slurm
+SLURM_CONF_FILE_NAME=slurm.conf
+SLURM_CONF_FILE=$SLURM_CONF_FILE_PATH/$SLURM_CONF_FILE_NAME
 
 PYTHON_VER=python2.7
 
@@ -64,22 +66,21 @@ PYTHON_LIB_DIR=$ULSR_DIR/ve/lib/python2.7/site-packages
 
 mkdir -p $NFS_SHARED_DIR
 chmod 777 $NFS_SHARED_DIR
-chown nobody:nogroup $NFS_SHARED_DIR
+chown nobody:nobody $NFS_SHARED_DIR
 sudo chkconfig nfs on
 sudo service rpcbind start
 sudo service nfs start
 
-mount $SLURM_CONTROLLER:/shared /shared
+mount $SLURM_CONTROLLER:$NFS_SHARED_DIR $NFS_SHARED_DIR
 
 cat >> /etc/fstab <<EOF
-$SLURM_CONTROLLER:/shared nfs auto,noatime,nolock,bg,nfsvers=3,intr,tcp,actimeo=1800 0 0
+$SLURM_CONTROLLER:$NFS_SHARED_DIR nfs auto,noatime,nolock,bg,nfsvers=3,intr,tcp,actimeo=1800 0 0
 EOF
 
-# Create Slurm user bin and scripts directories
+# Create Slurm user script directory
 
-mkdir -p $SLURM_USER_DIR/bin
 mkdir -p $SLURM_USER_DIR/scripts
-chown -R $SLURM_USER:$SLURM_USER $SLURM_USER_DIR/bin
+chown -R $SLURM_USER:$SLURM_USER $SLURM_USER_DIR/scripts
 
 # Copy files to final resting places
 #
@@ -92,5 +93,10 @@ for file in $HIL_COMMAND_FILES; do
     cp $HIL_SHARED_DIR/bin/$file $LOCAL_BIN
     chmod 755 $LOCAL_BIN/$file
 done
+
+# Update the Slurm config file
+
+cp -p $HIL_SHARED_DIR/$SLURM_CONF_FILE_NAME $SLURM_CONF_FILE
+chown $SLURM_USER:$SLURM_USER $SLURM_CONF_FILE
 
 set +x
