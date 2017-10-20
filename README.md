@@ -418,6 +418,48 @@ restarted after the configuration change:
 $ systemctl restart slurmctld.service
 ```
 
+## HIL / ULSR Settings File
+
+The ```common/hil_slurm_settings.py``` file contains constants used by
+the ULSR software.  
+
+### HIL Partition Name Prefix - HIL_PARTITION_PREFIX
+
+The Slurm partition from which HIL nodes are reserved must be named in
+a way which begins with the value of ```HIL_PARTITION_PREFIX```.  By
+default this is set to:
+```
+HIL_PARTITION_PREFIX = 'HIL_partition'
+```
+
+### HIL Control Endpoint IP Address, User, and Password
+
+```
+HIL_ENDPOINT = "http://128.31.28.156:80"
+HIL_USER = 'admin'
+HIL_PW = <elided, see file>
+```
+
+### HIL Loaner Project Name
+```
+HIL_SLURM_PROJECT = 'slurm'
+```
+
+### Slurm Utility Installation Directory
+
+This variable identifies the directory into which ```scontrol``` and
+other Slurm commands have been installed prior to installation of the
+ULSR software.
+```
+SLURM_INSTALL_DIR = '/usr/bin'
+```
+
+### ULSR Log Files
+```
+HIL_SLURMCTLD_PROLOG_LOGFILE = '/var/log/moc_hil_ulsr/hil_prolog.log'
+HIL_MONITOR_LOGFILE = '/var/log/moc_hil_ulsr/hil_monitor.log'
+```
+
 ## Compute Nodes Marked with HIL Feature
 
 Slurm compute nodes which are intended to be placed in a HIL
