@@ -1,11 +1,9 @@
 #!/bin/bash
 
-HOME=/home/centos/user_level_slurm_reservations
+HOME=/home/slurm
 LOGFILE=/var/log/moc_hil_ulsr/hil_monitor.log
 
-source $HOME/ve/bin/activate
-export PYTHONPATH=$HOME/prolog:$PYTHONPATH
-# python $HOME/commands/hil_slurm_monitor.py 2>&1 >> $LOGFILE
-python $HOME/commands/hil_slurm_monitor.py
+source $HOME/scripts/ve/bin/activate
+python $HOME/scripts/hil_slurm_monitor.py 2>&1 >> $LOGFILE
 deactivate
 
