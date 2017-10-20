@@ -39,12 +39,13 @@ from hil_slurm_settings import (HIL_PARTITION_PREFIX,
                                 HIL_RESERVATION_GRACE_PERIOD,
                                 HIL_SLURMCTLD_PROLOG_LOGFILE)
 
+
 def _get_prolog_environment():
     '''
     Returns a job's prolog environment in dictionary form
     '''
     env_map = {'jobname': 'SLURM_JOB_NAME',
-               'partition': None,
+               'partition': 'SLURM_JOB_PARTITION',
                'username': 'SLURM_JOB_USER',
                'job_id': 'SLURM_JOB_ID',
                'job_uid': 'SLURM_JOB_UID',
