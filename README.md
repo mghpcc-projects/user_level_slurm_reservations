@@ -367,6 +367,24 @@ variable in ```hil_slurmctld_prolog.sh``` and
 ```hil_slurmctld_epilog.sh``` scripts should be updated to match.
 
 
+## HIL ULSR Periodic Monitor and Log File
+
+The ULSR periodic monitor is scheduled as a ```cron(8)``` job on the
+Slurm controller node.  The Slurm controller provisioning script
+installs the periodic monitor wrapper script
+```hil_slurm_monitor.sh``` in the ```$LOCAL_BIN``` directory, which
+defaults to ```/usr/local/bin```.  The periodic monitor itself,
+```hil_slurm_monitor.py``` is installed in the Slurm user
+```scripts``` subdirectory.
+
+After installation the ```crontab``` must be modified to invoke the
+wrapper script periodically:
+```
+*/5 * * * * hil_slurm_monitor.sh
+```
+The above will invoke the monitor every five minutes.
+
+
 ## Managing ULSR as a Linux Service
 
 On CentOS, the Slurm control daemon may be managed as a service
