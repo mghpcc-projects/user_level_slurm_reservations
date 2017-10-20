@@ -8,7 +8,7 @@ May 2017, Tim Donahue	tpd001@gmail.com
 
 DEBUG = True
 
-SLURM_INSTALL_DIR = '/usr/local/bin/'
+SLURM_INSTALL_DIR = '/usr/bin/'
 
 HIL_SLURMCTLD_PROLOG_LOGFILE = '/var/log/moc_hil_ulsr/hil_prolog.log'
 HIL_MONITOR_LOGFILE = '/var/log/moc_hil_ulsr/hil_monitor.log'
@@ -19,7 +19,6 @@ HIL_PW = 'NavedIsSleepy'
 HIL_SLURM_PROJECT = 'slurm'
 
 HIL_PARTITION_PREFIX = 'HIL_partition'
-HIL_PARTITION_PREFIX = 'debug'
 
 HIL_RESERVATION_DEFAULT_DURATION = 24 * 60 * 60		# Seconds
 HIL_RESERVATION_GRACE_PERIOD = 4 * 60 * 60		# Seconds
