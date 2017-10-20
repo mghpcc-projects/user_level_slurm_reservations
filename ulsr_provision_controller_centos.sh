@@ -115,10 +115,11 @@ chown -R $SLURM_USER:$SLURM_USER $SLURM_USER_DIR/scripts
 
 # Copy files to final resting places
 #
-# Install HIL user-level commands
+# Install HIL user-level commands and HIL periodic wrappers
 
 HIL_COMMAND_FILES="hil_reserve \
-                   hil_release"
+                   hil_release \
+                   hil_slurm_monitor.sh"
 
 for file in $HIL_COMMAND_FILES; do
     cp $ULSR_DIR/commands/$file $HIL_SHARED_DIR/bin
@@ -128,11 +129,12 @@ done
 
 # Install HIL periodic monitor files
 
-HIL_MONITOR_FILES="hil_slurm_monitor.py \
-                   hil_slurm_monitor.sh"
+HIL_MONITOR_FILES="hil_slurm_monitor.py"
 
 for file in $HIL_MONITOR_FILES; do
-    cp $ULSR_DIR/commands/$file $LOCAL_BIN
+    cp $ULSR_DIR/commands/$file $SLURM_USER_DIR/scripts/
+    chown $SLURM_USER:$SLURM_USER $SLURM_USER_DIR/scripts/$file
+    echo ""
 done
 
 chmod 755 $LOCAL_BIN/hil_*.sh
@@ -161,6 +163,7 @@ for file in $HIL_PROLOG_FILES; do
     chown $SLURM_USER:$SLURM_USER $SLURM_USER_DIR/scripts/$file
     echo ""
 done
+
 
 chmod 755 $SLURM_USER_DIR/scripts/hil_*.sh
 
