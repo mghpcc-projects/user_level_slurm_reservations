@@ -85,6 +85,7 @@ chown $SLURM_USER:$SLURM_USER $LOGFILE_DIR
 virtualenv -p $PYTHON_VER $SLURM_USER_DIR/scripts/ve
 source $SLURM_USER_DIR/scripts/ve/bin/activate
 pip install python-hostlist
+pip install requests
 deactivate
 
 PYTHON_LIB_DIR=$SLURM_USER_DIR/scripts/ve/lib/python2.7/site-packages
@@ -127,7 +128,7 @@ for file in $HIL_COMMAND_FILES; do
     chmod 755 $LOCAL_BIN/$file
 done
 
-# Install HIL periodic monitor files
+# Install ULSR periodic monitor files
 
 HIL_MONITOR_FILES="hil_slurm_monitor.py"
 
@@ -139,24 +140,52 @@ done
 
 chmod 755 $LOCAL_BIN/hil_*.sh
 
-# Install HIL common files
+# Install ULSR common files
 
-HIL_COMMON_FILES="hil_slurm_client.py \
-                  hil_slurm_constants.py \
-                  hil_slurm_helpers.py \
-                  hil_slurm_logging.py
-                  hil_slurm_settings.py"
+ULSR_COMMON_FILES="hil_slurm_client.py \
+                   hil_slurm_constants.py \
+                   hil_slurm_helpers.py \
+                   hil_slurm_logging.py
+                   hil_slurm_settings.py"
 
 for file in $HIL_COMMON_FILES; do
     cp $ULSR_DIR/common/$file $PYTHON_LIB_DIR/$file
     chown $SLURM_USER:$SLURM_USER $PYTHON_LIB_DIR/$file
 done
 
-# Install HIL Prolog and Epilog files
+# Install HIL client package files
 
-HIL_PROLOG_FILES="hil_slurmctld_epilog.sh \
-                  hil_slurmctld_prolog.py \
-                  hil_slurmctld_prolog.sh"
+HIL_PKG_FILES="__init__.py"
+
+HIL_CLIENT_FILES="__init__.py \
+                  base.py \
+                  client.py \
+                  extensions.py \
+                  network.py \
+                  node.py \
+                  project.py \
+                  switch.py \
+                  user.py"
+
+mkdir -p $PYTHON_LIB_DIR/hil/client
+
+for file in $HIL_PKG_FILES; do
+    cp $ULSR_DIR/hil/$file $PYTHON_LIB_DIR/hil/$file
+done
+chown -R $SLURM_USER:$SLURM_USER $PYTHON_LIB_DIR/hil/client
+
+for file in $HIL_CLIENT_FILES; do
+    cp $ULSR_DIR/hil/client/$file $PYTHON_LIB_DIR/hil/client/$file
+done
+
+chown -R $SLURM_USER:$SLURM_USER $PYTHON_LIB_DIR/hil/
+
+
+# Install ULSR Prolog and Epilog files
+
+ULSR_PROLOG_FILES="hil_slurmctld_epilog.sh \
+                   hil_slurmctld_prolog.py \
+                   hil_slurmctld_prolog.sh"
 
 for file in $HIL_PROLOG_FILES; do
     cp $ULSR_DIR/prolog/$file $SLURM_USER_DIR/scripts/
