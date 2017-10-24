@@ -39,6 +39,8 @@ from hil_slurm_settings import (HIL_PARTITION_PREFIX,
                                 HIL_RESERVATION_GRACE_PERIOD,
                                 HIL_SLURMCTLD_PROLOG_LOGFILE)
 
+from hil_slurm_client import hil_init
+
 
 def _get_prolog_environment():
     '''
@@ -249,32 +251,50 @@ def _log_hil_reservation(resname, stderr_data, t_start_s=None, t_end_s=None):
 
 def _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict):
     '''
+    Runs in Slurm control daemon prolog context
+
     Create HIL reserve and release reservations if they do not already exist.
-    Reservation times may overlap so long as the MAINT flag is set
+
+    HIL reserve reservation must be created first to avoid a race condition 
+    with the periodic reservation monitor
+
+    Reservation start and end times may overlap so long as the MAINT flag is set
     '''
     t_start_s, t_end_s = _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict)
     
+    # Loop and create both the reserve and the release reservations
+    
     for restype_s in [HIL_RESERVE, HIL_RELEASE]:
         resname, stderr_data = _create_hil_reservation(restype_s, t_start_s, t_end_s,
-                                                   env_dict, pdata_dict, jobdata_dict)
+                                                       env_dict, pdata_dict, jobdata_dict)
         _log_hil_reservation(resname, stderr_data, t_start_s, t_end_s)
+
+
+    # Connect to HIL server 
+    hil_client = hil_init()
+    if not hil_client:
+        log_error('Unable to connect to HIL server at %s' % HIL_ENDPOINT)
+    else:
+        log_debug('Connected to HIL server at %s' % HIL_ENDPOINT)
 
 
 def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
     '''
+    Runs in Slurm control daemon epilog context
+
     Delete the reserve reservation in which the release job was run.
-    - Verify the reservation is a HIL areserve reservation
+    - Verify the reservation is a HIL reserve reservation
     - Verify the reservation is owned by the user
-    - Get reserve reservation data, including the start time
-    - Generate release reservation name
-    - Update the start time of the release reservation
+    - Get reserve reservation data via 'scontrol'
+    - Delete the reserve reservation in which the hil_release command was run
+
     Release reservation will be deleted later by the HIL reservation monitor
     '''
     reserve_resname = jobdata_dict['Reservation']
 
     if reserve_resname:
         if not is_hil_reservation(reserve_resname, HIL_RESERVE):
-            log_error('Oops, reservation `%s` is not a HIL reserve reservation' % reserve_resname)
+            log_error('Reservation `%s` is not a HIL reserve reservation' % reserve_resname)
 
         elif env_dict['username'] not in reserve_resname:
             log_error('Reservation `%s` not owned by user `%s`' % (reserve_resname,
