@@ -13,14 +13,19 @@ from hil.client.base import FailedAPICallException
 from hil_slurm_logging import log_info, log_debug, log_error
 from hil_slurm_settings import HIL_ENDPOINT, HIL_USER, HIL_PW, HIL_SLURM_PROJECT
 
+
 # Place holder -> need to assert that the node's Slurm proj matches this
-slurm_project = HIL_SLURM_PROJECT
+SLURM_PROJECT = HIL_SLURM_PROJECT
 
 
 def hil_client_connect(endpoint_ip, name, pw):
     '''
     '''
     hil_http_client = RequestsHTTPClient()
+    if not hil_http_client:
+        log_error('Unable to create HIL HTTP Client')
+        return None
+
     hil_http_client.auth = (name, pw)
 
     return Client(endpoint_ip, hil_http_client)
@@ -30,7 +35,7 @@ def check_hil_interface():
     hil_client = hil_init()
 
 
-def hil_reserve_nodes(nodelist):
+def hil_reserve_nodes(hil_client, nodelist):
     '''
     Cause HIL nodes to move from the Slurm loaner project to the HIL free pool.
 
@@ -41,17 +46,43 @@ def hil_reserve_nodes(nodelist):
     network is also controlled by HIL. If we removed all networks, then we will
     not be able to perform any ipmi operations on nodes.
     '''
-    hil_client = hil_init()
+    status = True
+
+    if not hil_client:
+        hil_client = hil_init()
+
     for node in nodelist:
         # get information from node
-        node_info = hil_client.node.show(node)
+        try:
+            node_info = hil_client.node.show(node)
+        except:
+            log_error('HIL reservation failure: HIL node info unavailable')
+            return False
+
         project = node_info['project']
-        # check that the correct project is stored
-        assert project == slurm_project
+        if (project != SLURM_PROJECT):
+            log_error('HIL reservation failure: Node %s (project %s) not in %s project' % (node, project, SLURM_PROJECT))
+            status = False
+            continue
+
         # prep and move the node to free pool
-        hil_client.node.power_off(node)
+        try:
+            hil_client.node.power_off(node)
+        except:
+            log_error('HIL reservation failure: Unable to power off node %s' % node)
+            status = False
+            continue
+
         _remove_all_networks(node, hil_client)
-        hil_client.project.detach(project, node)
+
+        try:
+            hil_client.project.detach(project, node)
+        except:
+            log_error('HIL reservation failure: Unable detach node %s from project %s' % (node, project))
+            status = False
+            continue
+
+    return status
 
 
 def hil_free_nodes(nodelist):
