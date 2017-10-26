@@ -114,7 +114,7 @@ def hil_free_nodes(nodelist, hil_client=None):
         project = node_info['project']
         # check that the node is not in Slurm already
         if (project == SLURM_PROJECT):
-            log_error('HIL release failure: Node %s now in %s project' % (node, project))
+            log_error('HIL release failure: Node %s already in %s project' % (node, project))
             status = False
             continue
 
