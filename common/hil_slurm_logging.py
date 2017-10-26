@@ -23,16 +23,17 @@ def log_init(name, file, level):
                         datefmt='%Y-%m-%d %H:%M:%S')
 
 
-def _log_common(logger_fn, message=None, separator_s=None, exception=False):
+def _log_common(logger_fn, message=None, separator_s=None, print_exception=False):
     if separator_s:
         logger_fn(separator_s)
     if message:
         logger_fn(message)
-    if exception:
+    if print_exception:
         exc_type, exc_value_s, exc_traceback_obj = exc_info()
         exc_traceback_s = repr(traceback.extract_tb(exc_traceback_obj))
-        logger_fn(' Exception: %s' % exc_value_s)
-        logger_fn(' Traceback: %s' % exc_traceback_s)
+        if exc_value_s:
+            logger_fn(' Exception: %s' % exc_value_s)
+            logger_fn(' Traceback: %s' % exc_traceback_s)
 
 
 def log_error(message=None):
