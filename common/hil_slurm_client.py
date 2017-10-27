@@ -56,13 +56,13 @@ def hil_reserve_nodes(nodelist, hil_client=None):
         try:
             node_info = hil_client.node.show(node)
         except:
-            log_error('HIL reservation failure: HIL node info unavailable, node %s' % node)
+            log_error('HIL reservation failure: HIL node info unavailable, node `%s`' % node)
             status = False
             continue
 
         project = node_info['project']
         if (project != SLURM_PROJECT):
-            log_error('HIL reservation failure: Node %s (project %s) not in %s project' % (node, project, SLURM_PROJECT))
+            log_error('HIL reservation failure: Node `%s` (project `%s`) not in `%s` project' % (node, project, SLURM_PROJECT))
             status = False
             continue
 
@@ -70,7 +70,7 @@ def hil_reserve_nodes(nodelist, hil_client=None):
         try:
             hil_client.node.power_off(node)
         except:
-            log_error('HIL reservation failure: Unable to power off node %s' % node)
+            log_error('HIL reservation failure: Unable to power off node `%s`' % node)
             status = False
             continue
 
@@ -81,7 +81,7 @@ def hil_reserve_nodes(nodelist, hil_client=None):
         try:
             hil_client.project.detach(project, node)
         except:
-            log_error('HIL reservation failure: Unable to detach node %s from project %s' % (node, project))
+            log_error('HIL reservation failure: Unable to detach node `%s` from project `%s`' % (node, project))
             status = False
             continue
 
@@ -99,6 +99,8 @@ def hil_free_nodes(nodelist, hil_client=None):
     network is also controlled by HIL. If we removed all networks, then we will
     not be able to perform any IPMI operations on nodes.
     '''
+    status = True
+
     if not hil_client:
         hil_client = hil_init()
 
@@ -107,22 +109,22 @@ def hil_free_nodes(nodelist, hil_client=None):
         try:
             node_info = hil_client.node.show(node)
         except:
-            log_error('HIL release failure: HIL node info unavailable, node %s' % node)
+            log_error('HIL release failure: HIL node info unavailable, node `%s`' % node)
             status = False
             continue
 
+        # If the node is in the Slurm project now, skip further processing, but don't indicate
+        # failure.
         project = node_info['project']
-        # check that the node is not in Slurm already
         if (project == SLURM_PROJECT):
-            log_error('HIL release failure: Node %s already in %s project' % (node, project))
-            status = False
+            log_info('HIL release: Node `%s` already in `%s` project, skipping' % (node, project))
             continue
 
         # prep and move the node from the HIL free pool to the Slurm project
         try:
             hil_client.node.power_off(node)
         except:
-            log_error('HIL release failure: Unable to power off node %s' % node)
+            log_error('HIL release failure: Unable to power off node `%s`' % node)
             status = False
             continue
             
@@ -133,7 +135,7 @@ def hil_free_nodes(nodelist, hil_client=None):
         try:
             hil_client.project.connect(slurm_project, node)
         except:
-            log_error('HIL reservation failure: Unable to connect node %s to project %s' % (node, slurm_project))
+            log_error('HIL reservation failure: Unable to connect node `%s` to project `%s`' % (node, slurm_project))
             status = False
             continue
 
@@ -151,7 +153,7 @@ def _remove_all_networks(node, hil_client):
     try:
         node_info = hil_client.node.show(node)
     except:
-        log_error('Failed to retrieve info for HIL node %s' % node)
+        log_error('Failed to retrieve info for HIL node `%s`' % node)
         return False
 
     status = True
@@ -165,7 +167,7 @@ def _remove_all_networks(node, hil_client):
             try:
                 hil_client.port.port_revert(switch, port)
             except:
-                log_error('Failed to revert port %s on node %s switch %s' % (port, node, switch))
+                log_error('Failed to revert port `%s` on node `%s` switch `%s`' % (port, node, switch))
                 status = False
                 continue
 

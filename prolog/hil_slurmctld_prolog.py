@@ -283,7 +283,7 @@ def _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict):
     # Move nodes from Slurm project to HIL
     nodelist = hostlist.expand_hostlist(env_dict['nodelist'])
     if not hil_reserve_nodes(nodelist, hil_client):
-        log_error('HIL reservation failure: Unable to reserve nodes %s' % nodelist)
+        log_error('HIL reservation failure: Unable to reserve nodes `%s`' % nodelist)
 
 
 def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
