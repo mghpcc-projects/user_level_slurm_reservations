@@ -155,31 +155,7 @@ done
 
 # Install HIL client package files
 
-HIL_PKG_FILES="__init__.py"
-
-HIL_CLIENT_FILES="__init__.py \
-                  base.py \
-                  client.py \
-                  extensions.py \
-                  network.py \
-                  node.py \
-                  project.py \
-                  switch.py \
-                  user.py"
-
-mkdir -p $PYTHON_LIB_DIR/hil/client
-
-for file in $HIL_PKG_FILES; do
-    cp $ULSR_DIR/hil/$file $PYTHON_LIB_DIR/hil/$file
-done
-chown -R $SLURM_USER:$SLURM_USER $PYTHON_LIB_DIR/hil/client
-
-for file in $HIL_CLIENT_FILES; do
-    cp $ULSR_DIR/hil/client/$file $PYTHON_LIB_DIR/hil/client/$file
-done
-
-chown -R $SLURM_USER:$SLURM_USER $PYTHON_LIB_DIR/hil/
-
+pip install git+https://github.com/cci-moc/hil.git@v0.2
 
 # Install ULSR Prolog and Epilog files
 
@@ -204,7 +180,7 @@ for file in $HIL_NETAUDIT_FILES; do
     echo ""
 done
 
-# Update the Slurm config file 
+# Update the Slurm config file
 #
 # Write prolog & epilog locations to slurm.conf
 
