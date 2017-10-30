@@ -19,10 +19,11 @@ libdir = realpath(join(dirname(inspect.getfile(inspect.currentframe())), '../com
 sys.path.append(libdir)
 
 from hil_slurm_client import hil_init, hil_free_nodes
-from hil_slurm_settings import HIL_MONITOR_LOGFILE, HIL_ENDPOINT
+from hil_slurm_settings import HIL_MONITOR_LOGFILE, HIL_ENDPOINT, HIL_SLURM_PROJECT
 from hil_slurm_constants import SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE
 from hil_slurm_helpers import (exec_scontrol_show_cmd, is_hil_reservation, 
-                               parse_hil_reservation_name, delete_slurm_reservation)
+                               parse_hil_reservation_name, delete_slurm_reservation,
+                               get_hil_reservations)
 from hil_slurm_logging import log_init, log_info, log_debug, log_error
 
 
@@ -51,29 +52,6 @@ def _find_hil_release_reservations(resdata_dict_list):
     return delete_reservation_dict_list
 
     
-def _get_hil_reservations():
-    '''
-    Return a dictionary of all HIL reservations extant in the system
-    '''
-    resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
-#    print 'All reservations'
-#    print resdata_dict_list
-
-    for resdata_dict in resdata_dict_list:
-        if is_hil_reservation(resdata_dict['ReservationName'], None):
-            continue
-        else:
-            resdata_dict_list.remove(resdata_dict)
-
-    return resdata_dict_list
-
-
-def _return_nodes_to_slurm(nodelist):
-    '''
-    Return the passed list of nodes from a HIL project to the 'Slurm' (loaner) project
-    '''
-    
-
 def main(argv=[]):
     '''
     '''
@@ -81,7 +59,7 @@ def main(argv=[]):
 
     # Look for HIL ULSR reservations.
     # If none found, return
-    all_res_dict_list = _get_hil_reservations()
+    all_res_dict_list = get_hil_reservations()
     if not len(all_res_dict_list):
         return
 
@@ -106,7 +84,7 @@ def main(argv=[]):
     for release_res_dict in release_res_dict_list:
         nodelist = hostlist.expand_hostlist(release_res_dict['Nodes'])
 
-        if hil_free_nodes(nodelist, hil_client):
+        if hil_free_nodes(nodelist, HIL_SLURM_PROJECT, hil_client):
             resname = release_res_dict['ReservationName']
             status = delete_slurm_reservation(resname, debug=False)
             if status:

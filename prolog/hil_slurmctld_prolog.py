@@ -39,7 +39,8 @@ from hil_slurm_settings import (HIL_PARTITION_PREFIX,
                                 HIL_RESERVATION_DEFAULT_DURATION,
                                 HIL_RESERVATION_GRACE_PERIOD,
                                 HIL_SLURMCTLD_PROLOG_LOGFILE,
-                                HIL_ENDPOINT)
+                                HIL_ENDPOINT, 
+                                HIL_SLURM_PROJECT)
 
 from hil_slurm_client import hil_init
 
@@ -282,7 +283,7 @@ def _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict):
 
     # Move nodes from Slurm project to HIL
     nodelist = hostlist.expand_hostlist(env_dict['nodelist'])
-    if not hil_reserve_nodes(nodelist, hil_client):
+    if not hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client):
         log_error('HIL reservation failure: Unable to reserve nodes `%s`' % nodelist)
 
 

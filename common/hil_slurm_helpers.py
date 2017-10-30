@@ -284,4 +284,20 @@ def get_job_data(job_id):
     return get_object_data('job', job_id, debug=False)
 
 
+def get_hil_reservations():
+    '''
+    Get a list of all Slurm reservations, return that subset which are HIL reservations
+    '''
+    resdata_dict_list = []
+
+    resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
+
+    for resdata_dict in resdata_dict_list:
+        if is_hil_reservation(resdata_dict['ReservationName'], None):
+            continue
+        else:
+            resdata_dict_list.remove(resdata_dict)
+
+    return resdata_dict_list
+
 # EOF

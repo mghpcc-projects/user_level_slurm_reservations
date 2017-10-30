@@ -11,15 +11,12 @@ import urllib
 from hil.client.client import Client, RequestsHTTPClient
 from hil.client.base import FailedAPICallException
 from hil_slurm_logging import log_info, log_debug, log_error
-from hil_slurm_settings import HIL_ENDPOINT, HIL_USER, HIL_PW, HIL_SLURM_PROJECT
-
-
-# Place holder -> need to assert that the node's Slurm proj matches this
-SLURM_PROJECT = HIL_SLURM_PROJECT
+from hil_slurm_settings import HIL_ENDPOINT, HIL_USER, HIL_PW
 
 
 def hil_client_connect(endpoint_ip, name, pw):
     '''
+    Connect to the HIL server and return a HIL Client instance
     '''
     hil_http_client = RequestsHTTPClient()
     if not hil_http_client:
@@ -35,12 +32,13 @@ def check_hil_interface():
     hil_client = hil_init()
 
 
-def hil_reserve_nodes(nodelist, hil_client=None):
+def hil_reserve_nodes(nodelist, from_project, hil_client=None):
     '''
-    Cause HIL nodes to move from the Slurm loaner project to the HIL free pool.
+    Cause HIL nodes to move from the 'from' project to the HIL free pool.
+    Typically, the 'from' project is the Slurm loaner project.
 
     This methods first powers off the nodes, then disconnects all networks, 
-    then moves the node from the Slurm project to the free pool.
+    then moves the node from the 'from' project to the free pool.
 
     We power off the nodes before removing the networks because the IPMI
     network is also controlled by HIL. If we removed all networks, then we will
@@ -61,8 +59,8 @@ def hil_reserve_nodes(nodelist, hil_client=None):
             continue
 
         project = node_info['project']
-        if (project != SLURM_PROJECT):
-            log_error('HIL reservation failure: Node `%s` (project `%s`) not in `%s` project' % (node, project, SLURM_PROJECT))
+        if (project != from_project):
+            log_error('HIL reservation failure: Node `%s` (in project `%s`) not in `%s` project' % (node, project, from_project))
             status = False
             continue
 
@@ -79,21 +77,22 @@ def hil_reserve_nodes(nodelist, hil_client=None):
             continue
 
         try:
-            hil_client.project.detach(project, node)
+            hil_client.project.detach(from_project, node)
         except:
-            log_error('HIL reservation failure: Unable to detach node `%s` from project `%s`' % (node, project))
+            log_error('HIL reservation failure: Unable to detach node `%s` from project `%s`' % (node, from_project))
             status = False
             continue
 
     return status
 
 
-def hil_free_nodes(nodelist, hil_client=None):
+def hil_free_nodes(nodelist, to_project, hil_client=None):
     '''
-    Cause HIL nodes to move from the HIL free pool to the Slurm loaner project.
+    Cause HIL nodes to move the HIL free pool to the 'to' project.
+    Typically, the 'to' project is the Slurm loaner project.
 
     This method first powers off the nodes, then disconnects all networks, 
-    then moves the node from the free pool to the Slurm project.
+    then moves the node from the free pool to the 'to' project.
 
     We power off the nodes before removing the networks because the IPMI
     network is also controlled by HIL. If we removed all networks, then we will
@@ -116,8 +115,8 @@ def hil_free_nodes(nodelist, hil_client=None):
         # If the node is in the Slurm project now, skip further processing, but don't indicate
         # failure.
         project = node_info['project']
-        if (project == SLURM_PROJECT):
-            log_info('HIL release: Node `%s` already in `%s` project, skipping' % (node, project))
+        if (project == to_project):
+            log_info('HIL release: Node `%s` already in `%s` project, skipping' % (node, to_project))
             continue
 
         # prep and move the node from the HIL free pool to the Slurm project
@@ -133,9 +132,9 @@ def hil_free_nodes(nodelist, hil_client=None):
             continue
 
         try:
-            hil_client.project.connect(slurm_project, node)
+            hil_client.project.connect(to_project, node)
         except:
-            log_error('HIL reservation failure: Unable to connect node `%s` to project `%s`' % (node, slurm_project))
+            log_error('HIL reservation failure: Unable to connect node `%s` to project `%s`' % (node, to_project))
             status = False
             continue
 
