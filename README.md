@@ -1,6 +1,6 @@
 # MOC HIL User Level Slurm Reservations (ULSR)
 
-V1.0  18-Oct-2017
+V1.1  30-Oct-2017
 
 # Introduction
 
@@ -14,12 +14,13 @@ used to manage Slurm HIL reservations:
   * ```hil_reserve```
   * ```hil_release```
 
-These commands are executed as Slurm jobs via ```srun(1)``` and ```sbatch(1).```
+These commands are executed as Slurm jobs via ```srun(1)``` and
+```sbatch(1).```
 
 Other software components perform HIL node and network management
-operations on nodes reserved and freed using the above commands.  A
-program goal is to have these components execute automatically without
-user or administrator intervention.
+operations on nodes reserved and freed using the above commands.  An
+important program goal is to have these components execute
+automatically without user or administrator intervention.
 
 ## Supported Targets
 
@@ -80,25 +81,6 @@ reservations.
 Nodes placed in a Slurm HIL reservation are marked as exclusive and
 may not be shared among users.
 
-## Restrictions on User Names and UIDs
-
-Reservations are named after the user who invoked the ```srun
-hil_reserve``` command.  The user's name and UID are passed to the
-Slurmctld prolog and epilog through the ```SLURM_JOB_USER``` and
-```SLURM_JOB_UID``` environment variables.
-
-Priviliged users may specify the user ID with which to create Slurm
-reservations by specifying the ```--uid=<name>``` argument.  It is
-recommended that the ```srun``` and ```sbatch``` commands **not** be
-specified with the ```--uid``` argument, however, as processing Slurm
-HIL reservations with alternate or additional user names has not been
-tested.
-
-At present, only the user named in the reservation may release the
-reservation via ```hil_release```.  Of course, a privileged user may
-update or delete reservations using ```scontrol```, but the system
-state after such an opertion will be **undefined**.
-
 ## Reservation Naming
 
 HIL reservations created using ```hil_reserve``` are named as follows:
@@ -114,6 +96,25 @@ An example:
 ```
 flexalloc_MOC_reserve_centos_1000_2017-06-26T17:20:32
 ```
+
+## Restrictions on User Names and UIDs
+
+Reservations are named after the who invoked the user who invoked the
+```srun hil_reserve``` command.  The user's name and UID are passed to
+the Slurmctld prolog and epilog through the ```SLURM_JOB_USER``` and
+```SLURM_JOB_UID``` environment variables.
+
+Priviliged users may specify the user ID with which to create Slurm
+reservations by specifying the ```--uid=<name>``` argument.  It is
+recommended that the ```srun``` and ```sbatch``` commands **not** be
+specified with the ```--uid``` argument, however, as processing Slurm
+HIL reservations with alternate or additional user names has not been
+tested.
+
+At present, only the user named in the reservation may release the
+reservation via ```hil_release```.  Of course, a privileged user may
+update or delete reservations using ```scontrol```, but the system
+state after such an opertion will be **undefined**.
 
 ## Reservation Start and End Times
 
@@ -135,16 +136,19 @@ advance of any reservation and release operations.
 
 In the Slurm partition, nodes marked with the HIL property and perhaps
 otherwise designated by system administration may be thought of as
-available for loan to a HIL instance, or on loan to a HIL instance.
+either available for loan to HIL, or actually on loan to a HIL and
+either available for use in a HIL end user project, or in use in a HIL
+end user project:
 
   * Nodes which have been placed in a Slurm HIL reservation may be
-    considered as on loan to a HIL instance.  They may exist in the
-    HIL free pool or be allocated to a HIL project and a HIL end user.
+    considered as on loan to HIL.  They may exist in the HIL free pool
+    or be allocated to a HIL project and a HIL end user.
 
   * Nodes which are not in a Slurm HIL reservation, but which are
     marked with the ```HIL``` property, may be considered as available
-    for loan to a HIL instance. They do not reside in the HIL free
-    pool nor are they part of a HIL project.
+    for loan to HIL instance. They do not reside in the HIL free pool, 
+    but reside in a special HIL project.  This project is referred to
+    as the 'Slurm project' or the 'Slurm loaner project'.
 
 Once a Slurm server node has been placed in a Slurm HIL reservation
 with ```hil_reserve```, it may be necessary for the HIL end user to
@@ -158,7 +162,7 @@ interpreted as consistent with a 'two-screen' management model.
 Beyond any requirements imposed by the HIL software and Slurm, the
 following apply to the user level Slurm reservation software.
 
-  1. All nodes in the HIL reservation pool are configured in a single
+  1. All nodes in the HIL reservation pool are configured in a singleo
   Slurm partition.  
 
   2. The Slurm controller node in the partition is not available for
@@ -235,12 +239,49 @@ consists of the following:
   6. A MOC HIL cluster instance.
 
 
+## Workflow and Functional Partitioning
+
+```
+$ srun hil_reserve
+```
+
+  * Slurm Control Daemon Prolog
+    * Creates Slurm HIL reserve reservation
+    * Creates Slurm HIL release reservation
+      * Operations must be done in this order to prevent race conditions
+
+```
+$ srun hil_release --reservation <HIL reserve reservation>
+```
+  * Slurm Control Daemon Epilog detects 'hil_release' and notes reservation name
+
+  * Deletes the reserve reservation
+     * This tells the Monitor that the nodes may be returned to the HIL Slurm loaner project
+
+```
+cron> Periodic ulsr_monitor:
+```
+   * Retrieves all reservations
+   * Looks for release reservations w/o reserve reservations
+       * Deletes any found
+       * Releases HIL resources
+
+
+Q: How is the release reservation created?
+
+  * In the current plan and implementation:  By the Slurmctld prolog and epilog
+  * In an alternate plan and implementation: By the periodic monitor, by noticing there's a reserve reservation but no release reservation
+
+  * Moves nodes from the Slurm project to the HIL free pool
+  * Creats the release reservation
+
+
 ## HIL Reservation Management Commands
 
 The ```hil_reserve``` and ```hil_release``` commands are implemented
-as bash(1) shell scripts, which do little more than cause the
-```slurmctld`` prolog and epilog to run and recognize that the user
-wishes to reserve or release HIL nodes.  
+as ```bash(1)``` shell scripts, which do little more than cause the
+```slurmctld``` prolog and epilog to run and recognize that the user
+wishes to reserve or release HIL nodes.
 
 These names are reserved in that they are recognized by the Slurm
 control daemon prolog and epilog as triggers for specific user level
@@ -259,6 +300,7 @@ by the ```slurmctld``` epilog and by the Slurm HIL periodic monitor.
 As the reservation to be released is in use at the time the prolog
 runs (it is used to run the ```hil_release``` job), it is not possible
 to delete the reservation in the prolog itself.
+
 
 ### Communication between Slurm Components
 
