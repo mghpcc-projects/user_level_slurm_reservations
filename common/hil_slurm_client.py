@@ -37,7 +37,7 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
     Cause HIL nodes to move from the 'from' project to the HIL free pool.
     Typically, the 'from' project is the Slurm loaner project.
 
-    This methods first powers off the nodes, then disconnects all networks, 
+    This methods first powers off the nodes, then disconnects all networks,
     then moves the node from the 'from' project to the free pool.
 
     We power off the nodes before removing the networks because the IPMI
@@ -64,6 +64,7 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
             status = False
             continue
 
+    for node in nodelist:
         # prep and move the node from the Slurm project to the HIL free pool
         try:
             hil_client.node.power_off(node)
@@ -72,10 +73,12 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
             status = False
             continue
 
+    for node in nodelist:
         if not _remove_all_networks(node, hil_client):
             status = False
             continue
 
+    for node in nodelist:
         try:
             hil_client.project.detach(from_project, node)
         except:
@@ -91,7 +94,7 @@ def hil_free_nodes(nodelist, to_project, hil_client=None):
     Cause HIL nodes to move the HIL free pool to the 'to' project.
     Typically, the 'to' project is the Slurm loaner project.
 
-    This method first powers off the nodes, then disconnects all networks, 
+    This method first powers off the nodes, then disconnects all networks,
     then moves the node from the free pool to the 'to' project.
 
     We power off the nodes before removing the networks because the IPMI
@@ -126,7 +129,7 @@ def hil_free_nodes(nodelist, to_project, hil_client=None):
             log_error('HIL release failure: Unable to power off node `%s`' % node)
             status = False
             continue
-            
+
         if not _remove_all_networks(node, hil_client):
             status = False
             continue
