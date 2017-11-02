@@ -22,8 +22,7 @@ from hil_slurm_client import hil_init, hil_reserve_nodes
 from hil_slurm_helpers import (get_partition_data, get_job_data, get_object_data,
                                exec_scontrol_cmd, exec_scontrol_show_cmd,
                                get_hil_reservation_name, is_hil_reservation,
-                               create_slurm_reservation, update_slurm_reservation,
-                               delete_slurm_reservation)
+                               create_slurm_reservation, log_hil_reservation)
 from hil_slurm_constants import (SHOW_OBJ_TIME_FMT, RES_CREATE_TIME_FMT,
                                  SHOW_PARTITION_MAXTIME_HMS_FMT,
                                  RES_CREATE_HIL_FEATURES,
@@ -219,15 +218,6 @@ def _create_hil_reservation(restype_s, t_start_s, t_end_s, env_dict, pdata_dict,
     return resname, stderr_data
 
 
-def _update_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname, **kwargs):
-    '''
-    Update (modify) a HIL reservation.
-    One use is to change the start time of the release reservation to
-    the current time, after the reserve reservation has been deleted
-    '''
-    return update_slurm_reservation(resname, debug=False, **kwargs)
-
-
 def _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname):
     '''
     Delete a HIL reservation after validating HIL name prefix and owner name
@@ -244,47 +234,21 @@ def _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname):
         return None, 'hil_release: error: Invalid reservation name'
 
 
-def _log_hil_reservation(resname, stderr_data, t_start_s=None, t_end_s=None):
-    if len(stderr_data):
-        log_error('Error creating reservation `%s`'% resname)
-        log_error(stderr_data)
-    else:
-        log_info('Created  HIL reservation `%s`' % resname)
-
-
 def _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict):
     '''
     Runs in Slurm control daemon prolog context
 
-    Create HIL reserve and release reservations if they do not already exist.
-
-    HIL reserve reservation must be created first to avoid a race condition 
-    with the periodic reservation monitor
+    Create HIL reserve reservation if it does not already exist.
+    The HIL monitor will reserve the nodes and create the corresponding Slurm HIL release 
+    reservation.
 
     Reservation start and end times may overlap so long as the MAINT flag is set
     '''
     t_start_s, t_end_s = _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict)
     
-    # Loop and create both the reserve and the release reservations
-    
-    for restype_s in [HIL_RESERVE, HIL_RELEASE]:
-        resname, stderr_data = _create_hil_reservation(restype_s, t_start_s, t_end_s,
-                                                       env_dict, pdata_dict, jobdata_dict)
-        _log_hil_reservation(resname, stderr_data, t_start_s, t_end_s)
-
-
-    # Connect to HIL server 
-    hil_client = hil_init()
-    if not hil_client:
-        log_error('Unable to connect to HIL server `%s` to reserve nodes', HIL_ENDPOINT)
-    else:
-        log_debug('Connected to HIL server `%s` to reserve nodes', HIL_ENDPOINT)
-
-
-    # Move nodes from Slurm project to HIL
-    nodelist = hostlist.expand_hostlist(env_dict['nodelist'])
-    if not hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client):
-        log_error('HIL reservation failure: Unable to reserve nodes `%s`' % nodelist)
+    resname, stderr_data = _create_hil_reservation(HIL_RESERVE, t_start_s, t_end_s,
+                                                   env_dict, pdata_dict, jobdata_dict)
+    _log_hil_reservation(resname, stderr_data, t_start_s, t_end_s)
 
 
 def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
@@ -349,7 +313,7 @@ def main(argv=[]):
         pass
     else:
         log_debug('Must specify one of --hil_prolog or --hil_epilog', separator=True)
-        return
+        return False
 
     # Collect prolog/epilog environment, job data, and partition data into dictionaries,
     # perform basic sanity checks
@@ -358,7 +322,7 @@ def main(argv=[]):
     env_dict = _get_prolog_environment()
     if not env_dict['partition']:
         log_debug('Missing Slurm control daemon prolog / epilog environment.')
-        return
+        return False
 
     pdata_dict = get_partition_data(env_dict['partition'])[0]
     jobdata_dict = get_job_data(env_dict['job_id'])[0]
@@ -367,29 +331,32 @@ def main(argv=[]):
         log_debug('One of pdata_dict, jobdata_dict, or env_dict is empty')
         log_debug('Job data', jobdata_dict)
         log_debug('P   data', pdata_dict)
-        return
+        return False
 
     if not _check_hil_partition(env_dict, pdata_dict):
-        return
+        return False
 
     # Verify the command is a HIL command.  If so, process it.
 
     hil_cmd = _check_hil_command(env_dict)
     if not hil_cmd:
-        return
+        return True
+
+    status = True
 
     if args.hil_prolog:
         if (hil_cmd == 'hil_reserve'):
             log_info('HIL Slurmctld Prolog', separator=True)
             log_debug('Processing reserve request')
-            _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict)
+            status = _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict)
 
     elif args.hil_epilog:
         if (hil_cmd == 'hil_release'):
             log_info('HIL Slurmctld Epilog', separator=True)
             log_debug('Processing release request')
-            _hil_release_cmd(env_dict, pdata_dict, jobdata_dict)
-    return
+            status = _hil_release_cmd(env_dict, pdata_dict, jobdata_dict)
+
+    return status
 
 
 if __name__ == '__main__':
