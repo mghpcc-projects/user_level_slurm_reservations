@@ -41,6 +41,7 @@ else
     ULSR_REPO_NAME=user_level_slurm_reservations
     ULSR_REPO_URL=https://github.com/mghpcc-projects/$ULSR_REPO_NAME.git
     ULSR_BRANCH=development
+#   ULSR_BRANCH=reorg
 fi
 
 NFS_SHARED_DIR=/shared
@@ -80,13 +81,21 @@ mkdir -p $LOGFILE_DIR
 chmod 775 $LOGFILE_DIR
 chown $SLURM_USER:$SLURM_USER $LOGFILE_DIR
 
+# Create Slurm user script directory
+
+mkdir -p $SLURM_USER_DIR/scripts
+chown -R $SLURM_USER:$SLURM_USER $SLURM_USER_DIR/scripts
+
 # Set up Python virtual environment, install Python hostlist
 
 virtualenv -p $PYTHON_VER $SLURM_USER_DIR/scripts/ve
 source $SLURM_USER_DIR/scripts/ve/bin/activate
 pip install python-hostlist
 pip install requests
+pip install git+https://github.com/cci-moc/hil.git@v0.2
 deactivate
+
+set -u
 
 PYTHON_LIB_DIR=$SLURM_USER_DIR/scripts/ve/lib/python2.7/site-packages
 
@@ -109,20 +118,15 @@ mkdir -p $HIL_SHARED_DIR/bin
 chmod -R 700 $HIL_SHARED_DIR/bin
 chown -R $INSTALL_USER:$INSTALL_USER $HIL_SHARED_DIR/bin
 
-# Create Slurm user script directory
-
-mkdir -p $SLURM_USER_DIR/scripts
-chown -R $SLURM_USER:$SLURM_USER $SLURM_USER_DIR/scripts
-
 # Copy files to final resting places
 #
 # Install HIL user-level commands and HIL periodic wrappers
 
-HIL_COMMAND_FILES="hil_reserve \
-                   hil_release \
-                   hil_slurm_monitor.sh"
+ULSR_COMMAND_FILES="hil_reserve \
+                    hil_release \
+                    hil_slurm_monitor.sh"
 
-for file in $HIL_COMMAND_FILES; do
+for file in $ULSR_COMMAND_FILES; do
     cp $ULSR_DIR/commands/$file $HIL_SHARED_DIR/bin
     cp $ULSR_DIR/commands/$file $LOCAL_BIN
     chmod 755 $LOCAL_BIN/$file
@@ -130,9 +134,9 @@ done
 
 # Install ULSR periodic monitor files
 
-HIL_MONITOR_FILES="hil_slurm_monitor.py"
+ULSR_MONITOR_FILES="hil_slurm_monitor.py"
 
-for file in $HIL_MONITOR_FILES; do
+for file in $ULSR_MONITOR_FILES; do
     cp $ULSR_DIR/commands/$file $SLURM_USER_DIR/scripts/
     chown $SLURM_USER:$SLURM_USER $SLURM_USER_DIR/scripts/$file
     echo ""
@@ -148,14 +152,10 @@ ULSR_COMMON_FILES="hil_slurm_client.py \
                    hil_slurm_logging.py
                    hil_slurm_settings.py"
 
-for file in $HIL_COMMON_FILES; do
+for file in $ULSR_COMMON_FILES; do
     cp $ULSR_DIR/common/$file $PYTHON_LIB_DIR/$file
     chown $SLURM_USER:$SLURM_USER $PYTHON_LIB_DIR/$file
 done
-
-# Install HIL client package files
-
-pip install git+https://github.com/cci-moc/hil.git@v0.2
 
 # Install ULSR Prolog and Epilog files
 
@@ -163,12 +163,11 @@ ULSR_PROLOG_FILES="hil_slurmctld_epilog.sh \
                    hil_slurmctld_prolog.py \
                    hil_slurmctld_prolog.sh"
 
-for file in $HIL_PROLOG_FILES; do
+for file in $ULSR_PROLOG_FILES; do
     cp $ULSR_DIR/prolog/$file $SLURM_USER_DIR/scripts/
     chown $SLURM_USER:$SLURM_USER $SLURM_USER_DIR/scripts/$file
     echo ""
 done
-
 
 chmod 755 $SLURM_USER_DIR/scripts/hil_*.sh
 
@@ -195,4 +194,5 @@ chown $SLURM_USER:$SLURM_USER $SLURM_CONF_FILE
 cp -p $SLURM_CONF_FILE $HIL_SHARED_DIR
 
 echo 'Provision compute nodes, then restart Slurm control daemon.'
+set +u
 set +x
