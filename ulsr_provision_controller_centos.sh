@@ -17,6 +17,13 @@ set -x
 SLURM_USER=slurm
 SLURM_USER_DIR=/home/$SLURM_USER
 
+# set HOME for slurmctld master file
+sed -i 's,\(HOME=\)\(.*\),\1'"$SLURM_USER_DIR"',' commands/hil_slurmctld_master.sh
+
+# set PATH for slurmctld master file
+PATH=/bin:/usr/bin:/usr/local/bin:/usr/local/sbin
+sed -i 's,\(PATH=\)\(.*\),\1'"$PATH"',' commands/hil_slurmctld_master.sh
+
 INSTALL_USER=centos
 INSTALL_USER_DIR=/home/$INSTALL_USER
 
@@ -80,6 +87,11 @@ LOGFILE_DIR=/var/log/moc_hil_ulsr
 mkdir -p $LOGFILE_DIR
 chmod 775 $LOGFILE_DIR
 chown $SLURM_USER:$SLURM_USER $LOGFILE_DIR
+# set LOGFILE for slurmctld master file
+sed -i 's,\(PROLOG_LOGFILE=\)\(.*\),\1'"$LOGFILE_DIR"'/hil_prolog.log,' \
+    commands/hil_slurmctld_master.sh
+sed -i 's,\(MONITOR_LOGFILE=\)\(.*\),\1'"$LOGFILE_DIR"'/hil_monitor.log,' \
+    commands/hil_slurmctld_master.sh
 
 # Create Slurm user script directory
 
@@ -159,9 +171,7 @@ done
 
 # Install ULSR Prolog and Epilog files
 
-ULSR_PROLOG_FILES="hil_slurmctld_epilog.sh \
-                   hil_slurmctld_prolog.py \
-                   hil_slurmctld_prolog.sh"
+ULSR_PROLOG_FILES="hil_slurmctld_prolog.py"
 
 for file in $ULSR_PROLOG_FILES; do
     cp $ULSR_DIR/prolog/$file $SLURM_USER_DIR/scripts/
@@ -181,13 +191,12 @@ done
 
 # Update the Slurm config file
 #
-# Write prolog & epilog locations to slurm.conf
+# Write master file location to slurm.conf
 
 cat >> $SLURM_CONF_FILE <<EOF
 #
-# Slurmctld Prolog and Epilog
-PrologSlurmctld=$SLURM_USER_DIR/scripts/hil_slurmctld_prolog.sh
-EpilogSlurmctld=$SLURM_USER_DIR/scripts/hil_slurmctld_epilog.sh
+# Slurmctld Master
+MasterSlurmctld=$SLURM_USER_DIR/scripts/hil_slurmctld_master.sh
 EOF
 
 chown $SLURM_USER:$SLURM_USER $SLURM_CONF_FILE

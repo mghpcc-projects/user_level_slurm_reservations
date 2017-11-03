@@ -485,11 +485,10 @@ compute nodes.
 [UPDATE to reflect coexistence with other Slurm prolog / epilog modules]
 
 If no other Slurm control daemon prolog and/or epilog is in use, the
-SlurmCtld prolog and epilog must be specified in the ```slurm.conf``` file:
+SlurmCtld master file must be specified in the ```slurm.conf``` file:
 
 ```
-PrologSlurmctld=/<install_dir>/scripts/hil_slurmctld_prolog.sh
-EpilogSlurmctld=/<install_dir>/scripts/hil_slurmctld_epilog.sh
+MasterSlurmctld=/<install_dir>/scripts/hil_slurmctld_master.sh
 ```
 
 These lines are added to the default ```slurm.conf``` by the Slurm
