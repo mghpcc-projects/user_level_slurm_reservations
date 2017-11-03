@@ -248,7 +248,7 @@ def _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict):
     
     resname, stderr_data = _create_hil_reservation(HIL_RESERVE, t_start_s, t_end_s,
                                                    env_dict, pdata_dict, jobdata_dict)
-    _log_hil_reservation(resname, stderr_data, t_start_s, t_end_s)
+    log_hil_reservation(resname, stderr_data, t_start_s, t_end_s)
 
 
 def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
