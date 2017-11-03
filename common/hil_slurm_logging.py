@@ -37,11 +37,11 @@ def _log_common(logger_fn, message=None, separator_s=None, print_exception=False
 
 
 def log_error(message=None):
-    _log_common(logging.error, message, separator_s=warn_error_sep, exception=True)
+    _log_common(logging.error, message, separator_s=warn_error_sep, print_exception=True)
 
 
 def log_warning(message=None):
-    _log_common(logging.warning, message, separator_s=warn_error_sep, exception=True)
+    _log_common(logging.warning, message, separator_s=warn_error_sep, print_exception=True)
 
 
 def log_info(message, separator=False):
@@ -49,7 +49,7 @@ def log_info(message, separator=False):
         s = info_debug_sep
     else:
         s = None
-    _log_common(logging.info, message, separator_s=s, exception=False)
+    _log_common(logging.info, message, separator_s=s, print_exception=False)
 
 
 def log_debug(message, separator=False):
@@ -57,6 +57,6 @@ def log_debug(message, separator=False):
         s = info_debug_sep
     else:
         s = None
-    _log_common(logging.debug, message, separator_s=s, exception=False)
+    _log_common(logging.debug, message, separator_s=s, print_exception=False)
 
 # EOF
