@@ -22,7 +22,7 @@ from hil_slurm_settings import HIL_MONITOR_LOGFILE, HIL_ENDPOINT, HIL_SLURM_PROJ
 from hil_slurm_constants import SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE
 from hil_slurm_helpers import (exec_scontrol_show_cmd, is_hil_reservation, 
                                parse_hil_reservation_name, delete_slurm_reservation,
-                               get_hil_reservations)
+                               get_hil_reservations, log_hil_reservation)
 from hil_slurm_logging import log_init, log_info, log_debug, log_error
 
 
@@ -38,7 +38,7 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list):
 
         if hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client):
 
-            resname = reserve_res_dict['ReservationName'].
+            resname = reserve_res_dict['ReservationName']
             release_resname = resname.replace(HIL_RESERVE, HIL_RELEASE, 1)
             t_start_s = reserve_res_dict['StartTime']
             t_end_s = reserve_res_dict['EndTime']
@@ -112,7 +112,7 @@ def _find_hil_singleton_reservations(hil_reservations_dict, singleton_type):
         if (restype == singleton_type):
             # Check for matching reservation.  
             # If found, continue. Else add the singleton to the list.
-            if resname.replace(singleton_type, pair_type, 1) in all_reservations:
+            if resname.replace(singleton_type, pair_type, 1) hil_reservations_dict:
                 continue
             else:
                 singleton_reservation_dict_list.append(resdata_dict)
