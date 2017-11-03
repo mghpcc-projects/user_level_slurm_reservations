@@ -301,7 +301,7 @@ def get_hil_reservations():
     return resdata_dict_list
 
 
-def _log_hil_reservation(resname, stderr_data, t_start_s=None, t_end_s=None):
+def log_hil_reservation(resname, stderr_data, t_start_s=None, t_end_s=None):
     if len(stderr_data):
         log_error('Error creating reservation `%s`'% resname)
         log_error(stderr_data)
