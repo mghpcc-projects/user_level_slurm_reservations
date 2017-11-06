@@ -161,7 +161,7 @@ interpreted as consistent with a 'two-screen' management model.
 Beyond any requirements imposed by the HIL software and Slurm, the
 following apply to the user level Slurm reservation software.
 
-  1. All nodes in the HIL reservation pool are configured in a single
+  1. All nodes in the HIL reservation pool are configured in a singleon
   Slurm partition.  
 
   2. Slurm compute nodes must be marked with the ```HIL``` feature in
@@ -243,39 +243,46 @@ consists of the following:
 
 ## Workflow and Functional Partitioning
 
+The general workflow is as follows:
+
+To reserve nodes, as a Slurm non-privilged user run the following:
 ```
 $ srun hil_reserve
 ```
+ULSR software actions:
 
-  * Slurm Control Daemon Prolog
+  * Slurm Control Daemon ULSR Prolog (running as the Slurm user)
     * Creates Slurm HIL reserve reservation
-    * Creates Slurm HIL release reservation
-      * Operations must be done in this order to prevent race conditions
 
+  * ULSR Periodic Monitor (running as the Slurm user, or root)
+
+    * Interacts with HIL client to reboot the nodes in the Slurm
+reservation, disconnect these nodes from all networks, and move these
+nodes from the Slurm loaner project to the HIL free pool.
+
+    * Creates Slurm HIL release reservation
+
+If a failure is detected by the periodic monitor, the reserve
+reservation will not be created, and the periodic monitor will retry
+the HIL operations when scheduled to run again.  This retry process
+will continue so long as the reserve reservation exists.
+
+To release nodes, as a Slurm non-privileged user run the following:
 ```
 $ srun hil_release --reservation <HIL reserve reservation>
 ```
-  * Slurm Control Daemon Epilog detects 'hil_release' and notes reservation name
 
-  * Deletes the reserve reservation
-     * This tells the Monitor that the nodes may be returned to the HIL Slurm loaner project
+ULSR software actions:
 
-```
-cron> Periodic ulsr_monitor:
-```
-   * Retrieves all reservations
-   * Looks for release reservations w/o reserve reservations
-       * Deletes any found
-       * Releases HIL resources
+  * Slurm Control Daemon ULSR Epilog
+     * Detects 'hil_release' command and reservation in which the command was run
+     * Deletes the Slurm reserve reservation
 
-
-Q: How is the release reservation created?
-
-  * In the current plan and implementation:  By the Slurmctld prolog and epilog
-  * In an alternate plan and implementation: By the periodic monitor, by noticing there's a reserve reservation but no release reservation
-
-  * Moves nodes from the Slurm project to the HIL free pool
-  * Creats the release reservation
+  * ULSR Periodic Monitor
+     * Detects release reservation which is not paired with a reserve reservation
+     * Via the HIL client, reboots all nodes in the release
+reservation, disconnects these nodes from all networks, and moves
+these nodes back to the Slurm loaner project. 
 
 
 ## HIL Reservation Management Commands
@@ -327,20 +334,28 @@ of various ```scontrol show``` commands, for example, ```scontrol show job```.
 
 The HIL reservation monitor runs periodically on the Slurm controller
 node and looks for changes in Slurm HIL reservations.  More
-specifically, the reservation monitor looks for Slurm HIL release
-reservations which do not have corresponding reserve reservations.
+specifically, the reservation monitor:
+
+    * Looks for ULSR reserve reservations which do not have
+      corresponding release reservations.  This identifies a new ULSR
+      reservation.
+
+    * Looks for ULSR release reservations which do not have reserve
+      reservations.  This indicates a ULR reservation which has been
+      released by the Slurm user.
 
 For each singleton release reservation found, the HIL reservation
 monitor:
 
-  1. Invokes the HIL client API to remove the nodes in the reservation
-  from the HIL user project or HIL free pool.
+  1. Invokes the HIL client API to move the nodes in the Slurm
+  reservation between the free pool and the Slurm loaner project
 
-  2. Deletes the Slurm HIL release reservation.
+  2. Creates or deletes the Slurm ULSR release reservation.
 
 If the HIL client operations fail, the Slurm HIL release reservation
-is left in place, so that the periodic reservation monitor can retry
-the operation.
+is either not created (```hil_reserve```) or left in place
+(```hil_release```), so that the periodic reservation monitor can
+retry the operation when scheduled again.
 
 
 ## HIL Client Interface
