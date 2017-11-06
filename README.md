@@ -50,6 +50,8 @@ PartitionName=(null) Flags=MAINT,IGNORE_JOBS,S PEC_NODES,ALL_NODES
 TRES=cpu=1 Users=centos Accounts=(null) Licenses=(null) State=ACTIVE
 BurstBuffer=(null) Watts=n/a 
 ```
+This is called the ULSR reserve reservation.
+
 Some time later, after the periodic execution of the ULSR monitor, a
 paired release reservation similiar to the following should appear:
 
@@ -113,17 +115,17 @@ tested.
 At present, only the user named in the reservation may release the
 reservation via ```hil_release```.  Of course, a privileged user may
 update or delete reservations using ```scontrol```, but the system
-state after such an opertion will be **undefined**.
+state after such an operation will be **undefined**.
 
 ## Reservation Start and End Times
 
 The reserve and release reservation start times may differ from the
 time at which the ```hil_reserve``` command is run.  Reservations are
-created by the ```slurmctld``` prolog and epilog only when the
-requested resources become available and the job is scheduled for
-execution.  Thus the reservation start times may be substantially
-different from the time-of-day at which the ```srun``` command is
-invoked.
+created by the ```slurmctld``` prolog and epilog and the ULSR periodic
+monitor only when the requested resources become available and the job
+is scheduled for execution.  Thus the reservation start times may be
+substantially different from the time-of-day at which the ```srun```
+command is invoked.
 
 
 ## Two-Screen Management Model
@@ -161,8 +163,8 @@ interpreted as consistent with a 'two-screen' management model.
 Beyond any requirements imposed by the HIL software and Slurm, the
 following apply to the user level Slurm reservation software.
 
-  1. All nodes in the HIL reservation pool are configured in a singleon
-  Slurm partition.  
+  1. All nodes in the HIL reservation pool are configured in a single
+  Slurm partition.
 
   2. Slurm compute nodes must be marked with the ```HIL``` feature in
   order to be placed in a HIL reservation.  Features are defined in
@@ -209,8 +211,8 @@ may be reviewed as necessary to gain insight into system behavior.
   ```hil_slurm_settings.py``` file.  By default, the location is
   ```/var/log/moc_hil_ulsr/hil_monitor.log```. 
 
-  * The HIL server, if configured to run on the Slurm controller node,
-  writes to ```/var/log/hil.log```.
+  * The HIL server writes to ```/var/log/hil.log```.  Note the HIL
+    server may or may not reside on Slurm controller node.
 
 
 # Implementation Details
@@ -245,7 +247,7 @@ consists of the following:
 
 The general workflow is as follows:
 
-To reserve nodes, as a Slurm non-privilged user run the following:
+To reserve nodes, as a Slurm non-privilged user run the following command:
 ```
 $ srun hil_reserve
 ```
@@ -254,18 +256,19 @@ ULSR software actions:
   * Slurm Control Daemon ULSR Prolog (running as the Slurm user)
     * Creates Slurm HIL reserve reservation
 
-  * ULSR Periodic Monitor (running as the Slurm user, or root)
+  * ULSR Periodic Monitor (running as the Slurm user, or ```root```)
 
-    * Interacts with HIL client to reboot the nodes in the Slurm
-reservation, disconnect these nodes from all networks, and move these
+    * Detects reserve reservations which are not paired with release reservations
+    * Interacts with the HIL client to reboot the nodes in the Slurm reserve
+reservation, disconnect the nodes from all networks, and move the
 nodes from the Slurm loaner project to the HIL free pool.
-
     * Creates Slurm HIL release reservation
 
 If a failure is detected by the periodic monitor, the reserve
 reservation will not be created, and the periodic monitor will retry
 the HIL operations when scheduled to run again.  This retry process
-will continue so long as the reserve reservation exists.
+will continue a long as the reserve reservation does not have a
+matching release reservation.
 
 To release nodes, as a Slurm non-privileged user run the following:
 ```
@@ -276,40 +279,39 @@ ULSR software actions:
 
   * Slurm Control Daemon ULSR Epilog
      * Detects 'hil_release' command and reservation in which the command was run
-     * Deletes the Slurm reserve reservation
+     * Deletes the Slurm HIL reserve reservation
 
   * ULSR Periodic Monitor
-     * Detects release reservation which is not paired with a reserve reservation
-     * Via the HIL client, reboots all nodes in the release
-reservation, disconnects these nodes from all networks, and moves
-these nodes back to the Slurm loaner project. 
+     * Detects release reservations which are not paired with reserve reservations
+     * Interacts with the HIL client to reboots the nodes in the Slurm release
+reservation, disconnect the nodes from all networks, and move the
+nodes from the HIL free pool back to the Slurm loaner project.
 
 
 ## HIL Reservation Management Commands
 
 The ```hil_reserve``` and ```hil_release``` commands are implemented
 as ```bash(1)``` shell scripts, which do little more than cause the
-```slurmctld``` prolog and epilog to run and recognize that the user
-wishes to reserve or release HIL nodes.
+```slurmctld``` prolog and epilog to run and communicate, via
+their job names, that the user wishes to reserve or release HIL nodes.
 
-These names are reserved in that they are recognized by the Slurm
-control daemon prolog and epilog as triggers for specific user level
-HIL reservation operations.
+These names are system reserved in that they are recognized by the
+Slurm control daemon prolog and epilog as triggers for specific ULSR
+reservation operations.
 
 ## Slurm Control Daemon Prolog and Epilog
 
-The ```slurmctld``` prolog does the work required to place nodes in a
-HIL reservation.  The prolog consists of a ```bash``` script which
-invokes a common Python program used for both the prolog and the
-epilog.  Prolog function is selected via an argument to the Python
-script.  The epilog is implemented in an identical manner.
+The ```slurmctld``` prolog does some of the work required to place
+nodes in a ULSR reservation.  The prolog consists of a ```bash```
+script which invokes a common Python program used for both the prolog
+and the epilog.  Prolog function is selected via an argument to the
+Python script.  The epilog is implemented in an identical manner.
 
-The work required to release nodes from a HIL reservation is performed
-by the ```slurmctld``` epilog and by the Slurm HIL periodic monitor.
-As the reservation to be released is in use at the time the prolog
-runs (it is used to run the ```hil_release``` job), it is not possible
-to delete the reservation in the prolog itself.
-
+Likewise, some of The work required to release nodes from a HIL
+reservation is performed by the ```slurmctld``` epilog.  As the
+reservation to be released is in use at the time the prolog runs (it
+is used to run the ```hil_release``` job), it is not possible to
+delete the reservation in the prolog itself.
 
 ### Communication between Slurm Components
 
@@ -329,20 +331,23 @@ name, user ID, and job node list.  Other information regarding the
 Slurm execution environment is available through subprocess execution
 of various ```scontrol show``` commands, for example, ```scontrol show job```.
 
+The Slurm control daemon prolog and epilog communicate ULSR
+reservation state to the ULSR periodic monitor through the Slurm
+reservations themselves.
 
 ## Periodic Reservation Monitor
 
 The HIL reservation monitor runs periodically on the Slurm controller
-node and looks for changes in Slurm HIL reservations.  More
-specifically, the reservation monitor:
+node, as a ```cron(8)``` job, and looks for changes in Slurm HIL ULSR
+reservations.  More specifically, the reservation monitor:
 
     * Looks for ULSR reserve reservations which do not have
-      corresponding release reservations.  This identifies a new ULSR
-      reservation.
+      corresponding release reservations.  Each such Slurm reservation
+      found represents a new ULSR reservation.
 
     * Looks for ULSR release reservations which do not have reserve
-      reservations.  This indicates a ULR reservation which has been
-      released by the Slurm user.
+      reservations.  Each such Slurm reservation found identifies a
+      ULSR reservation which has been released by the Slurm user.
 
 For each singleton release reservation found, the HIL reservation
 monitor:
