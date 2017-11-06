@@ -1,6 +1,6 @@
 # MOC HIL User Level Slurm Reservations (ULSR)
 
-V1.1  30-Oct-2017
+V2.0  2-Nov-2017
 
 # Introduction
 
@@ -31,19 +31,17 @@ Linux but has not been tested in that distribution environment.
 
 To reserve a HIL node, specify the ```hil_reserve``` command as a job
 to the Slurm ```srun(1)``` or ```sbatch(1)``` command:
-
 ```
 $ srun hil_reserve
 ```
-
 To verify the reservation was created, run the ```scontrol show
 reservation``` command:
-
 ``` 
 $ scontrol show reservation
 ```
-If successful, two reservations similiar to the following should appear:
-
+If successful, immediately after execution of the ```srun
+hil_reserve``` command, a Slurm reservation similiar to the following
+should appear:
 ```
 ReservationName=flexalloc_MOC_reserve_centos_1000_2017-06-26T17:20:32
 StartTime=2017-06-26T17:20:32 EndTime=2017-06-26T21:25:32
@@ -52,6 +50,8 @@ PartitionName=(null) Flags=MAINT,IGNORE_JOBS,S PEC_NODES,ALL_NODES
 TRES=cpu=1 Users=centos Accounts=(null) Licenses=(null) State=ACTIVE
 BurstBuffer=(null) Watts=n/a 
 ```
+Some time later, after the periodic execution of the ULSR monitor, a
+paired release reservation similiar to the following should appear:
 
 ```
 ReservationName=flexalloc_MOC_release_centos_1000_2017-06-26T17:20:32
@@ -73,8 +73,7 @@ run the job:
 ```
 $ srun --reservation=flexalloc_MOC_reserve_centos_1000_2017-06-26T17:20:32 hil_release
 ```
-This will ultimately cause removal of both the reserve and release
-reservations.  
+This will ultimately remove both the reserve and release reservations.
 
 ## Resource Sharing
 
@@ -151,9 +150,9 @@ end user project:
     as the 'Slurm project' or the 'Slurm loaner project'.
 
 Once a Slurm server node has been placed in a Slurm HIL reservation
-with ```hil_reserve```, it may be necessary for the HIL end user to
-run HIL management commands to cause the server node to fully
-participate in a HIL user project.  This requirement may be
+through the use of ```hil_reserve```, it may be necessary for the HIL
+end user to run HIL management commands to cause the server node to
+fully participate in a HIL user project.  This requirement may be
 interpreted as consistent with a 'two-screen' management model.
 
 
@@ -162,17 +161,17 @@ interpreted as consistent with a 'two-screen' management model.
 Beyond any requirements imposed by the HIL software and Slurm, the
 following apply to the user level Slurm reservation software.
 
-  1. All nodes in the HIL reservation pool are configured in a singleo
+  1. All nodes in the HIL reservation pool are configured in a single
   Slurm partition.  
 
-  2. The Slurm controller node in the partition is not available for
-  HIL operations and is **not** marked with the ```HIL``` feature.
-
-  3. Slurm compute nodes must be marked with the ```HIL``` feature in
+  2. Slurm compute nodes must be marked with the ```HIL``` feature in
   order to be placed in a HIL reservation.  Features are defined in
   the ```slurm.conf``` file or may be added to a node by a privileged
   user via the ```scontrol update``` command.  Refer to the Slurm
-  documenation for a description of how to do this.
+  documentation for a description of how to do this.
+
+  3. The Slurm controller node in the partition is not available for
+  HIL operations and is **not** marked with the ```HIL``` feature.
 
   4. HIL nodes may be released from a HIL reservation through
   ```hil_release```, even though they are not up and running Linux.
@@ -180,7 +179,7 @@ following apply to the user level Slurm reservation software.
   detailed system behavior has not been fully evaluated and is likely
   to evolve over time.
 
-  5. Python v2.7 must be installed on the Slurm controller node.
+  5. Python 2.7 must be installed on the Slurm controller node.
 
   6. The ```hil_reserve``` and ```hil_release``` commands must be
   available on both the Slurm controller node and on the compute nodes
@@ -209,6 +208,9 @@ may be reviewed as necessary to gain insight into system behavior.
   location of this file is configured in the
   ```hil_slurm_settings.py``` file.  By default, the location is
   ```/var/log/moc_hil_ulsr/hil_monitor.log```. 
+
+  * The HIL server, if configured to run on the Slurm controller node,
+  writes to ```/var/log/hil.log```.
 
 
 # Implementation Details
