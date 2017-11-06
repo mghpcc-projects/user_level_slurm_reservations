@@ -35,10 +35,9 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list):
     n = 0
     for reserve_res_dict in reserve_res_dict_list:
         nodelist = hostlist.expand_hostlist(reserve_res_dict['Nodes'])
+        resname = reserve_res_dict['ReservationName']
 
         if hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client):
-
-            resname = reserve_res_dict['ReservationName']
             release_resname = resname.replace(HIL_RESERVE, HIL_RELEASE, 1)
             t_start_s = reserve_res_dict['StartTime']
             t_end_s = reserve_res_dict['EndTime']
