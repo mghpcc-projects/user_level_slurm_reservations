@@ -81,7 +81,7 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
         try:
             hil_client.project.detach(from_project, node)
             log_info('Node `%s` removed from project `%s`' % (node, from_project))
-        except:
+        except FailedAPICallException, ConnectionError:
             log_error('HIL reservation failure: Unable to detach node `%s` from project `%s`' % (node, from_project))
             raise HILClientFailure()
 
@@ -127,7 +127,7 @@ def hil_free_nodes(nodelist, to_project, hil_client=None):
         try:
             hil_client.project.connect(to_project, node)
             log_info('Node `%s` connected to project `%s`' % (node, to_project))
-        except:
+        except FailedAPICallException, ConnectionError:
             log_error('HIL reservation failure: Unable to connect node `%s` to project `%s`' % (node, to_project))
             raise HILClientFailure()
 
@@ -136,7 +136,7 @@ def hil_init():
     return hil_client_connect(HIL_ENDPOINT, HIL_USER, HIL_PW)
 
 
-def _remove_all_networks(node, hil_client):
+def _remove_all_networks(hil_client, node):
     '''
     Disconnect all networks from all of the node's NICs
     '''
@@ -151,7 +151,7 @@ def _remove_all_networks(node, hil_client):
             try:
                 hil_client.port.port_revert(switch, port)
                 log_info('Removed all networks from node `%s`' % node)
-            except:
+            except FailedAPICallException, ConnectionError:
                 log_error('Failed to revert port `%s` on node `%s` switch `%s`' % (port, node, switch))
                 raise HILClientFailure()
 
@@ -161,11 +161,10 @@ def show_node(hil_client, node):
     try:
         node_info = hil_client.node.show(node)
         return node_info
-    except Exception as ex:
+    except FailedAPICallException, ConnectionError:
         # log a note for the admins, and the exact exception before raising
         # an error.
         log_error('HIL reservation failure: HIL node info unavailable, node `%s`' % node)
-        log_error(ex)
         raise HILClientFailure()
 
 
@@ -173,7 +172,6 @@ def power_off_node(hil_client, node):
     try:
         hil_client.node.power_off(node)
         log_info('Node `%s` succesfully powered off' % node)
-    except Exception as ex:
+    except FailedAPICallException, ConnectionError:
         log_error('HIL reservation failure: Unable to power off node `%s`' % node)
-        log_error(ex)
         raise HILClientFailure()
