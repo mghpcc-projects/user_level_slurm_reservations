@@ -8,10 +8,15 @@ August 2017, Tim Donahue	tpd001@gmail.com
 
 import urllib
 
+import time
+
 from hil.client.client import Client, RequestsHTTPClient
 from hil.client.base import FailedAPICallException
 from hil_slurm_logging import log_info, log_debug, log_error
 from hil_slurm_settings import HIL_ENDPOINT, HIL_USER, HIL_PW
+
+# timeout ensures that networking actions are completed in a resonable time.
+HIL_TIMEOUT = 13
 
 
 class HILClientFailure(Exception):
@@ -52,9 +57,6 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
     network is also controlled by HIL. If we removed all networks, then we will
     not be able to perform any IPMI operations on nodes.
     '''
-    # this might cause a loop? since hil_init calls hil_client_connect
-    # which can return None. We can either have a counter to give it a
-    # reasonable number of tries before raising an exception.
     if not hil_client:
         hil_client = hil_init()
 
@@ -78,12 +80,7 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
 
     # Finally, remove node from project.
     for node in nodelist:
-        try:
-            hil_client.project.detach(from_project, node)
-            log_info('Node `%s` removed from project `%s`' % (node, from_project))
-        except FailedAPICallException, ConnectionError:
-            log_error('HIL reservation failure: Unable to detach node `%s` from project `%s`' % (node, from_project))
-            raise HILClientFailure()
+        remove_node_from_project(hil_client, node, from_project)
 
 
 def hil_free_nodes(nodelist, to_project, hil_client=None):
@@ -154,6 +151,45 @@ def _remove_all_networks(hil_client, node):
             except FailedAPICallException, ConnectionError:
                 log_error('Failed to revert port `%s` on node `%s` switch `%s`' % (port, node, switch))
                 raise HILClientFailure()
+
+
+def _ensure_no_networks(hil_client, node):
+    """Polls on the output of show node to check if networks have been removed.
+    It will timeout and raise an exception if it's taking too long.
+    """
+    connected_to_network = True
+    end_time = time.time() + HIL_TIMEOUT
+    while connected_to_network:
+        if time.time() > end_time:
+            raise HILClientFailure('Networks not removed from node in reasonable time')
+        node_info = show_node(hil_client, node)
+        for nic in node_info['nics']:
+            if nic['networks']:
+                connected_to_network = True
+                break
+            else:
+                connected_to_network = False
+        # don't tight loop.
+        time.sleep(1)
+    return
+
+
+def remove_node_from_project(hil_client, node, from_project):
+    """Remove node from <from_project>
+    Handles the case when there's an active networking action on the nic
+    """
+    try:
+        _ensure_no_networks(hil_client, node)
+        hil_client.project.detach(from_project, node)
+        log_info('Node `%s` removed from project `%s`' % (node, from_project))
+    except FailedAPICallException as ex:
+        # check what the type of error it is and retry until network actions
+        # are taken care of.
+        if ex.message == 'Node has pending network actions':
+            remove_node_from_project(hil_client, node, from_project)
+            return
+        log_error('HIL reservation failure: Unable to detach node `%s` from project `%s`' % (node, from_project))
+        raise HILClientFailure()
 
 
 def show_node(hil_client, node):
