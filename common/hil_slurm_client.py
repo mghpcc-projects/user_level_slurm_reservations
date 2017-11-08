@@ -16,7 +16,7 @@ from hil_slurm_logging import log_info, log_debug, log_error
 from hil_slurm_settings import HIL_ENDPOINT, HIL_USER, HIL_PW
 
 # timeout ensures that networking actions are completed in a resonable time.
-HIL_TIMEOUT = 13
+HIL_TIMEOUT = 20
 
 
 class HILClientFailure(Exception):
@@ -80,7 +80,25 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
 
     # Finally, remove node from project.
     for node in nodelist:
-        remove_node_from_project(hil_client, node, from_project)
+        _ensure_no_networks(hil_client, node)
+
+        # tries 3 times to detach the project because there might be a pending
+        # networking action setup by revert port in the previous step.
+        counter = 3
+        while counter:
+            try:
+                hil_client.project.detach(from_project, node)
+                log_info('Node `%s` removed from project `%s`' % (node, from_project))
+                break
+            except FailedAPICallException as ex:
+                if ex.message == 'Node has pending network actions':
+                    counter -= 1
+                else:
+                    log_error('HIL reservation failure: Unable to detach node `%s` from project `%s`' % (node, from_project))
+                    raise HILClientFailure(ex.message)
+        if counter == 0:
+            log_error('HIL reservation failure: Unable to detach node `%s` from project `%s`' % (node, from_project))
+            raise HILClientFailure()
 
 
 def hil_free_nodes(nodelist, to_project, hil_client=None):
@@ -170,26 +188,8 @@ def _ensure_no_networks(hil_client, node):
             else:
                 connected_to_network = False
         # don't tight loop.
-        time.sleep(1)
+        time.sleep(0.5)
     return
-
-
-def remove_node_from_project(hil_client, node, from_project):
-    """Remove node from <from_project>
-    Handles the case when there's an active networking action on the nic
-    """
-    try:
-        _ensure_no_networks(hil_client, node)
-        hil_client.project.detach(from_project, node)
-        log_info('Node `%s` removed from project `%s`' % (node, from_project))
-    except FailedAPICallException as ex:
-        # check what the type of error it is and retry until network actions
-        # are taken care of.
-        if ex.message == 'Node has pending network actions':
-            remove_node_from_project(hil_client, node, from_project)
-            return
-        log_error('HIL reservation failure: Unable to detach node `%s` from project `%s`' % (node, from_project))
-        raise HILClientFailure()
 
 
 def show_node(hil_client, node):
