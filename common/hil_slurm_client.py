@@ -129,14 +129,6 @@ def hil_free_nodes(nodelist, to_project, hil_client=None):
             log_info('HIL release: Node `%s` already in `%s` project, skipping' % (node, to_project))
             nodelist.remove(node)
 
-    # Power off all nodes.
-    for node in nodelist:
-        power_off_node(hil_client, node)
-
-    # Remove all networks from nodes.
-    for node in nodelist:
-        _remove_all_networks(hil_client, node)
-
     # Finally, connect node to <to_project>
     for node in nodelist:
         try:
