@@ -62,11 +62,15 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
 
     # Get information from node and ensure that the node is actually connected
     # to <from_project> before proceeding.
-    for node in nodelist:
+    # iterate over a copy of nodelist, otherwise we can't modify it.
+    for node in nodelist[:]:
         node_info = show_node(hil_client, node)
-
         project = node_info['project']
-        if (project != from_project):
+        # if node already in the free pool, skip any processing.
+        if project is None:
+            log_info('HIL release: Node `%s` already in the free pool, skipping' % node)
+            nodelist.remove(node)
+        elif (project != from_project):
             log_error('HIL reservation failure: Node `%s` (in project `%s`) not in `%s` project' % (node, project, from_project))
             raise ProjectMismatchError()
 
@@ -82,9 +86,9 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
     for node in nodelist:
         _ensure_no_networks(hil_client, node)
 
-        # tries 3 times to detach the project because there might be a pending
+        # tries 10 times to detach the project because there might be a pending
         # networking action setup by revert port in the previous step.
-        counter = 3
+        counter = 10
         while counter:
             try:
                 hil_client.project.detach(from_project, node)
@@ -93,6 +97,7 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
             except FailedAPICallException as ex:
                 if ex.message == 'Node has pending network actions':
                     counter -= 1
+                    time.sleep(0.5)
                 else:
                     log_error('HIL reservation failure: Unable to detach node `%s` from project `%s`' % (node, from_project))
                     raise HILClientFailure(ex.message)
@@ -119,7 +124,8 @@ def hil_free_nodes(nodelist, to_project, hil_client=None):
 
     # Get information from node and ensure that the node is actually connected
     # to <from_project> before proceeding.
-    for node in nodelist:
+    # iterate over a copy of nodelist, otherwise we can't modify it.
+    for node in nodelist[:]:
         node_info = show_node(hil_client, node)
 
         # If the node is in the Slurm project now, skip further processing, but don't indicate
