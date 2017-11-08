@@ -14,7 +14,7 @@ LIB_FILES = hil_slurm_client.py hil_slurm_constants.py hil_slurm_helpers.py hil_
 DOCS = README.md LICENSE 
 
 SLURM_USER = slurm
-SLURM_USER = tdonahue
+# SLURM_USER = tdonahue
 SLURM_USER_DIR=/home/$(SLURM_USER)
 
 INSTALL_USER = centos
@@ -67,6 +67,13 @@ install: yum_packages nfs_share
 	# Copy network audit scripts
 	$(INSTALL) $(NET_AUDIT_FILES) $(SLURM_USER_DIR)/scripts
 
+	# Update Slurm configuration file and share with compute nodes
+	echo '# Slurmctld Prolog and Epilog' >> $(SLURM_CONF_FILE)
+	echo 'PrologSlurmctld=$(SLURM_USER_DIR)/scripts/hil_slurmctld_prolog.sh' >> $(SLURM_CONF_FILE)
+	echo 'EpilogSlurmctld=$(SLURM_USER_DIR)/scripts/hil_slurmctld_epilog.sh' >> $(SLURM_CONF_FILE)
+
+	echo 'Provision Slurm compute nodes, then restart Slurm control daemon.'
+	echo 'Installation complete.'
 
 python_packages:
 	yum makecache -y fast
