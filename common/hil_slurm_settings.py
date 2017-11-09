@@ -13,7 +13,7 @@ SLURM_INSTALL_DIR = '/usr/bin/'
 HIL_SLURMCTLD_PROLOG_LOGFILE = '/var/log/moc_hil_ulsr/hil_prolog.log'
 HIL_MONITOR_LOGFILE = '/var/log/moc_hil_ulsr/hil_monitor.log'
 
-HIL_ENDPOINT = "http://128.31.28.156:80"
+HIL_ENDPOINT = "http://10.0.0.16:80"
 HIL_USER = 'admin'
 HIL_PW = 'NavedIsSleepy'
 HIL_SLURM_PROJECT = 'slurm'
