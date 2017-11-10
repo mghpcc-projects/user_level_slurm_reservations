@@ -1,4 +1,4 @@
-PROJECT = ulsr
+EUID = $(shell id -u -r)
 
 HIL_CMDS = hil_reserve hil_release
 LOCAL_BIN = /usr/local/bin
@@ -36,11 +36,12 @@ ULSR_LOGFILE_DIR = /var/log/ulsr
 INSTALL = /usr/bin/install -m 755 -g $(SLURM_USER) -o $(SLURM_USER)
 
 
-.PHONY: all install clean python_packages nfs_share
+.PHONY: all install clean linux_packages nfs_share
+
 
 all: install
 
-install: yum_packages nfs_share
+install: check linux_packages nfs_share
 
 	# ULSR log file directory
 	mkdir -p $(ULSR_LOGFILE_DIR)
@@ -75,13 +76,16 @@ install: yum_packages nfs_share
 	echo 'Provision Slurm compute nodes, then restart Slurm control daemon.'
 	echo 'Installation complete.'
 
-python_packages:
+check:
+	@if [[ $(EUID) -ne 0 ]] ; then echo 'Please run make as the root user' ; exit 1 ; fi
+
+linux_packages: check
 	yum makecache -y fast
 	yum install -y emacs
 	yum install -y nfs-utils
 	yum install -y virtualenv
 
-nfs_share:
+nfs_share: check
 	mkdir -p $(NFS_SHARED_DIR)
 	chmod 777 $(NFS_SHARED_DIR)
 	chown nobody:nobody $(NFS_SHARED_DIR)
@@ -95,12 +99,10 @@ nfs_share:
 	chmod -R 700 $(ULSR_SHARED_DIR)/bin
 	chown -R $(INSTALL_USER):$(INSTALL_USER) $(ULSR_SHARED_DIR)/bin
 
-clean:
+clean: check
 	rm -rf $(SLURM_USER_DIR)/scripts
 	rm -rf $(ULSR_LOGFILE_DIR)
 	cd $(LOCAL_BIN)
 	rm -f $(HIL_CMDS)
-	cd $(VENV_SITE_PKG_DIR)
-	rm -rf $(LIB_FILES)
-	rm -rf $(SLURM_USER_DIR)/scripts/ve
+
 # EOF
