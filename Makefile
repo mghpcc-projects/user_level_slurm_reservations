@@ -1,4 +1,11 @@
-EUID = $(shell id -u -r)
+# 
+# Mass OpenCloud (MOC) / Hardware Isolation Layer (HIL)
+# User Level Slurm Reservations (ULSR)
+#
+# Installation Makefile
+#
+# November 2017, Tim Donahue 	tpd001@gmail.com
+#
 
 HIL_CMDS = hil_reserve hil_release
 LOCAL_BIN = /usr/local/bin
@@ -13,7 +20,7 @@ LIB_FILES = hil_slurm_client.py hil_slurm_constants.py hil_slurm_helpers.py hil_
 
 DOCS = README.md LICENSE 
 
-SLURM_USER = slurm
+SLURM_USER := slurm
 # SLURM_USER = tdonahue
 SLURM_USER_DIR=/home/$(SLURM_USER)
 
@@ -23,6 +30,10 @@ INSTALL_USER_DIR=/home/$(INSTALL_USER)
 SLURM_CONF_FILE_PATH = /etc/slurm
 SLURM_CONF_FILE_NAME = slurm.conf
 SLURM_CONF_FILE = $(SLURM_CONF_FILE_PATH)/$(SLURM_CONF_FILE_NAME)
+
+EUID := $(shell id -u -r)
+SLURMCTLD_PID := $(shell (pgrep -u $(SLURM_USER) slurmctld))
+SLURMD_PID := $(shell (pgrep -u $(SLURM_USER) slurmd))
 
 PYTHON = python2.7
 PYTHON_PKGS = python-hostlist requests git+https://github.com/cci-moc/hil.git@v0.2
@@ -36,12 +47,32 @@ ULSR_LOGFILE_DIR = /var/log/ulsr
 INSTALL = /usr/bin/install -m 755 -g $(SLURM_USER) -o $(SLURM_USER)
 
 
-.PHONY: all install clean linux_packages nfs_share
+.PHONY: all install clean python_packages nfs_share
 
+all: as-root on-controller install-controller
 
-all: install
+as-root:
+ifeq (0, $(EUID))
+	@echo 'Please run make as the root user'
+	@exit 1 
+endif
 
-install: check linux_packages nfs_share
+on-controller:
+ifeq (, $(SLURMCTLD_PID))
+	echo $(SLURMCTLD_PID)
+	@echo 'Unable to determine Slurm controller daemon PID'
+	@echo 'Run `make install-controller` to force installation on Slurm controller node'
+	@exit 1
+endif
+
+on-server:
+ifeq (, $(SLURMD_PID))
+	@echo 'Unable to determine Slurm daemon PID'
+	@echo 'Run `make install-server` to force installation on Slurm server node'
+	@exit 1
+endif
+
+install-controller: as-root linux-packages controller-nfs-share
 
 	# ULSR log file directory
 	mkdir -p $(ULSR_LOGFILE_DIR)
@@ -76,16 +107,15 @@ install: check linux_packages nfs_share
 	echo 'Provision Slurm compute nodes, then restart Slurm control daemon.'
 	echo 'Installation complete.'
 
-check:
-	@if [[ $(EUID) -ne 0 ]] ; then echo 'Please run make as the root user' ; exit 1 ; fi
-
-linux_packages: check
+install-server: as-root linux-packages server-nfs-share
+	
+linux-packages: as-root
 	yum makecache -y fast
 	yum install -y emacs
 	yum install -y nfs-utils
 	yum install -y virtualenv
 
-nfs_share: check
+controller-nfs-share: as-root
 	mkdir -p $(NFS_SHARED_DIR)
 	chmod 777 $(NFS_SHARED_DIR)
 	chown nobody:nobody $(NFS_SHARED_DIR)
@@ -99,10 +129,21 @@ nfs_share: check
 	chmod -R 700 $(ULSR_SHARED_DIR)/bin
 	chown -R $(INSTALL_USER):$(INSTALL_USER) $(ULSR_SHARED_DIR)/bin
 
-clean: check
+server-nfs-share: as-root
+	mkdir -p $(NFS_SHARED_DIR)
+	chmod 777 $(NFS_SHARED_DIR)
+	chown nobody:nobody $(NFS_SHARED_DIR)
+	chkconfig nfs on
+	service rpcbind start
+	service nfs start
+	mount $(SLURM_CONTROLLER):$(NFS_SHARED_DIR) $(NFS_SHARED_DIR)
+
+# $$$ Check FSTAB entry first
+	echo '$(SLURM_CONTROLLER):$(NFS_SHARED_DIR) nfs auto,noatime,nolock,bg,nfsvers=3,intr,tcp,actimeo=1800 0 0'
+
+clean: as-root
 	rm -rf $(SLURM_USER_DIR)/scripts
 	rm -rf $(ULSR_LOGFILE_DIR)
 	cd $(LOCAL_BIN)
 	rm -f $(HIL_CMDS)
-
 # EOF
