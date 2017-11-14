@@ -21,11 +21,12 @@ LIB_FILES = hil_slurm_client.py hil_slurm_constants.py hil_slurm_helpers.py hil_
 DOCS = README.md LICENSE 
 
 SLURM_USER := slurm
-# SLURM_USER = tdonahue
 SLURM_USER_DIR=/home/$(SLURM_USER)
 
 INSTALL_USER = centos
 INSTALL_USER_DIR=/home/$(INSTALL_USER)
+
+SLURM_CONTROLLER = slurm-controller
 
 SLURM_CONF_FILE_PATH = /etc/slurm
 SLURM_CONF_FILE_NAME = slurm.conf
@@ -46,6 +47,7 @@ ULSR_LOGFILE_DIR = /var/log/ulsr
 
 INSTALL = /usr/bin/install -m 755 -g $(SLURM_USER) -o $(SLURM_USER)
 SH = bash
+COPY = cp
 
 
 # Functions
@@ -82,7 +84,7 @@ endef
 
 # Build Targets
 
-.PHONY: all install clean python_packages nfs_share q .FORCE
+.PHONY: all install clean linux-packages controller-nfs-share server-nfs-share .FORCE
 
 .FORCE:
 
@@ -112,22 +114,22 @@ install-controller:
 	# Virtual environment and support libraries
 	@mkdir -p $(SLURM_USER_DIR)/scripts
 	@virtualenv -p $(PYTHON) $(SLURM_USER_DIR)/scripts/ve
-	@$(SH) $(SLURM_USER_DIR)/scripts/ve/bin/activate
-	@pip install $(PYTHON_PKGS)
-	@deactivate
+	@$($(SH) ($(SLURM_USER_DIR)/scripts/ve/bin/activate; \
+	          pip install $(PYTHON_PKGS); \
+	          deactivate))
 
 	# Copy common library modules
-	@$(INSTALL) $(LIB_FILES) $(VENV_SITE_PKG_DIR)
+	@cd ./common && $(INSTALL) $(LIB_FILES) $(VENV_SITE_PKG_DIR)
 
 	# Copy HIL commands to local bin directory and NFS-shared bin directory
-	@$(INSTALL) $(HIL_CMDS) $(LOCAL_BIN)
-	@$(COPY) $(HIL_CMDS) $(ULSR_SHARED_DIR)/bin
+	@cd ./commands && $(INSTALL) $(HIL_CMDS) $(LOCAL_BIN)
+	@cd ./commands && $(COPY) $(HIL_CMDS) $(ULSR_SHARED_DIR)/bin
 
 	# Copy prolog and epilog scripts
-	@$(INSTALL) $(PROLOG_FILES) $(SLURM_USER_DIR)/scripts
+	@cd ./prolog && $(INSTALL) $(PROLOG_FILES) $(SLURM_USER_DIR)/scripts
 
 	# Copy network audit scripts
-	@$(INSTALL) $(NET_AUDIT_FILES) $(SLURM_USER_DIR)/scripts
+###	@cd ./netaudit && $(INSTALL) $(NET_AUDIT_FILES) $(SLURM_USER_DIR)/scripts
 
 	# Update Slurm configuration file and share with compute nodes
 	@echo '# Slurmctld Prolog and Epilog' >> $(SLURM_CONF_FILE)
@@ -156,8 +158,7 @@ install-server:
 
 	# Copy HIL commands from NFS-shared bin directory to local bin directory 
 	@$(INSTALL) $(ULSR_SHARED_DIR)/$(SLURM_CONF_FILE_NAME) $(SLURM_CONF_FILE)
-	@cd $(ULSR_SHARED_DIR)/bin
-	@$(INSTALL) $(HIL_CMDS) $(LOCAL_BIN)
+	@cd $(ULSR_SHARED_DIR)/bin && $(INSTALL) $(HIL_CMDS) $(LOCAL_BIN)
 
 
 linux-packages:
@@ -175,7 +176,7 @@ controller-nfs-share: linux-packages
 	@service rpcbind start
 	@service nfs start
 	@echo '$(NFS_SHARED_DIR) *(rw,sync,no_root_squash)' >> /etc/exports
-	@exportfs -a
+	@-exportfs -a
 
 	@mkdir -p $(ULSR_SHARED_DIR)/bin
 	@chmod -R 700 $(ULSR_SHARED_DIR)/bin
@@ -189,14 +190,15 @@ server-nfs-share: linux-packages
 	@chkconfig nfs on
 	@service rpcbind start
 	@service nfs start
-	@mount $(SLURM_CONTROLLER):$(NFS_SHARED_DIR) $(NFS_SHARED_DIR)
+	@-mount $(SLURM_CONTROLLER):$(NFS_SHARED_DIR) $(NFS_SHARED_DIR)
 	@echo '$(SLURM_CONTROLLER):$(NFS_SHARED_DIR) nfs auto,noatime,nolock,bg,nfsvers=3,intr,tcp,actimeo=1800 0 0'
+
 
 clean:
 	$(call verify-root-user)
-	@rm -rf $(SLURM_USER_DIR)/scripts
-	@rm -rf $(ULSR_LOGFILE_DIR)
-	@cd $(LOCAL_BIN)
-	@rm -f $(HIL_CMDS)
-	@rm -rf $(ULSR_SHARED_DIR)
+	rm -rf $(SLURM_USER_DIR)/scripts
+	rm -rf $(ULSR_LOGFILE_DIR)
+	cd $(LOCAL_BIN)
+	rm -f $(HIL_CMDS)
+	rm -rf $(ULSR_SHARED_DIR)
 # EOF
