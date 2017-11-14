@@ -45,105 +45,158 @@ ULSR_SHARED_DIR = $(NFS_SHARED_DIR)/ulsr
 ULSR_LOGFILE_DIR = /var/log/ulsr
 
 INSTALL = /usr/bin/install -m 755 -g $(SLURM_USER) -o $(SLURM_USER)
+SH = bash
 
 
-.PHONY: all install clean python_packages nfs_share
+# Functions
 
-all: as-root on-controller install-controller
+define confirm-install
+    @echo 'Unable to determine Slurm $(1) daemon PID.'
+    @read -p 'Enter Y/y to force installation: ' -n 1 -r REPLY; echo; \
+    [ $$REPLY = "y" ] || [ $$REPLY = "Y" ] || (exit 1;)
+endef
 
-as-root:
-ifeq (0, $(EUID))
-	@echo 'Please run make as the root user'
-	@exit 1 
-endif
+# Confirm Slurm controller daemon is running or ask for install confirmation
 
-on-controller:
-ifeq (, $(SLURMCTLD_PID))
-	echo $(SLURMCTLD_PID)
-	@echo 'Unable to determine Slurm controller daemon PID'
-	@echo 'Run `make install-controller` to force installation on Slurm controller node'
+define on-controller
+    $(if $(SLURMCTLD_PID),\
+	@echo 'Slurm control daemon PID is $(SLURMCTLD_PID)',\
+	$(call confirm-install,'controller'))
+endef
+
+# Confirm Slurm (server) daemon is running or ask for install confirmation
+
+define on-server
+    $(if $(SLURMD_PID),\
+	@echo 'Slurm daemon PID is $(SLURMD_PID)',\
+	$(call confirm-install,'server'))
+endef
+
+
+# Verify we are running as root
+
+define verify-root-user
+    $(if $(filter $(EUID),0),@:,@echo 'Run `make $(MAKECMDGOALS)` as the root user'; exit 1)
+endef
+
+
+# Build Targets
+
+.PHONY: all install clean python_packages nfs_share q .FORCE
+
+.FORCE:
+
+
+all: install
+
+
+install:
+	@echo 'Run `make install-controller` as root to install ULSR on the Slurm controller node.'
+	@echo 'Run `make install-server` as root to install ULSR on a Slurm compute server node.'
 	@exit 1
-endif
 
-on-server:
-ifeq (, $(SLURMD_PID))
-	@echo 'Unable to determine Slurm daemon PID'
-	@echo 'Run `make install-server` to force installation on Slurm server node'
-	@exit 1
-endif
 
-install-controller: as-root linux-packages controller-nfs-share
+# Install ULSR software on Slurm controller node
+
+install-controller:
+	@$(call verify-root-user)
+	@$(call on-controller)
+	@$(MAKE) linux-packages
+	@$(MAKE) controller-nfs-share
 
 	# ULSR log file directory
-	mkdir -p $(ULSR_LOGFILE_DIR)
-	chmod 755 $(ULSR_LOGFILE_DIR)
-	chown $(SLURM_USER):$(SLURM_USER) $(ULSR_LOGFILE_DIR)
+	@mkdir -p $(ULSR_LOGFILE_DIR)
+	@chmod 755 $(ULSR_LOGFILE_DIR)
+	@chown $(SLURM_USER):$(SLURM_USER) $(ULSR_LOGFILE_DIR)
 
 	# Virtual environment and support libraries
-	mkdir -p $(SLURM_USER_DIR)/scripts
-	virtualenv -p $(PYTHON) $(SLURM_USER_DIR)/scripts/ve
-	source $(SLURM_USER_DIR)/scripts/ve/bin/activate
-	pip install $(PYTHON_PKGS)
-	deactivate
+	@mkdir -p $(SLURM_USER_DIR)/scripts
+	@virtualenv -p $(PYTHON) $(SLURM_USER_DIR)/scripts/ve
+	@$(SH) $(SLURM_USER_DIR)/scripts/ve/bin/activate
+	@pip install $(PYTHON_PKGS)
+	@deactivate
 
 	# Copy common library modules
-	$(INSTALL) $(LIB_FILES) $(VENV_SITE_PKG_DIR)
+	@$(INSTALL) $(LIB_FILES) $(VENV_SITE_PKG_DIR)
 
 	# Copy HIL commands to local bin directory and NFS-shared bin directory
-	$(INSTALL) $(HIL_CMDS) $(LOCAL_BIN)
-	$(COPY) $(HIL_CMDS) $(ULSR_SHARED_DIR)/bin
+	@$(INSTALL) $(HIL_CMDS) $(LOCAL_BIN)
+	@$(COPY) $(HIL_CMDS) $(ULSR_SHARED_DIR)/bin
 
 	# Copy prolog and epilog scripts
-	$(INSTALL) $(PROLOG_FILES) $(SLURM_USER_DIR)/scripts
+	@$(INSTALL) $(PROLOG_FILES) $(SLURM_USER_DIR)/scripts
 
 	# Copy network audit scripts
-	$(INSTALL) $(NET_AUDIT_FILES) $(SLURM_USER_DIR)/scripts
+	@$(INSTALL) $(NET_AUDIT_FILES) $(SLURM_USER_DIR)/scripts
 
 	# Update Slurm configuration file and share with compute nodes
-	echo '# Slurmctld Prolog and Epilog' >> $(SLURM_CONF_FILE)
-	echo 'PrologSlurmctld=$(SLURM_USER_DIR)/scripts/hil_slurmctld_prolog.sh' >> $(SLURM_CONF_FILE)
-	echo 'EpilogSlurmctld=$(SLURM_USER_DIR)/scripts/hil_slurmctld_epilog.sh' >> $(SLURM_CONF_FILE)
+	@echo '# Slurmctld Prolog and Epilog' >> $(SLURM_CONF_FILE)
+	@echo 'PrologSlurmctld=$(SLURM_USER_DIR)/scripts/hil_slurmctld_prolog.sh' >> $(SLURM_CONF_FILE)
+	@echo 'EpilogSlurmctld=$(SLURM_USER_DIR)/scripts/hil_slurmctld_epilog.sh' >> $(SLURM_CONF_FILE)
+	@$(COPY) $(SLURM_CONF_FILE) $(ULSR_SHARED_DIR)/$(SLURM_CONF_FILE_NAME)
 
-	echo 'Provision Slurm compute nodes, then restart Slurm control daemon.'
-	echo 'Installation complete.'
+	# Share Makefile with compute nodes
+	@$(COPY) Makefile $(ULSR_SHARED_DIR)
 
-install-server: as-root linux-packages server-nfs-share
-	
-linux-packages: as-root
-	yum makecache -y fast
-	yum install -y emacs
-	yum install -y nfs-utils
-	yum install -y virtualenv
+	@echo 'Provision Slurm compute nodes, then restart Slurm control daemon.'
+	@echo 'Installation complete.'
 
-controller-nfs-share: as-root
-	mkdir -p $(NFS_SHARED_DIR)
-	chmod 777 $(NFS_SHARED_DIR)
-	chown nobody:nobody $(NFS_SHARED_DIR)
-	chkconfig nfs on
-	service rpcbind start
-	service nfs start
-	echo '$(NFS_SHARED_DIR) *(rw,sync,no_root_squash)' >> /etc/exports
-	exportfs -a
 
-	mkdir -p $(ULSR_SHARED_DIR)/bin
-	chmod -R 700 $(ULSR_SHARED_DIR)/bin
-	chown -R $(INSTALL_USER):$(INSTALL_USER) $(ULSR_SHARED_DIR)/bin
+# Install ULSR software on Slurm compute server node
 
-server-nfs-share: as-root
-	mkdir -p $(NFS_SHARED_DIR)
-	chmod 777 $(NFS_SHARED_DIR)
-	chown nobody:nobody $(NFS_SHARED_DIR)
-	chkconfig nfs on
-	service rpcbind start
-	service nfs start
-	mount $(SLURM_CONTROLLER):$(NFS_SHARED_DIR) $(NFS_SHARED_DIR)
+install-server: 
+	@$(call verify-root-user)
+	@$(call on-server)
+	@$(MAKE) linux-packages
+	@$(MAKE) server-nfs-share
 
-# $$$ Check FSTAB entry first
-	echo '$(SLURM_CONTROLLER):$(NFS_SHARED_DIR) nfs auto,noatime,nolock,bg,nfsvers=3,intr,tcp,actimeo=1800 0 0'
+	# Create Slurm user script directory 
+	@mkdir -p $(SLURM_USER_DIR)/scripts
+	@chown -R $(SLURM_USER):$(SLURM_USER) $(SLURM_USER_DIR)/scripts
 
-clean: as-root
-	rm -rf $(SLURM_USER_DIR)/scripts
-	rm -rf $(ULSR_LOGFILE_DIR)
-	cd $(LOCAL_BIN)
-	rm -f $(HIL_CMDS)
+	# Copy HIL commands from NFS-shared bin directory to local bin directory 
+	@$(INSTALL) $(ULSR_SHARED_DIR)/$(SLURM_CONF_FILE_NAME) $(SLURM_CONF_FILE)
+	@cd $(ULSR_SHARED_DIR)/bin
+	@$(INSTALL) $(HIL_CMDS) $(LOCAL_BIN)
+
+
+linux-packages:
+	@yum makecache -y fast
+	@yum install -y emacs
+	@yum install -y nfs-utils
+	@yum install -y python-virtualenv
+
+
+controller-nfs-share: linux-packages
+	@mkdir -p $(NFS_SHARED_DIR)
+	@chmod 777 $(NFS_SHARED_DIR)
+	@chown nobody:nobody $(NFS_SHARED_DIR)
+	@chkconfig nfs on
+	@service rpcbind start
+	@service nfs start
+	@echo '$(NFS_SHARED_DIR) *(rw,sync,no_root_squash)' >> /etc/exports
+	@exportfs -a
+
+	@mkdir -p $(ULSR_SHARED_DIR)/bin
+	@chmod -R 700 $(ULSR_SHARED_DIR)/bin
+	@chown -R $(INSTALL_USER):$(INSTALL_USER) $(ULSR_SHARED_DIR)/bin
+
+
+server-nfs-share: linux-packages
+	@mkdir -p $(NFS_SHARED_DIR)
+	@chmod 777 $(NFS_SHARED_DIR)
+	@chown nobody:nobody $(NFS_SHARED_DIR)
+	@chkconfig nfs on
+	@service rpcbind start
+	@service nfs start
+	@mount $(SLURM_CONTROLLER):$(NFS_SHARED_DIR) $(NFS_SHARED_DIR)
+	@echo '$(SLURM_CONTROLLER):$(NFS_SHARED_DIR) nfs auto,noatime,nolock,bg,nfsvers=3,intr,tcp,actimeo=1800 0 0'
+
+clean:
+	$(call verify-root-user)
+	@rm -rf $(SLURM_USER_DIR)/scripts
+	@rm -rf $(ULSR_LOGFILE_DIR)
+	@cd $(LOCAL_BIN)
+	@rm -f $(HIL_CMDS)
+	@rm -rf $(ULSR_SHARED_DIR)
 # EOF
