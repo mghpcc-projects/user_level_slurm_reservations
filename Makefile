@@ -10,17 +10,15 @@
 HIL_CMDS = hil_reserve hil_release
 LOCAL_BIN = /usr/local/bin
 
-PROLOG_FILES = hil_slurmctld_prolog.py hil_slurmctld_prolog.sh hil_slurmctld_epilog.sh
+COMMAND_PY_FILES := hil_slurmctld_prolog.py hil_slurm_monitor.py 
+COMMAND_SH_FILES := hil_slurmctld_prolog.sh hil_slurmctld_epilog.sh hil_slurm_monitor.sh
 
-MONITOR_FILES = hil_slurm_monitor.py hil_slurm_monitor.sh
-
-NET_AUDIT_FILES =
-
-LIB_FILES = hil_slurm_client.py hil_slurm_constants.py hil_slurm_helpers.py hil_slurm_logging.py hil_slurm_settings.py
+LIB_PY_FILES = hil_slurm_client.py hil_slurm_constants.py hil_slurm_helpers.py hil_slurm_logging.py hil_slurm_settings.py
 
 DOCS = README.md LICENSE 
 
 SLURM_USER := slurm
+SLURM_USER := tdonahue
 SLURM_USER_DIR=/home/$(SLURM_USER)
 
 INSTALL_USER = centos
@@ -81,12 +79,24 @@ define verify-root-user
     $(if $(filter $(EUID),0),@:,@echo 'Run `make $(MAKECMDGOALS)` as the root user'; exit 1)
 endef
 
+# $1 - Script file name
+# $2 - Variable name
+# $3 - Variable value 
+define configure-environment
+    grep "$(2)=" $(1) && \
+        sed -i 's,\(PATH=\)\(.*\),\1'$(3)',' $(1)
+endef
+
 
 # Build Targets
 
 .PHONY: all install clean linux-packages controller-nfs-share server-nfs-share .FORCE
 
 .FORCE:
+
+
+t: .FORCE
+	cd ./commands && $(foreach file,$(COMMAND_SH_FILES),$(call configure-environment,$(file),PATH,'/usr/bin'))
 
 
 all: install
@@ -119,14 +129,14 @@ install-controller:
 	          deactivate))
 
 	# Copy common library modules
-	@cd ./common && $(INSTALL) $(LIB_FILES) $(VENV_SITE_PKG_DIR)
+	@cd ./common && $(INSTALL) $(LIB_PY_FILES) $(VENV_SITE_PKG_DIR)
 
 	# Copy HIL commands to local bin directory and NFS-shared bin directory
 	@cd ./commands && $(INSTALL) $(HIL_CMDS) $(LOCAL_BIN)
 	@cd ./commands && $(COPY) $(HIL_CMDS) $(ULSR_SHARED_DIR)/bin
 
-	# Copy prolog and epilog scripts
-	@cd ./prolog && $(INSTALL) $(PROLOG_FILES) $(SLURM_USER_DIR)/scripts
+	# Copy prolog, epilog, and monitor files beneath Slurm user dir
+	@cd ./commands && $(INSTALL) $(COMMAND_PY_FILES) $(COMMAND_SH_FILES) $(SLURM_USER_DIR)/scripts
 
 	# Copy network audit scripts
 ###	@cd ./netaudit && $(INSTALL) $(NET_AUDIT_FILES) $(SLURM_USER_DIR)/scripts
