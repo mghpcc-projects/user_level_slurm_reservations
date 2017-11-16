@@ -10,15 +10,19 @@
 HIL_CMDS = hil_reserve hil_release
 LOCAL_BIN = /usr/local/bin
 
-COMMAND_PY_FILES := hil_slurmctld_prolog.py hil_slurm_monitor.py 
-COMMAND_SH_FILES := hil_slurmctld_prolog.sh hil_slurmctld_epilog.sh hil_slurm_monitor.sh
+EPILOG_PY_FILES := hil_slurmctld_prolog.py
+MONITOR_PY_FILES := hil_slurmctld_monitor.py
+COMMAND_PY_FILES := $(EPILOG_PY_FILES) $(MONITOR_PY_FILES)
+
+EPILOG_SH_FILES := hil_slurmctld_prolog.sh hil_slurmctld_epilog.sh 
+MONITOR_SH_FILES := hil_slurm_monitor.sh
+COMMAND_SH_FILES := $(EPILOG_SH_FILES) $(MONITOR_SH_FILES)
 
 LIB_PY_FILES = hil_slurm_client.py hil_slurm_constants.py hil_slurm_helpers.py hil_slurm_logging.py hil_slurm_settings.py
 
 DOCS = README.md LICENSE 
 
 SLURM_USER := slurm
-SLURM_USER := tdonahue
 SLURM_USER_DIR=/home/$(SLURM_USER)
 
 INSTALL_USER = centos
@@ -41,7 +45,12 @@ VENV_SITE_PKG_DIR = $(SLURM_USER_DIR)/scripts/ve/lib/$(PYTHON)/site-packages
 
 NFS_SHARED_DIR = /shared
 ULSR_SHARED_DIR = $(NFS_SHARED_DIR)/ulsr
+
 ULSR_LOGFILE_DIR = /var/log/ulsr
+PROLOG_LOGFILE=ulsr_prolog.log
+MONITOR_LOGFILE=ulsr_monitor.log
+
+ULSR_COMMAND_PATH=/usr/bin:/usr/local/bin
 
 INSTALL = /usr/bin/install -m 755 -g $(SLURM_USER) -o $(SLURM_USER)
 SH = bash
@@ -72,32 +81,39 @@ define on-server
 	$(call confirm-install,'server'))
 endef
 
-
 # Verify we are running as root
 
 define verify-root-user
     $(if $(filter $(EUID),0),@:,@echo 'Run `make $(MAKECMDGOALS)` as the root user'; exit 1)
 endef
 
-# $1 - Script file name
-# $2 - Variable name
-# $3 - Variable value 
-define configure-environment
-    grep "$(2)=" $(1) && \
-        sed -i 's,\(PATH=\)\(.*\),\1'$(3)',' $(1)
+# Insert environment variable string into command .sh file
+# Args:
+#   1. subdir
+#   2. file
+#   3. env var name
+#   4. value
+define insert-var
+    $(info $(1))
+    $(info $(2))
+    $(info $(3))
+    $(info $(4))
+    sed -i '/# Environment/a $(3)=$(4)' $(1)/$(2)
 endef
-
 
 # Build Targets
 
-.PHONY: all install clean linux-packages controller-nfs-share server-nfs-share .FORCE
+.PHONY: all install clean linux-packages controller-nfs-share server-nfs-share setup-cmd-env .FORCE
 
 .FORCE:
 
-
-t: .FORCE
-	cd ./commands && $(foreach file,$(COMMAND_SH_FILES),$(call configure-environment,$(file),PATH,'/usr/bin'))
-
+setup-cmd-env: .FORCE
+	PROLOG_LOGFILE=$(ULSR_LOGFILE_DIR)/$(ULSR_PROLOG_LOGFILE)
+	MONITOR_LOGFILE=$(ULSR_LOGFILE_DIR)/$(ULSR_MONITOR_LOGFILE)
+	$(foreach f, $(PROLOG_SH_FILES), $(call insert-var,commands,$(f),LOGFILE,$(PROLOG_LOGFILE)))
+	$(foreach f, $(MONITOR_SH_FILES), $(call insert-var,commands,$(f),LOGFILE,$(MONITOR_LOGFILE)))
+	$(foreach f, $(COMMAND_SH_FILES), $(call insert-var,commands,$(f),PATH,$(ULSR_COMMAND_PATH)))
+	$(foreach f, $(COMMAND_SH_FILES), $(call insert-var,commands,$(f),HOME,$(SLURM_USER_DIR)))
 
 all: install
 
@@ -130,6 +146,9 @@ install-controller:
 
 	# Copy common library modules
 	@cd ./common && $(INSTALL) $(LIB_PY_FILES) $(VENV_SITE_PKG_DIR)
+
+	# Insert environment variables into command .sh files
+	@$(MAKE) setup-cmd-env
 
 	# Copy HIL commands to local bin directory and NFS-shared bin directory
 	@cd ./commands && $(INSTALL) $(HIL_CMDS) $(LOCAL_BIN)
