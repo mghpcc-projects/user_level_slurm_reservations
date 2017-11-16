@@ -10,13 +10,13 @@
 HIL_CMDS = hil_reserve hil_release
 LOCAL_BIN = /usr/local/bin
 
-EPILOG_PY_FILES := hil_slurmctld_prolog.py
-MONITOR_PY_FILES := hil_slurmctld_monitor.py
-COMMAND_PY_FILES := $(EPILOG_PY_FILES) $(MONITOR_PY_FILES)
+PROLOG_PY_FILES := hil_slurmctld_prolog.py
+MONITOR_PY_FILES := hil_slurm_monitor.py
+COMMAND_PY_FILES := $(PROLOG_PY_FILES) $(MONITOR_PY_FILES)
 
-EPILOG_SH_FILES := hil_slurmctld_prolog.sh hil_slurmctld_epilog.sh 
+PROLOG_SH_FILES := hil_slurmctld_prolog.sh hil_slurmctld_epilog.sh 
 MONITOR_SH_FILES := hil_slurm_monitor.sh
-COMMAND_SH_FILES := $(EPILOG_SH_FILES) $(MONITOR_SH_FILES)
+COMMAND_SH_FILES := $(PROLOG_SH_FILES) $(MONITOR_SH_FILES)
 
 LIB_PY_FILES = hil_slurm_client.py hil_slurm_constants.py hil_slurm_helpers.py hil_slurm_logging.py hil_slurm_settings.py
 
@@ -47,8 +47,11 @@ NFS_SHARED_DIR = /shared
 ULSR_SHARED_DIR = $(NFS_SHARED_DIR)/ulsr
 
 ULSR_LOGFILE_DIR = /var/log/ulsr
-PROLOG_LOGFILE=ulsr_prolog.log
-MONITOR_LOGFILE=ulsr_monitor.log
+PROLOG_LOGFILE_NAME = ulsr_prolog.log
+MONITOR_LOGFILE_NAME = ulsr_monitor.log
+
+PROLOG_LOGFILE := $(ULSR_LOGFILE_DIR)/$(PROLOG_LOGFILE_NAME)
+MONITOR_LOGFILE := $(ULSR_LOGFILE_DIR)/$(MONITOR_LOGFILE_NAME)
 
 ULSR_COMMAND_PATH=/usr/bin:/usr/local/bin
 
@@ -108,8 +111,6 @@ endef
 .FORCE:
 
 setup-cmd-env: .FORCE
-	PROLOG_LOGFILE=$(ULSR_LOGFILE_DIR)/$(ULSR_PROLOG_LOGFILE)
-	MONITOR_LOGFILE=$(ULSR_LOGFILE_DIR)/$(ULSR_MONITOR_LOGFILE)
 	$(foreach f, $(PROLOG_SH_FILES), $(call insert-var,commands,$(f),LOGFILE,$(PROLOG_LOGFILE)))
 	$(foreach f, $(MONITOR_SH_FILES), $(call insert-var,commands,$(f),LOGFILE,$(MONITOR_LOGFILE)))
 	$(foreach f, $(COMMAND_SH_FILES), $(call insert-var,commands,$(f),PATH,$(ULSR_COMMAND_PATH)))
