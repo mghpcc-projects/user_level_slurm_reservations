@@ -20,7 +20,7 @@ sys.path.append(libdir)
 from hil_slurm_client import hil_init, hil_reserve_nodes, hil_free_nodes
 from hil_slurm_settings import HIL_MONITOR_LOGFILE, HIL_ENDPOINT, HIL_SLURM_PROJECT
 from hil_slurm_constants import SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE
-from hil_slurm_helpers import (exec_scontrol_show_cmd, is_hil_reservation, 
+from hil_slurm_helpers import (exec_scontrol_show_cmd, is_hil_reservation,
                                parse_hil_reservation_name, delete_slurm_reservation,
                                get_hil_reservations, log_hil_reservation)
 from hil_slurm_logging import log_init, log_info, log_debug, log_error
@@ -77,8 +77,8 @@ def _process_release_reservations(hil_client, release_res_dict_list):
 
             stdout_data, stderr_data = delete_slurm_reservation(release_resname, debug=False)
             if (len(stderr_data) == 0):
-               log_info('Deleted HIL release reservation `%s`' % release_resname)
-               n += 1
+                log_info('Deleted HIL release reservation `%s`' % release_resname)
+                n += 1
             else:
                 log_error('Error deleting HIL release reservation `%s`' % release_resname)
                 log_error(stderr_data)
@@ -109,9 +109,9 @@ def _find_hil_singleton_reservations(hil_reservations_dict, singleton_type):
     for resname, resdata_dict in hil_reservations_dict.iteritems():
         _, restype, _, _, _ = parse_hil_reservation_name(resname)
         if (restype == singleton_type):
-            # Check for matching reservation.  
+            # Check for matching reservation.
             # If found, continue. Else add the singleton to the list.
-            if resname.replace(singleton_type, pair_type, 1) hil_reservations_dict:
+            if resname.replace(singleton_type, pair_type, 1) in hil_reservations_dict:
                 continue
             else:
                 singleton_reservation_dict_list.append(resdata_dict)
