@@ -110,21 +110,21 @@ mkdir -p $LOGFILE_DIR
 chmod 775 $LOGFILE_DIR
 chown $SLURM_USER:$SLURM_USER $LOGFILE_DIR
 # set LOGFILE for slurmctld epilog, prolog, and monitor files
-grep -q 'LOGFILE=' && \
+grep -q 'LOGFILE=' commands/hil_slurmctld_epilog.sh && \
     sed -i 's,\(LOGFILE=\)\(.*\),\1'"$LOGFILE_DIR"'/hil_prolog.log,' \
     commands/hil_slurmctld_epilog.sh || \
     sed -i '7iLOGFILE='$LOGFILE_DIR'/hil_prolog.log' \
     commands/hil_slurmctld_epilog.sh
-grep -q 'LOGFILE=' && \
+grep -q 'LOGFILE=' commands/hil_slurmctld_prolog.sh && \
     sed -i 's,\(LOGFILE=\)\(.*\),\1'"$LOGFILE_DIR"'/hil_prolog.log,' \
     commands/hil_slurmctld_prolog.sh || \
     sed -i '7iLOGFILE='$LOGFILE_DIR'/hil_prolog.log' \
     commands/hil_slurmctld_prolog.sh
-grep -q 'LOGFILE=' && \
+grep -q 'LOGFILE=' commands/hil_slurm_monitor.sh && \
     sed -i 's,\(LOGFILE=\)\(.*\),\1'"$LOGFILE_DIR"'/hil_monitor.log,' \
     commands/hil_slurm_monitor.sh || \
     sed -i '3iLOGFILE='$LOGFILE_DIR'/hil_monitor.log' \
-    commands/hil_slurmctld_monitor.sh
+    commands/hil_slurm_monitor.sh
 
 # Create Slurm user script directory
 
