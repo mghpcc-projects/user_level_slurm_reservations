@@ -19,30 +19,30 @@ SLURM_USER_DIR=/home/$SLURM_USER
 
 # set HOME for slurmctld epilog, prolog, and monitor files
 grep -q 'HOME=' commands/hil_slurmctld_epilog.sh && \
-    sed -i 's,\(HOME=\)\(.*\),\1'"$SLURM_USER_DIR"',' \
+    sed -i 's,\(HOME=\).*,\1'"$SLURM_USER_DIR"',' \
     commands/hil_slurmctld_epilog.sh || \
     sed -i '7iHOME='$SLURM_USER_DIR'' commands/hil_slurmctld_epilog.sh
 grep -q 'HOME=' commands/hil_slurmctld_prolog.sh && \
-    sed -i 's,\(HOME=\)\(.*\),\1'"$SLURM_USER_DIR"',' \
+    sed -i 's,\(HOME=\).*,\1'"$SLURM_USER_DIR"',' \
     commands/hil_slurmctld_prolog.sh || \
     sed -i '7iHOME='$SLURM_USER_DIR'' commands/hil_slurmctld_prolog.sh
 grep -q 'HOME=' commands/hil_slurm_monitor.sh && \
-    sed -i 's,\(HOME=\)\(.*\),\1'"$SLURM_USER_DIR"',' \
+    sed -i 's,\(HOME=\).*,\1'"$SLURM_USER_DIR"',' \
     commands/hil_slurm_monitor.sh || \
     sed -i '3iHOME='$SLURM_USER_DIR'' commands/hil_slurm_monitor.sh
 
 # set PATH for slurmctld epilog, prolog, and monitor files
 PATH=/bin:/usr/bin:/usr/local/bin:/usr/local/sbin
 grep -q 'PATH=' commands/hil_slurmctld_epilog.sh && \
-    sed -i 's,\(PATH=\)\(.*\),\1'"$PATH"',' \
+    sed -i 's,\(PATH=\).*,\1'"$PATH"',' \
     commands/hil_slurmctld_epilog.sh || \
     sed -i '7iPATH='$PATH'' commands/hil_slurmctld_epilog.sh
 grep -q 'PATH=' commands/hil_slurmctld_prolog.sh && \
-    sed -i 's,\(PATH=\)\(.*\),\1'"$PATH"',' \
+    sed -i 's,\(PATH=\).*,\1'"$PATH"',' \
     commands/hil_slurmctld_prolog.sh || \
     sed -i '7iPATH='$PATH'' commands/hil_slurmctld_prolog.sh
 grep -q 'PATH=' commands/hil_slurm_monitor.sh && \
-    sed -i 's,\(PATH=\)\(.*\),\1'"$PATH"',' \
+    sed -i 's,\(PATH=\).*,\1'"$PATH"',' \
     commands/hil_slurm_monitor.sh || \
     sed -i '3iPATH='$PATH'' commands/hil_slurm_monitor.sh
 
@@ -111,17 +111,17 @@ chmod 775 $LOGFILE_DIR
 chown $SLURM_USER:$SLURM_USER $LOGFILE_DIR
 # set LOGFILE for slurmctld epilog, prolog, and monitor files
 grep -q 'LOGFILE=' commands/hil_slurmctld_epilog.sh && \
-    sed -i 's,\(LOGFILE=\)\(.*\),\1'"$LOGFILE_DIR"'/hil_prolog.log,' \
+    sed -i 's,\(LOGFILE=\).*,\1'"$LOGFILE_DIR"'/hil_prolog.log,' \
     commands/hil_slurmctld_epilog.sh || \
     sed -i '7iLOGFILE='$LOGFILE_DIR'/hil_prolog.log' \
     commands/hil_slurmctld_epilog.sh
 grep -q 'LOGFILE=' commands/hil_slurmctld_prolog.sh && \
-    sed -i 's,\(LOGFILE=\)\(.*\),\1'"$LOGFILE_DIR"'/hil_prolog.log,' \
+    sed -i 's,\(LOGFILE=\).*,\1'"$LOGFILE_DIR"'/hil_prolog.log,' \
     commands/hil_slurmctld_prolog.sh || \
     sed -i '7iLOGFILE='$LOGFILE_DIR'/hil_prolog.log' \
     commands/hil_slurmctld_prolog.sh
 grep -q 'LOGFILE=' commands/hil_slurm_monitor.sh && \
-    sed -i 's,\(LOGFILE=\)\(.*\),\1'"$LOGFILE_DIR"'/hil_monitor.log,' \
+    sed -i 's,\(LOGFILE=\).*,\1'"$LOGFILE_DIR"'/hil_monitor.log,' \
     commands/hil_slurm_monitor.sh || \
     sed -i '3iLOGFILE='$LOGFILE_DIR'/hil_monitor.log' \
     commands/hil_slurm_monitor.sh
