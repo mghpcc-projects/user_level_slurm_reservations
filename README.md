@@ -1,6 +1,6 @@
 # MOC HIL User Level Slurm Reservations (ULSR)
 
-V2.0  2-Nov-2017
+V3.0  16-Nov-2017
 
 # Introduction
 
@@ -365,7 +365,19 @@ retry the operation when scheduled again.
 
 ## HIL Client Interface
 
-To be supplied.
+The HIL client interface connects the ULSR reservation monitor with
+the HIL server, which in turn provides management and control over
+compute and network resources available for loan between the Slurm
+cluster and HIL end users. 
+
+The HIL client is a separate package loaded onto the Slurm controller
+node at ULSR software installation time.  
+
+HIL client functions used by the ULSR reservation management software
+include:
+  * Node power on and off
+  * Add a node to a HIL project, or remove a node from a HIL project
+  * Connect a node to a network or disconnect node from a network
 
 ## Development Branching Strategy
 
@@ -373,7 +385,7 @@ The initial source code management strategy involves use of a single
 Git repository and multiple, parallel development branches:
 
   1. The ```master``` branch is considered (relatively) stable and is
-  used as a source for production code releases
+  used as the source for ULSR releases.
 
   2. The ```development``` branch is the common line of development
   and serves as both the source of, and merge destination for, feature
@@ -386,8 +398,6 @@ Git repository and multiple, parallel development branches:
 
 # Software Installation
 
-## MOC HIL ULSR Software Installation
-
 NOTE: The following assumes Slurm version 15 or greater is installed
 and running in the cluster.   For background on Slurm installation
 refer to the following links:
@@ -396,39 +406,110 @@ refer to the following links:
 
   * [Slurm on CentOS 7](https://bitsanddragons.wordpress.com/2016/08/22/slurm-on-centos-7/)
 
+The ULSR software is installed in four main steps:
 
-Two scripts are provided for provisioning ULSR on the Slurm controller
-and compute server nodes:
+  1. Clone the ULSR repository from GitHub onto the Slurm controller
+  node
+  2. Customize the installation Makefile, as required
+  3. Run ```make install-controller``` on the Slurm controller node
+  4. Run ```make install-server``` on each of the Slurm compute server nodes
 
-  1. ```ulsr_provision_controller_centos.sh```
-  
-  2. ```ulsr_provision_server_centos.sh```
-
-These may be run as the ```root``` user to install and partially
-configure the ULSR software.  Some modifications may be required to
-the script variable settings, depending on the Slurm installation
-configuration and local policy.  In particular, changes to the
-following may be required, in both installation scripts:
+## Clone ULSR Repository
 
 ```
+
+```
+## Edit Installation Makefile
+
+The ULSR installation Makefile may be customized to align with the
+target Slurm cluster configuration and administrative preferences.
+
+The following variables (shown with default settings) may be modified
+as necessary.
+
+```
+LOCAL_BIN = /usr/local/bin
+
 SLURM_USER=slurm
 SLURM_USER_DIR=/home/$SLURM_USER
 
 INSTALL_USER=centos
 INSTALL_USER_DIR=/home/$INSTALL_USER
 
+SLURM_CONTROLLER = slurm-controller
+
+NFS_SHARED_DIR = /shared
+ULSR_SHARED_DIR = $(NFS_SHARED_DIR)/ulsr
+
 SLURM_CONF_FILE=/etc/slurm/slurm.conf
 
-LOGFILE_DIR=/var/log/moc_hil_ulsr
+ULSR_LOGFILE_DIR=/var/log/ulsr
+
+PROLOG_LOGFILE_NAME = ulsr_prolog.log
+
+MONITOR_LOGFILE_NAME = ulsr_monitor.log
 ```
 
-If the ```SLURM_USER``` variable is changed, the ```HOME```
-variable in ```hil_slurmctld_prolog.sh``` and
-```hil_slurmctld_epilog.sh``` scripts should be updated to match.
+NOTE: Changes to the Makefile variables above may require changes to
+the ```common/hil_slurm_constants.py``` file to match.
 
-If the ```LOGFILE_DIR``` variable is changed, the ```LOGFILE```
-variable in ```hil_slurmctld_prolog.sh``` and
-```hil_slurmctld_epilog.sh``` scripts should be updated to match.
+
+## Install ULSR on the Slurm Controller Node
+
+```
+[root@slurm-controller ~]# git clone https://github.com/mghpcc-projects/user_level_slurm_reservations.git
+[root@slurm-controller ~]# cd user_level_slurm_reservations
+[root@slurm-controller ~]# make install-controller
+```
+
+Edit the ```slurm.conf``` file
+
+### Slurm Control Daemon Prolog and Epilog Integration
+
+For simplicity, the ULSR installation model assumes there are no other
+Slurm control daemon prolog and epilog routines installed.  It may be
+necessary to modify an existing Slurm control daemon prolog and
+epilog installation hierarchy to additionally invoke the ULSR prolog
+and epilog scripts.
+
+## Install ULSR on the Slurm Compute Nodes
+
+### Installation Makefile Transfer to Compute Nodes
+
+During installation of ULSR on the Slurm controller node, the Makefile
+will be copied to a directory exported via NFS.  This directory may
+then be mounted by the Slurm compute nodes to provide direct access to
+the installation Makefile.
+
+Once the shared directory has been mounted, the Makefile may be copied
+to a directory local to a compute node and passed as an argument to
+```make```, or it may be referenced in place.
+
+Alternatively, the Makefile may be copied to each compute node via
+```scp(1)``` or other mechanism and passed to ```make(1)``` from its
+destination location.
+
+### Make Invocation
+
+One each compute node, running as the root user, run ```make(1)``` and
+pass the ULSR compute server installation target as an argument:
+
+```
+[root@slurm-compute1 ~]# cd /shared/ulsr
+[root@slurm-compute1 ulsr]# make install-server
+```
+This will perform the following actions on the compute server:
+
+  * Mount the directory NFS-exported by the Slurm controller ```$(NFS_SHARED_DIR)```
+  * Create the Slurm user directory (```/home/$(SLURM_USER)```) and
+```scripts``` subdirectory (this may not be necessary)
+  * Copy the ```hil_reserve``` and ```hil_release``` commands from the
+  NFS shared directory to the ```$(LOCAL_BIN)``` directory
+  * Copy the ```slurm.conf``` file from the NFS shared directory to
+the $(SLURM_CONF_FILE) directory.
+
+At this point the Slurm compute server should be ready for use with
+ULSR.
 
 
 ## HIL ULSR Periodic Monitor and Log File
@@ -447,38 +528,6 @@ wrapper script periodically:
 */5 * * * * hil_slurm_monitor.sh
 ```
 The above will invoke the monitor every five minutes.
-
-
-## Managing ULSR as a Linux Service
-
-On CentOS, the Slurm control daemon may be managed as a service
-through the ```systemctl``` command, on the Slurm controller node:
-
-```
-$ systemctl enable slurmctld.service
-$ systemctl start slurmctld.service
-$ systemctl stop slurmctld.service
-$ systemctl restart slurmctld.service
-$ systemctl status slurmctld.service
-```
-  
-# Slurm Software Configuration
-
-Slurm software configuration is performed via the ```slurm.conf```
-file.  By default, this file resides in the ```/etc/slurm```
-directory.
-
-Once changes to the Slurm configuration file have been made, copies
-must be pushed to all the compute nodes in the Slurm cluster, or the
-control daemon must be configured to ignore differences in the config
-file across nodes in the cluster.  
-
-```scp``` may be used to copy the config file to compute nodes.
-
-In order for changes to take effect, the ```slurmctld``` must be
-restarted on the controller, and ```slurmd``` must be restarted on the
-compute nodes.
-
 
 ## SlurmCtld Prolog and Epilog Installation
 
@@ -538,8 +587,8 @@ SLURM_INSTALL_DIR = '/usr/bin'
 
 ### ULSR Log Files
 ```
-HIL_SLURMCTLD_PROLOG_LOGFILE = '/var/log/moc_hil_ulsr/hil_prolog.log'
-HIL_MONITOR_LOGFILE = '/var/log/moc_hil_ulsr/hil_monitor.log'
+HIL_SLURMCTLD_PROLOG_LOGFILE = '/var/log/ulsr/hil_prolog.log'
+HIL_MONITOR_LOGFILE = '/var/log/ulsr/hil_monitor.log'
 ```
 
 ## Compute Nodes Marked with HIL Feature
