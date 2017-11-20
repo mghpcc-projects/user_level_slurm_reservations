@@ -28,8 +28,12 @@ SLURM_USER_DIR=/home/$(SLURM_USER)
 INSTALL_USER = centos
 INSTALL_USER_DIR=/home/$(INSTALL_USER)
 
+# DNS / /etc/hosts name of the Slurm controller node
+
 SLURM_CONTROLLER = slurm-controller
 
+# Slurm config file location
+ 
 SLURM_CONF_FILE_PATH = /etc/slurm
 SLURM_CONF_FILE_NAME = slurm.conf
 SLURM_CONF_FILE = $(SLURM_CONF_FILE_PATH)/$(SLURM_CONF_FILE_NAME)
@@ -43,8 +47,14 @@ PYTHON_PKGS = python-hostlist requests git+https://github.com/cci-moc/hil.git@v0
 
 VENV_SITE_PKG_DIR = $(SLURM_USER_DIR)/scripts/ve/lib/$(PYTHON)/site-packages
 
+# Directory / FS exported by Slurm controller to Slurm compute nodes and used for 
+# file transfer at ULSR installation time
+
 NFS_SHARED_DIR = /shared
 ULSR_SHARED_DIR = $(NFS_SHARED_DIR)/ulsr
+
+# Log files
+# See also the common/hil_slurm_settings.py file
 
 ULSR_LOGFILE_DIR = /var/log/ulsr
 PROLOG_LOGFILE_NAME = ulsr_prolog.log
