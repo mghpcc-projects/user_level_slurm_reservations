@@ -10,8 +10,8 @@ DEBUG = True
 
 SLURM_INSTALL_DIR = '/usr/bin/'
 
-HIL_SLURMCTLD_PROLOG_LOGFILE = '/var/log/moc_hil_ulsr/hil_prolog.log'
-HIL_MONITOR_LOGFILE = '/var/log/moc_hil_ulsr/hil_monitor.log'
+HIL_SLURMCTLD_PROLOG_LOGFILE = '/var/log/ulsr/ulsr_prolog.log'
+HIL_MONITOR_LOGFILE = '/var/log/ulsr/ulsr_monitor.log'
 
 HIL_ENDPOINT = "http://10.0.0.16:80"
 HIL_USER = 'admin'
