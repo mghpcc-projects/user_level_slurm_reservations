@@ -163,16 +163,21 @@ interpreted as consistent with a 'two-screen' management model.
 
 ## Ethernet
 
+During a reserve operation, the 
 ## Infiniband
 
-During a reserve operation, remote Infiniband interfaces which
-terminate on compute nodes which are part of the reservation may be
-shut down.  Shutdown is accomplished by spawning a remote shell on
-each reserved compute node and invoking the ```ibportstate
-... disable``` command, specifying the Infiniband links and switches
-which connect to the compute node.
+During a reserve operation, the Infiniband interfaces on reserved
+compute nodes may be shut down at the far end.
 
-Whether an Infiniband interface 
+Shutdown is accomplished by spawning a remote shell on each reserved
+compute node and invoking the ```ibportstate ... disable``` command,
+specifying the Infiniband links and switches which connect to the
+compute node.
+
+Whether Infiniband interfaces are shut down or not modified is
+controlled by the value of the ```DISABLE_IB_LINKS``` parameter in the
+```hil_slurm_settings.py``` file.
+
 
 # Assumptions, Restrictions, Notes
 
