@@ -57,12 +57,15 @@ ULSR_LOGFILE_DIR=/var/log/ulsr
 PROLOG_LOGFILE_NAME = ulsr_prolog.log
 
 MONITOR_LOGFILE_NAME = ulsr_monitor.log
+
+AUDIT_LOGFILE_NAME = ulsr_audit.log
 ```
 
 NOTE: Changes to the Makefile variables above may require changes to
 the ```common/hil_slurm_constants.py``` file to match.  In future, the
 installation process may be modified to propagate changes to the
 ```hil_slurm_constants.py``` file automatically.
+
 
 ## Install ULSR on the Slurm Controller Node
 
@@ -136,6 +139,7 @@ wrapper script periodically:
 ```
 The above will invoke the monitor every five minutes.
 
+
 ## SlurmCtld Prolog and Epilog Installation
 
 [UPDATE to reflect coexistence with other Slurm prolog / epilog modules]
@@ -199,6 +203,15 @@ HIL_MONITOR_LOGFILE = '/var/log/ulsr/hil_monitor.log'
 ```
 
 # Other Requirements
+
+## Required Linux Packages
+
+  * Slurm v15 or greater, pre-installed
+  * HIL
+
+## Required Python Packages
+
+  * python-hostlist
 
 ## Compute Nodes Marked with HIL Feature
 

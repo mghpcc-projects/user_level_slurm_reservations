@@ -3,7 +3,7 @@ MassOpenCloud / Hardware Isolation Layer (MOC/HIL)
 
 HIL Client Interface
 
-August 2017, Tim Donahue	tpd001@gmail.com
+August 2017, Tim Donahue	tdonahue@mit.edu
 """
 
 import urllib

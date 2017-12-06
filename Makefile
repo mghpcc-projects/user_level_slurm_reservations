@@ -16,7 +16,8 @@ COMMAND_PY_FILES := $(PROLOG_PY_FILES) $(MONITOR_PY_FILES)
 
 PROLOG_SH_FILES := hil_slurmctld_prolog.sh hil_slurmctld_epilog.sh 
 MONITOR_SH_FILES := hil_slurm_monitor.sh
-COMMAND_SH_FILES := $(PROLOG_SH_FILES) $(MONITOR_SH_FILES)
+AUDIT_SH_FILES := ulsr_audit.sh
+COMMAND_SH_FILES := $(PROLOG_SH_FILES) $(MONITOR_SH_FILES) $(AUDIT_SH_FILES)
 
 LIB_PY_FILES = hil_slurm_client.py hil_slurm_constants.py hil_slurm_helpers.py hil_slurm_logging.py hil_slurm_settings.py
 
@@ -59,9 +60,11 @@ ULSR_SHARED_DIR = $(NFS_SHARED_DIR)/ulsr
 ULSR_LOGFILE_DIR = /var/log/ulsr
 PROLOG_LOGFILE_NAME = ulsr_prolog.log
 MONITOR_LOGFILE_NAME = ulsr_monitor.log
+AUDIT_LOGFILE_NAME = ulsr_audit.log
 
 PROLOG_LOGFILE := $(ULSR_LOGFILE_DIR)/$(PROLOG_LOGFILE_NAME)
 MONITOR_LOGFILE := $(ULSR_LOGFILE_DIR)/$(MONITOR_LOGFILE_NAME)
+AUDIT_LOGFILE := $(ULSR_LOGFILE_DIR)/$(MONITOR_LOGFILE_NAME)
 
 ULSR_COMMAND_PATH=/usr/bin:/usr/local/bin
 
@@ -123,6 +126,7 @@ endef
 setup-cmd-env: .FORCE
 	$(foreach f, $(PROLOG_SH_FILES), $(call insert-var,commands,$(f),LOGFILE,$(PROLOG_LOGFILE)))
 	$(foreach f, $(MONITOR_SH_FILES), $(call insert-var,commands,$(f),LOGFILE,$(MONITOR_LOGFILE)))
+	$(foreach f, $(AUDIT_SH_FILES), $(call insert-var,commands,$(f),LOGFILE,$(AUDIT_LOGFILE)))
 	$(foreach f, $(COMMAND_SH_FILES), $(call insert-var,commands,$(f),PATH,$(ULSR_COMMAND_PATH)))
 	$(foreach f, $(COMMAND_SH_FILES), $(call insert-var,commands,$(f),HOME,$(SLURM_USER_DIR)))
 

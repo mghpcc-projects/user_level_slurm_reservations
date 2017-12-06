@@ -1,9 +1,10 @@
 """
 MassOpenCloud / Hardware Isolation Layer (HIL)
+User Level Slurm Reservations (ULSR)
 
-Slurm / HIL Reservation Monitor
+Periodic Reservation Monitor
 
-May 2017, Tim Donahue	tpd001@gmail.com
+May 2017, Tim Donahue	tdonahue@mit.edu
 """
 
 import hostlist

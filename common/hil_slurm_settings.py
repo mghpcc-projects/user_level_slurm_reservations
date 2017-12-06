@@ -3,7 +3,7 @@ MassOpenCloud / Hardware Isolation Layer (HIL)
 
 Slurm / HIL Control Settings
 
-May 2017, Tim Donahue	tpd001@gmail.com
+May 2017, Tim Donahue	tdonahue@mit.edu
 """
 
 DEBUG = True
@@ -29,5 +29,10 @@ RES_CHECK_DEFAULT_PARTITION = False
 RES_CHECK_EXCLUSIVE_PARTITION = False
 RES_CHECK_SHARED_PARTITION = False
 RES_CHECK_PARTITION_STATE = True
+
+# Infiniband control
+# Setting to False will cause Infiniband connections, if any, to be ignored and unchanged
+
+DISABLE_IB_LINKS = True
 
 # EOF
