@@ -17,6 +17,11 @@ from hil_slurm_settings import SLURM_INSTALL_DIR
 from hil_slurm_logging import log_debug, log_info, log_error
 
 
+def _output_debug_info(fname, stdout_data, stderr_data):
+    log_debug('%s: Stdout  %s' % (fname, stdout_data))
+    log_debug('%s: Stderr  %s' % (fname, stderr_data))
+
+
 def _exec_subprocess_cmd(cmd):
     '''
     Execute a command in a subprocess and wait for completion
