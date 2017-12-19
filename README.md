@@ -176,7 +176,7 @@ compute node.
 
 Whether Infiniband interfaces are shut down or not modified is
 controlled by the value of the ```DISABLE_IB_LINKS``` parameter in the
-```hil_slurm_settings.py``` file.
+```ulsr_settings.py``` file.
 
 
 # Assumptions, Restrictions, Notes
@@ -223,14 +223,14 @@ may be reviewed as necessary to gain insight into system behavior.
   * HIL reservation operations performed by the Slurmctld prolog and
     epilog are logged to a file on the Slurm controller node.  The
     location of this file is configured in the
-    ```hil_slurm_settings.py``` file.  By default, the location is
-    ```/var/log/moc_hil_ulsr/hil_prolog.log```.
+    ```ulsr_settings.py``` file.  By default, the location is
+    ```/var/log/ulsr/ulsr_prolog.log```.
 
   * HIL reservation operations performed by the HIL periodic monitor
   are also logged to a file on the Slurm controller node.  The
   location of this file is configured in the
-  ```hil_slurm_settings.py``` file.  By default, the location is
-  ```/var/log/moc_hil_ulsr/hil_monitor.log```. 
+  ```ulsr_settings.py``` file.  By default, the location is
+  ```/var/log/ulsr/ulsr_monitor.log```. 
 
   * The HIL server writes to ```/var/log/hil.log```.  Note the HIL
     server may or may not reside on Slurm controller node.

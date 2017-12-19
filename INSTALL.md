@@ -62,9 +62,9 @@ AUDIT_LOGFILE_NAME = ulsr_audit.log
 ```
 
 NOTE: Changes to the Makefile variables above may require changes to
-the ```common/hil_slurm_constants.py``` file to match.  In future, the
+the ```common/ulsr_constants.py``` file to match.  In future, the
 installation process may be modified to propagate changes to the
-```hil_slurm_constants.py``` file automatically.
+```ulsr_constants.py``` file automatically.
 
 
 ## Install ULSR on the Slurm Controller Node
@@ -162,7 +162,7 @@ $ systemctl restart slurmctld.service
 
 ## HIL / ULSR Settings File
 
-The ```common/hil_slurm_settings.py``` file contains constants used by
+The ```common/ulsr_settings.py``` file contains constants used by
 the ULSR software.  
 
 ### HIL Partition Name Prefix - HIL_PARTITION_PREFIX
