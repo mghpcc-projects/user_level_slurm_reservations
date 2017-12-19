@@ -7,9 +7,8 @@ Periodic Network Audit
 November 2017, Tim Donahue	tdonahue@mit.edu
 """
 
-from hil_slurm_settings import ULSR_NET_AUDIT_LOGFILE
-
-from hil_slurm_logging import log_init, log_info, log_debug, log_error
+from ulsr_settings import ULSR_NET_AUDIT_LOGFILE
+from ulsr_logging import log_init, log_info, log_debug, log_error
 
 
 def main(argv=[]):

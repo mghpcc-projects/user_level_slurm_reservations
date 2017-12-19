@@ -1,7 +1,7 @@
 """
 MassOpenCloud / Hardware Isolation Layer (HIL)
 
-Slurm Control Daemon - HIL Reservation Prolog
+Slurm Control Daemon - ULSR Reservation Prolog
 
 May 2017, Tim Donahue	tpd001@gmail.com
 """
@@ -18,27 +18,26 @@ from time import strftime
 libdir = os.path.realpath(os.path.join(os.path.dirname(inspect.getfile(inspect.currentframe())), '../common'))
 sys.path.append(libdir)
 
-from hil_slurm_helpers import (get_partition_data, get_job_data, get_object_data,
-                               exec_scontrol_cmd, exec_scontrol_show_cmd,
-                               get_hil_reservation_name, is_hil_reservation,
-                               create_slurm_reservation, log_hil_reservation)
-from hil_slurm_constants import (SHOW_OBJ_TIME_FMT, RES_CREATE_TIME_FMT,
-                                 SHOW_PARTITION_MAXTIME_HMS_FMT,
-                                 RES_CREATE_HIL_FEATURES,
-                                 HIL_RESERVE, HIL_RELEASE,
-                                 HIL_RESERVATION_COMMANDS,
-                                 RES_CREATE_FLAGS)
-from hil_slurm_logging import log_init, log_info, log_debug, log_error
-from hil_slurm_settings import (HIL_PARTITION_PREFIX,
-                                RES_CHECK_DEFAULT_PARTITION,
-                                RES_CHECK_EXCLUSIVE_PARTITION,
-                                RES_CHECK_SHARED_PARTITION,
-                                RES_CHECK_PARTITION_STATE,
-                                HIL_RESERVATION_DEFAULT_DURATION,
-                                HIL_RESERVATION_GRACE_PERIOD,
-                                HIL_SLURMCTLD_PROLOG_LOGFILE,
-                                HIL_ENDPOINT,
-                                HIL_SLURM_PROJECT)
+from ulsr_helpers import (get_partition_data, get_job_data, get_object_data,
+                          exec_scontrol_cmd, exec_scontrol_show_cmd,
+                          get_ulsr_reservation_name, is_ulsr_reservation,
+                          create_slurm_reservation, log_ulsr_reservation)
+from ulsr_constants import (SHOW_OBJ_TIME_FMT, RES_CREATE_TIME_FMT,
+                            SHOW_PARTITION_MAXTIME_HMS_FMT,
+                            RES_CREATE_HIL_FEATURES,
+                            HIL_RESERVE, HIL_RELEASE,
+                            ULSR_RESERVATION_COMMANDS,
+                            RES_CREATE_FLAGS)
+from ulsr_logging import log_init, log_info, log_debug, log_error
+from ulsr_settings import (ULSR_PARTITION_PREFIX,
+                           RES_CHECK_DEFAULT_PARTITION,
+                           RES_CHECK_EXCLUSIVE_PARTITION,
+                           RES_CHECK_SHARED_PARTITION,
+                           RES_CHECK_PARTITION_STATE,
+                           ULSR_RESERVATION_DEFAULT_DURATION,
+                           ULSR_SLURMCTLD_PROLOG_LOGFILE,
+                           HIL_ENDPOINT,
+                           HIL_SLURM_PROJECT)
 
 
 def _get_prolog_environment():
@@ -57,7 +56,7 @@ def _get_prolog_environment():
     return {env_var: os.environ.get(slurm_env_var) for env_var, slurm_env_var in env_map.iteritems()}
 
 
-def _check_hil_partition(env_dict, pdata_dict):
+def _check_ulsr_partition(env_dict, pdata_dict):
     '''
     Check if the partition exists and, if so, is properly named
     Retrieve partition data via 'scontrol show'
@@ -65,9 +64,9 @@ def _check_hil_partition(env_dict, pdata_dict):
     status = True
 
     pname = pdata_dict['PartitionName']
-    if not pname.startswith(HIL_PARTITION_PREFIX):
+    if not pname.startswith(ULSR_PARTITION_PREFIX):
         log_info('Partition name `%s` does not match `%s*`' %
-                 (pname, HIL_PARTITION_PREFIX))
+                 (pname, ULSR_PARTITION_PREFIX))
         status = False
 
     # Verify the partition state is UP
@@ -82,7 +81,7 @@ def _check_hil_partition(env_dict, pdata_dict):
 
     if RES_CHECK_DEFAULT_PARTITION:
         if (pdata_dict['Default'] == 'YES'):
-            log_info('Partition `%s` is the default partition, cannot be used for HIL' % pname)
+            log_info('Partition `%s` is the default partition, cannot be used for ULSR' % pname)
             status = False
 
     # Verify the partition is not shared by checking 'Shared' and
@@ -90,30 +89,30 @@ def _check_hil_partition(env_dict, pdata_dict):
 
     if RES_CHECK_SHARED_PARTITION:
         if (pdata_dict['Shared'] != 'NO'):
-            log_info('Partition `%s` is shared, cannot be used for HIL' % pname)
+            log_info('Partition `%s` is shared, cannot be used for ULSR' % pname)
             status = False
 
     if RES_CHECK_EXCLUSIVE_PARTITION:
         if (pdata_dict['ExclusiveUser'] != 'YES'):
-            log_info('Partition `%s` not exclusive to `%s`, cannot be used for HIL' % (pname, env_dict['username']))
+            log_info('Partition `%s` not exclusive to `%s`, cannot be used for ULSR' % (pname, env_dict['username']))
             status = False
 
     return status
 
 
-def _check_hil_command(env_dict):
+def _check_ulsr_command(env_dict):
     '''
     Get and validate the HIL command specified with srun / sbatch
     '''
     jobname = env_dict['jobname']
-    if jobname in HIL_RESERVATION_COMMANDS:
+    if jobname in ULSR_RESERVATION_COMMANDS:
         return jobname
     else:
-        log_debug('Jobname `%s` is not a HIL reservation command, nothing to do.' % jobname)
+        log_debug('Jobname `%s` is not a ULSR reservation command, nothing to do.' % jobname)
         return None
 
 
-def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
+def _get_ulsr_reservation_times(env_dict, pdata_dict, jobdata_dict):
     '''
     Calculate the start time and end time of the reservation
     Start time:
@@ -136,7 +135,7 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
         log_debug('Using job end time for reservation')
         # Job has a defined end time.  Use it.
         t_end_dt = datetime.strptime(t_job_end_s, SHOW_OBJ_TIME_FMT)
-        t_end_dt += timedelta(seconds=HIL_RESERVATION_GRACE_PERIOD)
+        t_end_dt += timedelta(seconds=ULSR_RESERVATION_GRACE_PERIOD)
 
     else:
         # Job does not have a defined end time.  See if there's a time limit.
@@ -144,17 +143,16 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
         if 'UNLIMITED' in jobdata_dict['TimeLimit']:
 
             # Job does not have a time limit. See if the partition has a
-            # max time.  If so, use that. If not, use the HIL default duration.
+            # max time.  If so, use that. If not, use the ULSR default duration.
 
             p_max_time_s = pdata_dict['MaxTime']
             log_debug('Partition MaxTime is %s' % p_max_time_s)
             if 'UNLIMITED' in p_max_time_s:
 
-                # Partition does not have a max time, use HIL default.
-                log_debug('No job or partition time limit, using HIL default reservation duration')
+                # Partition does not have a max time, use ULSR default.
+                log_debug('No job or partition time limit, using ULSR default reservation duration')
                 t_end_dt = (t_start_dt +
-                            timedelta(seconds=HIL_RESERVATION_DEFAULT_DURATION))
-
+                            timedelta(seconds=ULSR_RESERVATION_DEFAULT_DURATION))
             else:
 
                 # Partition has a max time, parse it. Output format is [days-]H:M:S.
@@ -197,20 +195,20 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
     return t_start_s, t_end_s
 
 
-def _create_hil_reservation(restype_s, t_start_s, t_end_s, env_dict, pdata_dict, jobdata_dict):
+def _create_ulsr_reservation(restype_s, t_start_s, t_end_s, env_dict, pdata_dict, jobdata_dict):
     '''
-    Create a HIL reservation
+    Create a ULSR reservation
     '''
-    # Generate a HIL reservation name
-    resname = get_hil_reservation_name(env_dict, restype_s, t_start_s)
+    # Generate a ULSR reservation name
+    resname = get_ulsr_reservation_name(env_dict, restype_s, t_start_s)
 
     # Check if reservation exists.  If so, do nothing
     resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', resname)
     if (stderr_data) and ('not found' not in stderr_data):
-        log_info('HIL reservation `%s` already exists' % resname)
+        log_info('ULSR reservation `%s` already exists' % resname)
         return resname, stderr_data
 
-    log_info('Creating HIL reservation `%s`, ending %s' % (resname, t_end_s))
+    log_info('Creating ULSR reservation `%s`, ending %s' % (resname, t_end_s))
 
     stdout_data, stderr_data = create_slurm_reservation(resname, env_dict['username'],
                                                         t_start_s, t_end_s,
@@ -220,7 +218,7 @@ def _create_hil_reservation(restype_s, t_start_s, t_end_s, env_dict, pdata_dict,
     return resname, stderr_data
 
 
-def _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname):
+def _delete_ulsr_reservation(env_dict, pdata_dict, jobdata_dict, resname):
     '''
     Delete a HIL reservation after validating HIL name prefix and owner name
     The latter restricts 'hil_release' of a reservation to the owner
@@ -228,11 +226,11 @@ def _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname):
     '''
     # Minimally validate the specified reservation
 
-    if is_hil_reservation(resname, None):
-        log_info('Deleting HIL reservation `%s`' % resname)
+    if is_ulsr_reservation(resname, None):
+        log_info('Deleting ULSR reservation `%s`' % resname)
         return delete_slurm_reservation(resname, debug=False)
     else:
-        log_info('Cannot delete HIL reservation, error in name (`%s`)' %
+        log_info('Cannot delete ULSR reservation, error in name (`%s`)' %
                  resname)
         return None, 'hil_release: error: Invalid reservation name'
 
@@ -247,11 +245,11 @@ def _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict):
 
     Reservation start and end times may overlap so long as the MAINT flag is set
     '''
-    t_start_s, t_end_s = _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict)
+    t_start_s, t_end_s = _get_ulsr_reservation_times(env_dict, pdata_dict, jobdata_dict)
 
-    resname, stderr_data = _create_hil_reservation(HIL_RESERVE, t_start_s, t_end_s,
+    resname, stderr_data = _create_ulsr_reservation(HIL_RESERVE, t_start_s, t_end_s,
                                                    env_dict, pdata_dict, jobdata_dict)
-    log_hil_reservation(resname, stderr_data, t_start_s, t_end_s)
+    log_ulsr_reservation(resname, stderr_data, t_start_s, t_end_s)
 
 
 def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
@@ -269,7 +267,7 @@ def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
     reserve_resname = jobdata_dict['Reservation']
 
     if reserve_resname:
-        if not is_hil_reservation(reserve_resname, HIL_RESERVE):
+        if not is_ulsr_reservation(reserve_resname, HIL_RESERVE):
             log_error('Reservation `%s` is not a HIL reserve reservation' %
                       reserve_resname)
 
@@ -282,12 +280,12 @@ def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
             reserve_rdata = get_object_data('reservation', reserve_resname)[0]
 
             # Delete the reserve reservation
-            stdout_data, stderr_data = _delete_hil_reservation(env_dict, pdata_dict,
-                                                               jobdata_dict, reserve_resname)
+            stdout_data, stderr_data = _delete_ulsr_reservation(env_dict, pdata_dict,
+                                                                jobdata_dict, reserve_resname)
             if (len(stderr_data) == 0):
-                log_info('Deleted  HIL reserve reservation `%s`' % reserve_resname)
+                log_info('Deleted  ULSR reserve reservation `%s`' % reserve_resname)
             else:
-                log_error('Error deleting HIL reserve reservation `%s`' % reserve_resname)
+                log_error('Error deleting ULSR reserve reservation `%s`' % reserve_resname)
                 log_error(stderr_data)
 
     else:
@@ -299,10 +297,10 @@ def process_args():
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--hil_prolog', action='store_true', default=False,
-                        help='Function as the HIL prolog')
-    parser.add_argument('--hil_epilog', action='store_true', default=False,
-                        help='Function as the HIL epilog')
+    parser.add_argument('--ulsr_prolog', action='store_true', default=False,
+                        help='Function as the ULSR prolog')
+    parser.add_argument('--ulsr_epilog', action='store_true', default=False,
+                        help='Function as the ULSR epilog')
 
     return parser.parse_args()
 
@@ -310,15 +308,15 @@ def process_args():
 def main(argv=[]):
 
     args = process_args()
-    log_init('hil_slurmctld.prolog', HIL_SLURMCTLD_PROLOG_LOGFILE,
+    log_init('ulsr_slurmctld.prolog', ULSR_SLURMCTLD_PROLOG_LOGFILE,
              logging.DEBUG)
 
-    if args.hil_prolog:
+    if args.ulsr_prolog:
         pass
-    elif args.hil_epilog:
+    elif args.ulsr_epilog:
         pass
     else:
-        log_debug('Must specify one of --hil_prolog or --hil_epilog',
+        log_debug('Must specify one of --ulsr_prolog or --ulsr_epilog',
                   separator=True)
         return False
 
@@ -341,26 +339,26 @@ def main(argv=[]):
         log_debug('P   data', pdata_dict)
         return False
 
-    if not _check_hil_partition(env_dict, pdata_dict):
+    if not _check_ulsr_partition(env_dict, pdata_dict):
         return False
 
     # Verify the command is a HIL command.  If so, process it.
 
-    hil_cmd = _check_hil_command(env_dict)
-    if not hil_cmd:
+    ulsr_cmd = _check_ulsr_command(env_dict)
+    if not ulsr_cmd:
         return True
 
     status = True
 
-    if args.hil_prolog:
-        if (hil_cmd == 'hil_reserve'):
-            log_info('HIL Slurmctld Prolog', separator=True)
+    if args.ulsr_prolog:
+        if (ulsr_cmd == 'hil_reserve'):
+            log_info('ULSR Slurmctld Prolog', separator=True)
             log_debug('Processing reserve request')
             status = _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict)
 
-    elif args.hil_epilog:
+    elif args.ulsr_epilog:
         if (hil_cmd == 'hil_release'):
-            log_info('HIL Slurmctld Epilog', separator=True)
+            log_info('ULSR Slurmctld Epilog', separator=True)
             log_debug('Processing release request')
             status = _hil_release_cmd(env_dict, pdata_dict, jobdata_dict)
 
