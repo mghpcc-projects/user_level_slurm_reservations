@@ -149,8 +149,10 @@ def main(argv=[]):
     # Find singleton RESERVE and RELEASE reservations
     # If none found, there's nothing to do
 
-    reserve_res_dict_list = _find_ulsr_singleton_reservations(all_ulsr_reservations_dict, HIL_RESERVE)
-    release_res_dict_list = _find_ulsr_singleton_reservations(all_ulsr_reservations_dict, HIL_RELEASE)
+    reserve_res_dict_list = _find_ulsr_singleton_reservations(all_ulsr_reservations_dict, 
+                                                              HIL_RESERVE)
+    release_res_dict_list = _find_ulsr_singleton_reservations(all_ulsr_reservations_dict, 
+                                                              HIL_RELEASE)
     if not len(reserve_res_dict_list) and not len(reserve_res_dict_list):
         return
 
