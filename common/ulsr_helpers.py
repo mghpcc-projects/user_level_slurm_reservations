@@ -23,7 +23,7 @@ def _output_stdio_data(fn, stdout_data, stderr_data):
     log_debug('%s: Stderr  %s' % (fn, stderr_data))
 
 
-def _exec_subprocess_cmd(cmd):
+def exec_subprocess_cmd(cmd):
     '''
     Execute a command in a subprocess and wait for completion
     '''
@@ -99,7 +99,7 @@ def exec_scontrol_cmd(action, entity, entity_id=None, debug=True, **kwargs):
     if debug:
         log_debug('exec_scontrol_cmd(): Command  %s' % cmd)
 
-    stdout_data, stderr_data = _exec_subprocess_cmd(cmd)
+    stdout_data, stderr_data = exec_subprocess_cmd(cmd)
 
     if debug:
         fn = _getframe().f_code.co_name
