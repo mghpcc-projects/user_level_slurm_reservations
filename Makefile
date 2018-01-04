@@ -68,6 +68,7 @@ ULSR_COMMAND_PATH=/usr/bin:/usr/local/bin
 INSTALL = /usr/bin/install -m 755 -g $(SLURM_USER) -o $(SLURM_USER)
 SH = bash
 COPY = cp
+CHECKOUT = git checkout
 
 
 # Functions
@@ -235,12 +236,16 @@ server-nfs-share: linux-packages
 	@echo '$(SLURM_CONTROLLER):$(NFS_SHARED_DIR) nfs auto,noatime,nolock,bg,nfsvers=3,intr,tcp,actimeo=1800 0 0'
 
 
+# Undo PATH etc. edits make during prior `make install`
+checkout:
+	cd ./commands && $(CHECKOUT) $(COMMAND_SH_FILES)
+
 clean:
 	$(call verify-root-user)
+	@$(MAKE) checkout	
 	rm -rf $(SLURM_USER_DIR)/scripts
 	rm -rf $(ULSR_LOGFILE_DIR)
-	cd $(LOCAL_BIN)
-	rm -f $(HIL_CMDS)
+	cd $(LOCAL_BIN) && rm -f $(HIL_CMDS) $(COMMAND_SH_FILES)
 	$(if $(SLURMCTLD_PID),\
 	    rm -rf $(ULSR_SHARED_DIR))
 # EOF
