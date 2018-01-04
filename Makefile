@@ -156,6 +156,7 @@ install-controller:
 	@$($(SH) ($(SLURM_USER_DIR)/scripts/ve/bin/activate; \
 	          pip install $(PYTHON_PKGS); \
 	          deactivate))
+	@chown -R $(SLURM_USER):$(SLURM_USER) $(SLURM_USER_DIR)/scripts
 
 	# Copy common library modules
 	@cd ./common && $(INSTALL) $(LIB_PY_FILES) $(VENV_SITE_PKG_DIR)
