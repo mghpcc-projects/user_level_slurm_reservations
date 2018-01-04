@@ -21,7 +21,8 @@ sys.path.append(libdir)
 from hil_slurm_helpers import (get_partition_data, get_job_data, get_object_data,
                                exec_scontrol_cmd, exec_scontrol_show_cmd,
                                get_hil_reservation_name, is_hil_reservation,
-                               create_slurm_reservation, log_hil_reservation)
+                               create_slurm_reservation, delete_slurm_reservation, 
+                               log_hil_reservation)
 from hil_slurm_constants import (SHOW_OBJ_TIME_FMT, RES_CREATE_TIME_FMT,
                                  SHOW_PARTITION_MAXTIME_HMS_FMT,
                                  RES_CREATE_HIL_FEATURES,
