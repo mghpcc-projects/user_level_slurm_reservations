@@ -225,6 +225,9 @@ controller-nfs-share: linux-packages
 	@chown -R $(SLURM_USER):$(SLURM_USER) $(ULSR_SHARED_DIR)/bin
 
 
+# Useful / necessary only if NFS is not already active on compute nodes AND
+# this Makefile has been transferred to those nodes
+
 server-nfs-share: linux-packages
 	@mkdir -p $(NFS_SHARED_DIR)
 	@chmod 777 $(NFS_SHARED_DIR)
@@ -233,7 +236,7 @@ server-nfs-share: linux-packages
 	@service rpcbind start
 	@service nfs start
 	@-mount $(SLURM_CONTROLLER):$(NFS_SHARED_DIR) $(NFS_SHARED_DIR)
-	@echo '$(SLURM_CONTROLLER):$(NFS_SHARED_DIR) nfs auto,noatime,nolock,bg,nfsvers=3,intr,tcp,actimeo=1800 0 0'
+	@echo '$(SLURM_CONTROLLER):$(NFS_SHARED_DIR) nfs auto,noatime,nolock,bg,nfsvers=3,intr,tcp,actimeo=1800 0 0' >> /etc/fstab
 
 
 # Undo PATH etc. edits make during prior `make install`

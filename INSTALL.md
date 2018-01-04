@@ -2,7 +2,7 @@
 
 # Installation Guide
 
-V1.0  30-Nov-2017
+V1.1  5-Jane-2018
 
 
 NOTE: The following assumes Slurm version 15 or greater is installed
@@ -99,6 +99,10 @@ to a directory local to a compute node and passed as an argument to
 Alternatively, the Makefile may be copied to each compute node via
 ```scp(1)``` or other mechanism and passed to ```make(1)``` from its
 destination location.
+
+In either case, the Makefile will attempt to create a mount point for
+the NFS-shared directory exported by the controller node, then mount
+that remote file system on the local mount point.
 
 ### Make Invocation
 
