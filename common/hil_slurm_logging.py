@@ -44,16 +44,16 @@ def log_warning(message=None):
     _log_common(logging.warning, message, separator_s=warn_error_sep, print_exception=True)
 
 
-def log_info(message, separator_s=False):
-    if separator_s:
+def log_info(message, separator=False):
+    if separator:
         s = info_debug_sep
     else:
         s = None
     _log_common(logging.info, message, separator_s=s, print_exception=False)
 
 
-def log_debug(message, separator_s=False):
-    if separator_s:
+def log_debug(message, separator=False):
+    if separator:
         s = info_debug_sep
     else:
         s = None
