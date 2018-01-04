@@ -26,9 +26,6 @@ DOCS = README.md LICENSE
 SLURM_USER := slurm
 SLURM_USER_DIR=/home/$(SLURM_USER)
 
-INSTALL_USER = centos
-INSTALL_USER_DIR=/home/$(INSTALL_USER)
-
 # DNS / /etc/hosts name of the Slurm controller node
 
 SLURM_CONTROLLER = slurm-controller
@@ -224,7 +221,7 @@ controller-nfs-share: linux-packages
 
 	@mkdir -p $(ULSR_SHARED_DIR)/bin
 	@chmod -R 700 $(ULSR_SHARED_DIR)/bin
-	@chown -R $(INSTALL_USER):$(INSTALL_USER) $(ULSR_SHARED_DIR)/bin
+	@chown -R $(SLURM_USER):$(SLURM_USER) $(ULSR_SHARED_DIR)/bin
 
 
 server-nfs-share: linux-packages
@@ -244,5 +241,6 @@ clean:
 	rm -rf $(ULSR_LOGFILE_DIR)
 	cd $(LOCAL_BIN)
 	rm -f $(HIL_CMDS)
-	rm -rf $(ULSR_SHARED_DIR)
+	$(if $(SLURMCTLD_PID),\
+	    rm -rf $(ULSR_SHARED_DIR))
 # EOF
