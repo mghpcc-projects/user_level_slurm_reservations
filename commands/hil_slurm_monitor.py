@@ -38,7 +38,8 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list):
         nodelist = hostlist.expand_hostlist(reserve_res_dict['Nodes'])
         resname = reserve_res_dict['ReservationName']
 
-        if hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client):
+        try:
+            hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client):
             release_resname = resname.replace(HIL_RESERVE, HIL_RELEASE, 1)
             t_start_s = reserve_res_dict['StartTime']
             t_end_s = reserve_res_dict['EndTime']
@@ -53,8 +54,8 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list):
                                                                 debug=False)
             log_hil_reservation(release_resname, stderr_data, t_start_s, t_end_s)
             n += 1
-        else:
-            log_error('Failed to HIL reserve nodes in reservation `%s`' % resname)
+        except:
+            log_error('Failed to reserve nodes in HIL reservation `%s`' % resname)
 
     return n
 
@@ -71,8 +72,8 @@ def _process_release_reservations(hil_client, release_res_dict_list):
 
         # Attempt to move the node back to the Slurm loaner project
         # If successful, delete the Slurm (HIL release) reservation
-
-        if hil_free_nodes(nodelist, HIL_SLURM_PROJECT, hil_client):
+        try:
+            hil_free_nodes(nodelist, HIL_SLURM_PROJECT, hil_client):
 
             release_resname = release_res_dict['ReservationName']
 
@@ -83,6 +84,9 @@ def _process_release_reservations(hil_client, release_res_dict_list):
             else:
                 log_error('Error deleting HIL release reservation `%s`' % release_resname)
                 log_error(stderr_data)
+        except:
+            log_error('Exception deleting HIL release reservation `%s`' % release_resname)
+
     return n
 
 
