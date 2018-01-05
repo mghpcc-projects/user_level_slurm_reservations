@@ -298,7 +298,7 @@ def get_hil_reservations():
     resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
 
     for resdata_dict in resdata_dict_list:
-        if is_hil_reservation(resdata_dict['ReservationName'], None):
+        if resdata_dict && is_hil_reservation(resdata_dict['ReservationName'], None):
             continue
         else:
             resdata_dict_list.remove(resdata_dict)
@@ -309,7 +309,7 @@ def get_hil_reservations():
 def log_hil_reservation(resname, stderr_data, t_start_s=None, t_end_s=None):
     if len(stderr_data):
         log_error('Error creating reservation `%s`'% resname)
-        log_error(stderr_data)
+        log_error('  Error string: %s' % stderr_data.strip('\n'), separator=False)
     else:
         log_info('Created  HIL reservation `%s`' % resname)
 
