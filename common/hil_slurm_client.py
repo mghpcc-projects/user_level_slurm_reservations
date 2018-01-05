@@ -88,11 +88,19 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
 
     # Remove all networks from nodes.
     for node in nodelist:
-        _remove_all_networks(hil_client, node)
+        try:
+            _remove_all_networks(hil_client, node)
+        except:
+            log_error('Failed to remove networks from node %s' % node)            
+            continue
 
     # Finally, remove node from project.
     for node in nodelist:
-        _ensure_no_networks(hil_client, node)
+        try:
+            _ensure_no_networks(hil_client, node)
+        except:
+            log_error('Failed to ensure node %s is disconnected from all networks' % node)
+            continue
 
         # tries 10 times to detach the project because there might be a pending
         # networking action setup by revert port in the previous step.
