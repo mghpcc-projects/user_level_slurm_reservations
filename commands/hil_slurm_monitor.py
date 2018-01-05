@@ -20,9 +20,11 @@ sys.path.append(libdir)
 
 from hil_slurm_client import hil_init, hil_reserve_nodes, hil_free_nodes
 from hil_slurm_settings import HIL_MONITOR_LOGFILE, HIL_ENDPOINT, HIL_SLURM_PROJECT
-from hil_slurm_constants import SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE
+from hil_slurm_constants import (SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE,
+                                 RES_CREATE_FLAGS, RES_CREATE_HIL_FEATURES)
 from hil_slurm_helpers import (exec_scontrol_show_cmd, is_hil_reservation,
-                               parse_hil_reservation_name, delete_slurm_reservation,
+                               parse_hil_reservation_name,
+                               create_slurm_reservation, delete_slurm_reservation,
                                get_hil_reservations, log_hil_reservation)
 from hil_slurm_logging import log_init, log_info, log_debug, log_error
 
@@ -39,7 +41,7 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list):
         resname = reserve_res_dict['ReservationName']
 
         try:
-            hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client):
+            hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client)
             release_resname = resname.replace(HIL_RESERVE, HIL_RELEASE, 1)
             t_start_s = reserve_res_dict['StartTime']
             t_end_s = reserve_res_dict['EndTime']
@@ -73,7 +75,7 @@ def _process_release_reservations(hil_client, release_res_dict_list):
         # Attempt to move the node back to the Slurm loaner project
         # If successful, delete the Slurm (HIL release) reservation
         try:
-            hil_free_nodes(nodelist, HIL_SLURM_PROJECT, hil_client):
+            hil_free_nodes(nodelist, HIL_SLURM_PROJECT, hil_client)
 
             release_resname = release_res_dict['ReservationName']
 
