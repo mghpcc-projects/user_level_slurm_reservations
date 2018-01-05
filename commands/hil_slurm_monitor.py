@@ -157,7 +157,7 @@ def main(argv=[]):
 
     reserve_res_dict_list = _find_hil_singleton_reservations(all_hil_reservations_dict, HIL_RESERVE)
     release_res_dict_list = _find_hil_singleton_reservations(all_hil_reservations_dict, HIL_RELEASE)
-    if not len(reserve_res_dict_list) and not len(reserve_res_dict_list):
+    if not len(reserve_res_dict_list) and not len(release_res_dict_list):
         return
 
     # Attempt to connect to the HIL server.
