@@ -1,6 +1,6 @@
 # MOC HIL User Level Slurm Reservations (ULSR)
 
-V3.0  16-Nov-2017
+V3.1  8-Jan-2018
 
 # Introduction
 
@@ -8,8 +8,8 @@ ULSR software allows a non-privileged Slurm user to reserve Slurm
 compute nodes for HIL operations.  The nodes may be later released and
 returned to the pool of Slurm compute nodes for use by others.
 
-At present, two commands, run in the Slurm partition environment, are
-used to manage Slurm HIL reservations:
+At present, two commands, run in the Slurm batch scheduler
+environment, are used to manage Slurm HIL ULSR reservations:
 
   * ```hil_reserve```
   * ```hil_release```
@@ -18,15 +18,15 @@ These commands are executed as Slurm jobs via ```srun(1)``` and
 ```sbatch(1).```
 
 Other software components perform HIL node and network management
-operations on nodes reserved and freed using the above commands.  An
-important program goal is to have these components execute
-automatically without user or administrator intervention.
+operations on nodes reserved and freed using the above commands.  The 
+primary function of the ULSR software is to automate these operations
+so that privileged user or administrator intervention is not required.
 
 ## Supported Targets
 
 ULSR is supported on CentOS 7 on x86_64 systems, using Python 2.7.  It
-may work on Red Hat Enterprise Linux but has not been tested in that
-distribution environment.
+may work on Red Hat Enterprise Linux, but it has not been tested in
+that distribution environment.
 
 ## Usage
 
@@ -177,11 +177,12 @@ interpreted as consistent with a 'two-screen' management model.
 
 ## Ethernet
 
-During a reserve operation, the 
+To be supplied.
+
 ## Infiniband
 
-During a reserve operation, the Infiniband interfaces on reserved
-compute nodes may be shut down at the far end.
+By default, during a reserve operation, the Infiniband interfaces on
+each reserved compute nodes will be shut down at the far end.
 
 Shutdown is accomplished by spawning a remote shell on each reserved
 compute node and invoking the ```ibportstate ... disable``` command,
@@ -192,17 +193,20 @@ Whether Infiniband interfaces are shut down or not modified is
 controlled by the value of the ```DISABLE_IB_LINKS``` parameter in the
 ```hil_slurm_settings.py``` file.
 
+How Infiniband interfaces are restored after release of ULSR resources
+is to be determined.
 
 # Assumptions, Restrictions, Notes
 
-Beyond any requirements imposed by the HIL software and Slurm, the
-following apply to the user level Slurm reservation software.
+Beyond any requirements imposed by the HIL node and network management
+software and the Slurm batch scheduler, the following apply to the
+ULSR software:
 
-  1. All nodes in the HIL reservation pool are configured in a single
-  Slurm partition.
+  1. All nodes in the HIL ULSR reservation pool must be previously
+  configured into and present in a single Slurm partition.
 
   2. Slurm compute nodes must be marked with the ```HIL``` feature in
-  order to be placed in a HIL reservation.  Features are defined in
+  order to be placed in a ULSR reservation.  Features are defined in
   the ```slurm.conf``` file or may be added to a node by a privileged
   user via the ```scontrol update``` command.  Refer to the Slurm
   documentation for a description of how to do this.
@@ -238,13 +242,13 @@ may be reviewed as necessary to gain insight into system behavior.
     epilog are logged to a file on the Slurm controller node.  The
     location of this file is configured in the
     ```hil_slurm_settings.py``` file.  By default, the location is
-    ```/var/log/moc_hil_ulsr/hil_prolog.log```.
+    ```/var/log/ulsr/ulsr_prolog.log```.
 
   * HIL reservation operations performed by the HIL periodic monitor
   are also logged to a file on the Slurm controller node.  The
   location of this file is configured in the
   ```hil_slurm_settings.py``` file.  By default, the location is
-  ```/var/log/moc_hil_ulsr/hil_monitor.log```. 
+  ```/var/log/ulsr/ulsr_monitor.log```. 
 
   * The HIL server writes to ```/var/log/hil.log```.  Note the HIL
     server may or may not reside on Slurm controller node.
@@ -275,51 +279,53 @@ consists of the following:
 
   5. A Slurm partition instance.
 
-  6. A MOC HIL cluster instance.
+  6. A MOC HIL ULSR cluster instance.
 
 
 ## Workflow and Functional Partitioning
 
 The general workflow is as follows:
 
-To reserve nodes, as a Slurm non-privilged user run the following command:
+To reserve nodes, as a Slurm non-privilged user may run the following command:
 ```
 $ srun hil_reserve
 ```
 ULSR software actions:
 
-  * Slurm Control Daemon ULSR Prolog (running as the Slurm user)
-    * Creates Slurm HIL reserve reservation
+  * Slurm Control Daemon ULSR Prolog (running as the Slurm user):
+    * Creates ULSR reserve reservation
 
-  * ULSR Periodic Monitor (running as the Slurm user, or ```root```)
+  * ULSR Periodic Monitor (running as the Slurm user, or ```root```):
 
-    * Detects reserve reservations which are not paired with release reservations
-    * Interacts with the HIL client to reboot the nodes in the Slurm reserve
-reservation, disconnect the nodes from all networks, and move the
+    * Detects ULSR reserve reservations which are not paired with ULSR
+release reservations 
+    * Interacts with the HIL client to reboot the nodes in the ULSR reserve
+reservation, disconnect those nodes from all networks, and move those
 nodes from the Slurm loaner project to the HIL free pool.
-    * Creates Slurm HIL release reservation
+    * Creates ULSR release reservation
 
 If a failure is detected by the periodic monitor, the reserve
 reservation will not be created, and the periodic monitor will retry
-the HIL operations when scheduled to run again.  This retry process
-will continue a long as the reserve reservation does not have a
-matching release reservation.
+the management operations when scheduled to run again.  This retry
+process will continue a long as the reserve reservation does not have
+a matching release reservation and as long as the reserve reservation
+exists.
 
-To release nodes, as a Slurm non-privileged user run the following:
+To release nodes, as a Slurm non-privileged user may run the following command:
 ```
 $ srun hil_release --reservation <HIL reserve reservation>
 ```
 
 ULSR software actions:
 
-  * Slurm Control Daemon ULSR Epilog
+  * Slurm Control Daemon ULSR Epilog (running as the Slurm user):
      * Detects 'hil_release' command and reservation in which the command was run
      * Deletes the Slurm HIL reserve reservation
 
-  * ULSR Periodic Monitor
+  * ULSR Periodic Monitor:
      * Detects release reservations which are not paired with reserve reservations
-     * Interacts with the HIL client to reboots the nodes in the Slurm release
-reservation, disconnect the nodes from all networks, and move the
+     * Interacts with the HIL client to reboot the nodes in the ULSR release
+reservation, disconnect these nodes from all networks, and move these
 nodes from the HIL free pool back to the Slurm loaner project.
 
 
@@ -328,11 +334,11 @@ nodes from the HIL free pool back to the Slurm loaner project.
 The ```hil_reserve``` and ```hil_release``` commands are implemented
 as ```bash(1)``` shell scripts, which do little more than cause the
 ```slurmctld``` prolog and epilog to run and communicate, via
-their job names, that the user wishes to reserve or release HIL nodes.
+their command names, that the user wishes to reserve or release ULSR nodes.
 
-These names are system reserved in that they are recognized by the
-Slurm control daemon prolog and epilog as triggers for specific ULSR
-reservation operations.
+The command names are system reserved in that they are recognized by
+the Slurm control daemon prolog and epilog as triggers for specific
+ULSR reservation operations.
 
 ## Slurm Control Daemon Prolog and Epilog
 
@@ -342,7 +348,7 @@ script which invokes a common Python program used for both the prolog
 and the epilog.  Prolog function is selected via an argument to the
 Python script.  The epilog is implemented in an identical manner.
 
-Likewise, some of The work required to release nodes from a HIL
+Likewise, some of the work required to release nodes from a ULSR
 reservation is performed by the ```slurmctld``` epilog.  As the
 reservation to be released is in use at the time the prolog runs (it
 is used to run the ```hil_release``` job), it is not possible to
@@ -352,22 +358,23 @@ delete the reservation in the prolog itself.
 
 The ```slurmctld``` prolog and epilog execution environment provides
 very limited support for communication between the user, the user's
-job, and the prolog and epilog, apart from Linux file system I/O.  For
-example, it is not possible for the prolog or epilog to write status
-information to the user's TTY, nor is is possible for the user's job
-to pass arguments to the prolog or epilog.  Note: It may be possible
-to output information to the user through a SPANK plugin, but that
-possibility is not considered further here.
+job, and the prolog and epilog.  For example, it is not possible for
+the prolog or epilog to write status information to the user's TTY,
+nor is is possible for the user's job to pass arguments to the prolog
+or epilog.  While it may be possible to output information to the user
+through a SPANK plugin, but that possibility is not considered further
+here.
 
 The name of the job submitted via ```srun``` or ```sbatch``` is
 available to the prolog and epilog through a very limited set of
 environment variables.  Also available in the environment are the user
-name, user ID, and job node list.  Other information regarding the
-Slurm execution environment is available through subprocess execution
-of various ```scontrol show``` commands, for example, ```scontrol show job```.
+name, user ID, and job node list.  Information regarding the Slurm
+execution environment is available through subprocess execution of
+various ```scontrol show``` commands, for example, ```scontrol show
+job```.
 
-The Slurm control daemon prolog and epilog communicate ULSR
-reservation state to the ULSR periodic monitor through the Slurm
+Accordingly, the Slurm control daemon prolog and epilog communicate
+ULSR reservation state to the ULSR periodic monitor through the Slurm
 reservations themselves.
 
 ## Periodic Reservation Monitor
