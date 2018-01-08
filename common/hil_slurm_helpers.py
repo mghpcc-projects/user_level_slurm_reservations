@@ -9,6 +9,7 @@ May 2017, Tim Donahue	tpd001@gmail.com
 import os
 from pwd import getpwnam, getpwuid
 from subprocess import Popen, PIPE
+from time import time
 
 from hil_slurm_constants import (HIL_RESNAME_PREFIX, HIL_RESNAME_FIELD_SEPARATOR,
                                  HIL_RESERVATION_OPERATIONS, RES_CREATE_FLAGS,
@@ -187,12 +188,12 @@ def get_hil_reservation_name(env_dict, restype_s, t_start_s):
     the username, the job ID, and the ToD (YMD_HMS)
 
     Structure:
-      NamePrefix _ [release|reserve] _ uname _ job_UID _ ToD
+      NamePrefix _ [release|reserve] _ uname _ job_UID _ str(int(time()))
     '''
     resname = HIL_RESNAME_PREFIX + restype_s + HIL_RESNAME_FIELD_SEPARATOR
     resname += env_dict['username'] + HIL_RESNAME_FIELD_SEPARATOR
     resname += env_dict['job_uid'] + HIL_RESNAME_FIELD_SEPARATOR
-    resname += t_start_s
+    resname += str(int(time()))
     return resname
 
 
@@ -231,7 +232,7 @@ def is_hil_reservation(resname, restype_in):
     - Optionally, is specifically a reserve or release reservation
     - $$$ Could verify nodes have HIL property set
     '''
-    prefix, restype, uname, uid, time = parse_hil_reservation_name(resname)
+    prefix, restype, uname, uid, _ = parse_hil_reservation_name(resname)
     if (prefix != HIL_RESNAME_PREFIX):
 #       log_error('No HIL reservation prefix')
         return False
@@ -298,7 +299,7 @@ def get_hil_reservations():
     resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
 
     for resdata_dict in resdata_dict_list:
-        if resdata_dict && is_hil_reservation(resdata_dict['ReservationName'], None):
+        if resdata_dict and is_hil_reservation(resdata_dict['ReservationName'], None):
             continue
         else:
             resdata_dict_list.remove(resdata_dict)

@@ -13,7 +13,7 @@ import logging
 from os import listdir
 from os.path import realpath, dirname, isfile, join
 import sys
-from time import time, mktime, strptime
+from time import time, gmtime, mktime, strptime, strftime
 
 libdir = realpath(join(dirname(inspect.getfile(inspect.currentframe())), '../common'))
 sys.path.append(libdir)
@@ -21,7 +21,8 @@ sys.path.append(libdir)
 from hil_slurm_client import hil_init, hil_reserve_nodes, hil_free_nodes
 from hil_slurm_settings import HIL_MONITOR_LOGFILE, HIL_ENDPOINT, HIL_SLURM_PROJECT
 from hil_slurm_constants import (SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE,
-                                 RES_CREATE_FLAGS, RES_CREATE_HIL_FEATURES)
+                                 RES_CREATE_FLAGS, RES_CREATE_HIL_FEATURES,
+                                 RES_CREATE_TIME_FMT)
 from hil_slurm_helpers import (exec_scontrol_show_cmd, is_hil_reservation,
                                parse_hil_reservation_name,
                                create_slurm_reservation, delete_slurm_reservation,
@@ -43,8 +44,12 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list):
         try:
             hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client)
             release_resname = resname.replace(HIL_RESERVE, HIL_RELEASE, 1)
-            t_start_s = reserve_res_dict['StartTime']
+
+            t_start_s = strftime(RES_CREATE_TIME_FMT, gmtime(time()))
             t_end_s = reserve_res_dict['EndTime']
+            if t_start_s >= t_end_s:
+                t_end_s = strftime(RES_CREATE_TIME_FMT, 
+                                   gmtime(time() + HIL_RESERVATION_DEFAULT_DURATION))
 
             # $$$ May want to check for pre-existing reservation with same name
             stdout_data, stderr_data = create_slurm_reservation(release_resname,

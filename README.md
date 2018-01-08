@@ -24,8 +24,9 @@ automatically without user or administrator intervention.
 
 ## Supported Targets
 
-ULSR is supported on CentOS 7 on x86_64 systems, using Python 2.7.  It may work on Red Hat Enterprise
-Linux but has not been tested in that distribution environment.
+ULSR is supported on CentOS 7 on x86_64 systems, using Python 2.7.  It
+may work on Red Hat Enterprise Linux but has not been tested in that
+distribution environment.
 
 ## Usage
 
@@ -43,22 +44,25 @@ If successful, immediately after execution of the ```srun
 hil_reserve``` command, a Slurm reservation similiar to the following
 should appear:
 ```
-ReservationName=flexalloc_MOC_reserve_centos_1000_2017-06-26T17:20:32
-StartTime=2017-06-26T17:20:32 EndTime=2017-06-26T21:25:32
-Duration=04:05:00 Nodes=server1 NodeCnt=1 CoreCnt=1 Features=(null)
+ReservationName=flexalloc_MOC_reserve_centos_1000_1498512332
+StartTime=2017-06-26T21:25:32 EndTime=2017-06-27T21:25:32
+Duration=1-00:00:00 Nodes=server1 NodeCnt=1 CoreCnt=1 Features=(null)
 PartitionName=(null) Flags=MAINT,IGNORE_JOBS,S PEC_NODES,ALL_NODES
 TRES=cpu=1 Users=centos Accounts=(null) Licenses=(null) State=ACTIVE
 BurstBuffer=(null) Watts=n/a 
 ```
-This is called the ULSR reserve reservation.
+This is called the ULSR reserve reservation.  The name token
+```1000``` corresponds to the UID of the ```centos``` user, whereas
+the name token ```1498512332``` is the integer portion of the Unix
+epoch time when the reservation was created.
 
 Some time later, after the periodic execution of the ULSR monitor, a
 paired release reservation similiar to the following should appear:
 
 ```
-ReservationName=flexalloc_MOC_release_centos_1000_2017-06-26T17:20:32
-StartTime=2017-06-26T17:20:32 EndTime=2017-06-26T21:25:32
-Duration=04:05:00 Nodes=server1 NodeCnt=1 CoreCnt=1 Features=(null)
+ReservationName=flexalloc_MOC_release_centos_1000_1498512630
+StartTime=2017-06-26T21:30:30 EndTime=2017-06-27T21:30:30
+Duration=1-00:00:00 Nodes=server1 NodeCnt=1 CoreCnt=1 Features=(null)
 PartitionName=(null) Flags=MAINT,IGNORE_JOBS,S PEC_NODES,ALL_NODES
 TRES=cpu=1 Users=centos Accounts=(null) Licenses=(null) State=ACTIVE
 BurstBuffer=(null) Watts=n/a 
@@ -73,9 +77,13 @@ command to ```srun(1)``` or ```sbatch(1)```, additionally specifying
 run the job:
 
 ```
-$ srun --reservation=flexalloc_MOC_reserve_centos_1000_2017-06-26T17:20:32 hil_release
+$ srun --reservation=flexalloc_MOC_reserve_centos_1000_1498512332 hil_release
 ```
 This will ultimately remove both the reserve and release reservations.
+
+Note that failure to specify ```--reservation=<name>``` as an
+argument, e.g., without the leading ```--``` characters, will cause
+the job to be queued, waiting for resources.
 
 ## Resource Sharing
 
@@ -86,23 +94,29 @@ may not be shared among users.
 
 HIL reservations created using ```hil_reserve``` are named as follows:
 ```
-flexalloc_MOC_reserve_<username>_<uid>_<start_time>
+flexalloc_MOC_reserve_<username>_<uid>_<Unix epoch time 1>
 ```
 and
 ```
-flexalloc_MOC_release_<username>_<uid>_<start_time>
+flexalloc_MOC_release_<username>_<uid>_<Unix epoch time 2>
 ```
-
 An example:
 ```
-flexalloc_MOC_reserve_centos_1000_2017-06-26T17:20:32
+flexalloc_MOC_reserve_centos_1000_1498497632
 ```
+In the first case, ```Unix epoch time 1``` corresponds to the start
+time of the reservation, or approximately at the time the
+```srun hil_reserve``` command is executed.   
+
+In the second case, ```Unix epoch time 2``` corresponds to the time at
+which the periodic reservation monitor runs after the ```srun hil
+reserve``` command is executed.
 
 ## Restrictions on User Names and UIDs
 
-Reservations are named after the who invoked the user who invoked the
-```srun hil_reserve``` command.  The user's name and UID are passed to
-the Slurmctld prolog and epilog through the ```SLURM_JOB_USER``` and
+Reservations are named after the user who invoked the ```srun
+hil_reserve``` command.  The user's name and UID are passed to the
+Slurmctld prolog and epilog through the ```SLURM_JOB_USER``` and
 ```SLURM_JOB_UID``` environment variables.
 
 Priviliged users may specify the user ID with which to create Slurm
