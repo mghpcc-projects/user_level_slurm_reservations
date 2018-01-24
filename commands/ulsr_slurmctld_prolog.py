@@ -200,7 +200,7 @@ def _create_ulsr_reservation(restype_s, t_start_s, t_end_s, env_dict, pdata_dict
     Create a ULSR reservation
     '''
     # Generate a ULSR reservation name
-    resname = get_ulsr_reservation_name(env_dict, restype_s, t_start_s)
+    resname = get_ulsr_reservation_name(env_dict, restype_s)
 
     # Check if reservation exists.  If so, do nothing
     resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', resname)

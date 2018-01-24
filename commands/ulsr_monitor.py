@@ -13,14 +13,16 @@ import logging
 from os import listdir
 from os.path import realpath, dirname, isfile, join
 import sys
-from time import time, mktime, strptime
+from time import time, gmtime, mktime, strptime, strftime
 
 libdir = realpath(join(dirname(inspect.getfile(inspect.currentframe())), '../common'))
 sys.path.append(libdir)
 
 from ulsr_hil_client import hil_init, hil_reserve_nodes, hil_free_nodes
 from ulsr_settings import ULSR_MONITOR_LOGFILE, HIL_ENDPOINT, HIL_SLURM_PROJECT
-from ulsr_constants import SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE
+from ulsr_constants import (SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE
+                            RES_CREATE_FLAGS, RES_CREATE_HIL_FEATURES,
+                            RES_CREATE_TIME_FMT)
 from ulsr_helpers import (exec_scontrol_show_cmd,
                           parse_ulsr_reservation_name, delete_slurm_reservation,
                           get_ulsr_reservations, log_ulsr_reservation)
@@ -38,10 +40,15 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list):
         nodelist = hostlist.expand_hostlist(reserve_res_dict['Nodes'])
         resname = reserve_res_dict['ReservationName']
 
-        if hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client):
+        try:
+            hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client)
             release_resname = resname.replace(HIL_RESERVE, HIL_RELEASE, 1)
-            t_start_s = reserve_res_dict['StartTime']
+
+            t_start_s = strftime(RES_CREATE_TIME_FMT, gmtime(time()))
             t_end_s = reserve_res_dict['EndTime']
+            if t_start_s >= t_end_s:
+                t_end_s = strftime(RES_CREATE_TIME_FMT, 
+                                   gmtime(time() + HIL_RESERVATION_DEFAULT_DURATION))
 
             # $$$ May want to check for pre-existing reservation with same name
             stdout_data, stderr_data = create_slurm_reservation(release_resname,
@@ -53,8 +60,8 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list):
                                                                 debug=False)
             log_ulsr_reservation(release_resname, stderr_data, t_start_s, t_end_s)
             n += 1
-        else:
-            log_error('Failed to HIL reserve nodes in reservation `%s`' % resname)
+        except:
+            log_error('Failed to reserve nodes in HIL reservation `%s`' % resname)
 
     return n
 
@@ -71,8 +78,8 @@ def _process_release_reservations(hil_client, release_res_dict_list):
 
         # Attempt to move the node back to the Slurm loaner project
         # If successful, delete the Slurm (HIL release) reservation
-
-        if hil_free_nodes(nodelist, HIL_SLURM_PROJECT, hil_client):
+        try:
+            hil_free_nodes(nodelist, HIL_SLURM_PROJECT, hil_client)
 
             release_resname = release_res_dict['ReservationName']
 
@@ -83,6 +90,9 @@ def _process_release_reservations(hil_client, release_res_dict_list):
             else:
                 log_error('Error deleting HIL release reservation `%s`' % release_resname)
                 log_error(stderr_data)
+        except:
+            log_error('Exception deleting HIL release reservation `%s`' % release_resname)
+
     return n
 
 

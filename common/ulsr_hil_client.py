@@ -18,6 +18,7 @@ from hil_slurm_settings import HIL_ENDPOINT, HIL_USER, HIL_PW
 # timeout ensures that networking actions are completed in a resonable time.
 HIL_TIMEOUT = 20
 
+DEBUG = False
 
 class HILClientFailure(Exception):
     """Exception indicating that the HIL client failed"""
@@ -27,18 +28,25 @@ class ProjectMismatchError(Exception):
     """Raised when projects don't match"""
 
 
-def hil_client_connect(endpoint_ip, name, pw):
+def _hil_client_connect(endpoint_ip, name, pw):
     '''
     Connect to the HIL server and return a HIL Client instance
-    '''
+    Note this call will succeed if the API server is running, but the network server is down           '''
     hil_http_client = RequestsHTTPClient()
     if not hil_http_client:
         log_error('Unable to create HIL HTTP Client')
         return None
 
     hil_http_client.auth = (name, pw)
+    c = Client(endpoint_ip, hil_http_client)
+    if not c:
+        log_error('Unable to create HIL client')
 
-    return Client(endpoint_ip, hil_http_client)
+    return c
+
+
+def hil_init():
+    return _hil_client_connect(HIL_ENDPOINT, HIL_USER, HIL_PW)
 
 
 def check_hil_interface():
@@ -80,11 +88,19 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
 
     # Remove all networks from nodes.
     for node in nodelist:
-        _remove_all_networks(hil_client, node)
+        try:
+            _remove_all_networks(hil_client, node)
+        except:
+            log_error('Failed to remove networks from node %s' % node)            
+            continue
 
     # Finally, remove node from project.
     for node in nodelist:
-        _ensure_no_networks(hil_client, node)
+        try:
+            _ensure_no_networks(hil_client, node)
+        except:
+            log_error('Failed to ensure node %s is disconnected from all networks' % node)
+            continue
 
         # tries 10 times to detach the project because there might be a pending
         # networking action setup by revert port in the previous step.
@@ -118,7 +134,6 @@ def hil_free_nodes(nodelist, to_project, hil_client=None):
     network is also controlled by HIL. If we removed all networks, then we will
     not be able to perform any IPMI operations on nodes.
     '''
-
     if not hil_client:
         hil_client = hil_init()
 
@@ -143,10 +158,6 @@ def hil_free_nodes(nodelist, to_project, hil_client=None):
         except FailedAPICallException, ConnectionError:
             log_error('HIL reservation failure: Unable to connect node `%s` to project `%s`' % (node, to_project))
             raise HILClientFailure()
-
-
-def hil_init():
-    return hil_client_connect(HIL_ENDPOINT, HIL_USER, HIL_PW)
 
 
 def _remove_all_networks(hil_client, node):

@@ -10,6 +10,7 @@ import os
 from pwd import getpwnam, getpwuid
 from subprocess import Popen, PIPE
 from sys import _getframe
+from time import time
 
 from ulsr_constants import (ULSR_RESNAME_PREFIX, ULSR_RESNAME_FIELD_SEPARATOR,
                             ULSR_RESERVATION_OPERATIONS, RES_CREATE_FLAGS,
@@ -181,18 +182,18 @@ def update_slurm_reservation(name, debug=False, **kwargs):
     return exec_scontrol_cmd('update', None, reservation=name, debug=debug, **kwargs)
 
 
-def get_ulsr_reservation_name(env_dict, restype_s, t_start_s):
+def get_ulsr_reservation_name(env_dict, restype_s):
     '''
     Create a reservation name, combining the ULSR reservation prefix,
     the username, the job ID, and the ToD (YMD_HMS)
 
     Structure:
-      NamePrefix _ [release|reserve] _ uname _ job_UID _ ToD
+      NamePrefix _ [release|reserve] _ uname _ job_UID _ str(int(time()))
     '''
     resname = ULSR_RESNAME_PREFIX + restype_s + ULSR_RESNAME_FIELD_SEPARATOR
     resname += env_dict['username'] + ULSR_RESNAME_FIELD_SEPARATOR
     resname += env_dict['job_uid'] + ULSR_RESNAME_FIELD_SEPARATOR
-    resname += t_start_s
+    resname += str(int(time()))
     return resname
 
 
@@ -231,7 +232,7 @@ def is_ulsr_reservation(resname, restype_in):
     - Optionally, is specifically a reserve or release reservation
     - $$$ Could verify nodes have the ULSR property set
     '''
-    prefix, restype, uname, uid, time = parse_ulsr_reservation_name(resname)
+    prefix, restype, uname, uid, _ = parse_ulsr_reservation_name(resname)
     if (prefix != ULSR_RESNAME_PREFIX):
 #       log_error('No ULSR reservation prefix')
         return False
@@ -298,7 +299,7 @@ def get_ulsr_reservations():
     resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
 
     for resdata_dict in resdata_dict_list:
-        if is_ulsr_reservation(resdata_dict['ReservationName'], None):
+        if resdata_dict and is_ulsr_reservation(resdata_dict['ReservationName'], None):
             continue
         else:
             resdata_dict_list.remove(resdata_dict)
@@ -309,7 +310,7 @@ def get_ulsr_reservations():
 def log_ulsr_reservation(resname, stderr_data, t_start_s=None, t_end_s=None):
     if len(stderr_data):
         log_error('Error creating reservation `%s`'% resname)
-        log_error(stderr_data)
+        log_error('  Error string: %s' % stderr_data.strip('\n'), separator=False)
     else:
         log_info('Created  ULSR reservation `%s`' % resname)
 

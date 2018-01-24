@@ -26,9 +26,6 @@ DOCS = README.md LICENSE
 SLURM_USER := slurm
 SLURM_USER_DIR=/home/$(SLURM_USER)
 
-INSTALL_USER = centos
-INSTALL_USER_DIR=/home/$(INSTALL_USER)
-
 # DNS / /etc/hosts name of the Slurm controller node
 
 SLURM_CONTROLLER = slurm-controller
@@ -71,6 +68,7 @@ ULSR_COMMAND_PATH=/usr/bin:/usr/local/bin
 INSTALL = /usr/bin/install -m 755 -g $(SLURM_USER) -o $(SLURM_USER)
 SH = bash
 COPY = cp
+CHECKOUT = git checkout
 
 
 # Functions
@@ -158,6 +156,7 @@ install-controller:
 	@$($(SH) ($(SLURM_USER_DIR)/scripts/ve/bin/activate; \
 	          pip install $(PYTHON_PKGS); \
 	          deactivate))
+	@chown -R $(SLURM_USER):$(SLURM_USER) $(SLURM_USER_DIR)/scripts
 
 	# Copy common library modules
 	@cd ./common && $(INSTALL) $(LIB_PY_FILES) $(VENV_SITE_PKG_DIR)
@@ -224,8 +223,11 @@ controller-nfs-share: linux-packages
 
 	@mkdir -p $(ULSR_SHARED_DIR)/bin
 	@chmod -R 700 $(ULSR_SHARED_DIR)/bin
-	@chown -R $(INSTALL_USER):$(INSTALL_USER) $(ULSR_SHARED_DIR)/bin
+	@chown -R $(SLURM_USER):$(SLURM_USER) $(ULSR_SHARED_DIR)/bin
 
+
+# Useful / necessary only if NFS is not already active on compute nodes AND
+# this Makefile has been transferred to those nodes
 
 server-nfs-share: linux-packages
 	@mkdir -p $(NFS_SHARED_DIR)
@@ -235,14 +237,19 @@ server-nfs-share: linux-packages
 	@service rpcbind start
 	@service nfs start
 	@-mount $(SLURM_CONTROLLER):$(NFS_SHARED_DIR) $(NFS_SHARED_DIR)
-	@echo '$(SLURM_CONTROLLER):$(NFS_SHARED_DIR) nfs auto,noatime,nolock,bg,nfsvers=3,intr,tcp,actimeo=1800 0 0'
+	@echo '$(SLURM_CONTROLLER):$(NFS_SHARED_DIR) nfs auto,noatime,nolock,bg,nfsvers=3,intr,tcp,actimeo=1800 0 0' >> /etc/fstab
 
+
+# Undo PATH etc. edits make during prior `make install`
+checkout:
+	cd ./commands && $(CHECKOUT) $(COMMAND_SH_FILES)
 
 clean:
 	$(call verify-root-user)
+	@$(MAKE) checkout	
 	rm -rf $(SLURM_USER_DIR)/scripts
 	rm -rf $(ULSR_LOGFILE_DIR)
-	cd $(LOCAL_BIN)
-	rm -f $(HIL_CMDS)
-	rm -rf $(ULSR_SHARED_DIR)
+	cd $(LOCAL_BIN) && rm -f $(HIL_CMDS) $(COMMAND_SH_FILES)
+	$(if $(SLURMCTLD_PID),\
+	    rm -rf $(ULSR_SHARED_DIR))
 # EOF
