@@ -12,6 +12,8 @@ SLURM_INSTALL_DIR = '/usr/bin/'
 
 ULSR_SLURMCTLD_PROLOG_LOGFILE = '/var/log/ulsr/ulsr_prolog.log'
 ULSR_MONITOR_LOGFILE = '/var/log/ulsr/ulsr_monitor.log'
+ULSR_AUDIT_LOGFILE = '/var/log/ulsr/ulsr_audit.log'
+ULSR_IB_MGMT_LOGFILE = '/var/log/ulsr/ulsr_ib_mgmt.log'
 
 HIL_ENDPOINT = "http://10.0.0.16:80"
 HIL_USER = 'admin'

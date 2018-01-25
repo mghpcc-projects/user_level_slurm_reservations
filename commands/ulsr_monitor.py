@@ -8,19 +8,17 @@ May 2017, Tim Donahue	tdonahue@mit.edu
 """
 
 import hostlist
-import inspect
 import logging
 from os import listdir
-from os.path import realpath, dirname, isfile, join
+from os.path import dirname, isfile
 import sys
 from time import time, gmtime, mktime, strptime, strftime
 
-libdir = realpath(join(dirname(inspect.getfile(inspect.currentframe())), '../common'))
-sys.path.append(libdir)
+import ulsr_importpath
 
 from ulsr_hil_client import hil_init, hil_reserve_nodes, hil_free_nodes
 from ulsr_settings import ULSR_MONITOR_LOGFILE, HIL_ENDPOINT, HIL_SLURM_PROJECT
-from ulsr_constants import (SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE
+from ulsr_constants import (SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE,
                             RES_CREATE_FLAGS, RES_CREATE_HIL_FEATURES,
                             RES_CREATE_TIME_FMT)
 from ulsr_helpers import (exec_scontrol_show_cmd,
