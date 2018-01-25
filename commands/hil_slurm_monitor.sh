@@ -1,11 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
+#
+# HIL Slurm ULSR Monitor shell script
+#
+# Runs hil_slurm_monitor.py, intended for invocation by cron(8).
+#
+# Environment (DO NOT REMOVE THIS LINE)
 
-HOME=/home/centos/user_level_slurm_reservations
-LOGFILE=/var/log/slurm-llnl/hil_monitor.log
 
-source $HOME/ve/bin/activate
-export PYTHONPATH=$HOME/prolog:$PYTHONPATH
-# python $HOME/commands/hil_slurm_monitor.py 2>&1 >> $LOGFILE
-python $HOME/commands/hil_slurm_monitor.py
+#
+source $HOME/scripts/ve/bin/activate
+python $HOME/scripts/hil_slurm_monitor.py 2>&1 >> $LOGFILE
 deactivate
 
+exit 0

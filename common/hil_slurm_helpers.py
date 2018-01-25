@@ -9,12 +9,18 @@ May 2017, Tim Donahue	tpd001@gmail.com
 import os
 from pwd import getpwnam, getpwuid
 from subprocess import Popen, PIPE
+from time import time
 
 from hil_slurm_constants import (HIL_RESNAME_PREFIX, HIL_RESNAME_FIELD_SEPARATOR,
                                  HIL_RESERVATION_OPERATIONS, RES_CREATE_FLAGS,
                                  HIL_RESERVE, HIL_RELEASE)
 from hil_slurm_settings import SLURM_INSTALL_DIR
 from hil_slurm_logging import log_debug, log_info, log_error
+
+
+def _output_debug_info(fname, stdout_data, stderr_data):
+    log_debug('%s: Stdout  %s' % (fname, stdout_data))
+    log_debug('%s: Stderr  %s' % (fname, stderr_data))
 
 
 def _exec_subprocess_cmd(cmd):
@@ -182,12 +188,12 @@ def get_hil_reservation_name(env_dict, restype_s, t_start_s):
     the username, the job ID, and the ToD (YMD_HMS)
 
     Structure:
-      NamePrefix _ [release|reserve] _ uname _ job_UID _ ToD
+      NamePrefix _ [release|reserve] _ uname _ job_UID _ str(int(time()))
     '''
     resname = HIL_RESNAME_PREFIX + restype_s + HIL_RESNAME_FIELD_SEPARATOR
     resname += env_dict['username'] + HIL_RESNAME_FIELD_SEPARATOR
     resname += env_dict['job_uid'] + HIL_RESNAME_FIELD_SEPARATOR
-    resname += t_start_s
+    resname += str(int(time()))
     return resname
 
 
@@ -226,7 +232,7 @@ def is_hil_reservation(resname, restype_in):
     - Optionally, is specifically a reserve or release reservation
     - $$$ Could verify nodes have HIL property set
     '''
-    prefix, restype, uname, uid, time = parse_hil_reservation_name(resname)
+    prefix, restype, uname, uid, _ = parse_hil_reservation_name(resname)
     if (prefix != HIL_RESNAME_PREFIX):
 #       log_error('No HIL reservation prefix')
         return False
@@ -283,5 +289,29 @@ def get_job_data(job_id):
     '''
     return get_object_data('job', job_id, debug=False)
 
+
+def get_hil_reservations():
+    '''
+    Get a list of all Slurm reservations, return that subset which are HIL reservations
+    '''
+    resdata_dict_list = []
+
+    resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
+
+    for resdata_dict in resdata_dict_list:
+        if resdata_dict and is_hil_reservation(resdata_dict['ReservationName'], None):
+            continue
+        else:
+            resdata_dict_list.remove(resdata_dict)
+
+    return resdata_dict_list
+
+
+def log_hil_reservation(resname, stderr_data, t_start_s=None, t_end_s=None):
+    if len(stderr_data):
+        log_error('Error creating reservation `%s`'% resname)
+        log_error('  Error string: %s' % stderr_data.strip('\n'), separator=False)
+    else:
+        log_info('Created  HIL reservation `%s`' % resname)
 
 # EOF
