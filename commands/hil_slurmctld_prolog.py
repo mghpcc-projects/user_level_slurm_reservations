@@ -21,8 +21,8 @@ sys.path.append(libdir)
 from hil_slurm_helpers import (get_partition_data, get_job_data, get_object_data,
                                exec_scontrol_cmd, exec_scontrol_show_cmd,
                                get_hil_reservation_name, is_hil_reservation,
-                               create_slurm_reservation, update_slurm_reservation,
-                               delete_slurm_reservation)
+                               create_slurm_reservation, delete_slurm_reservation, 
+                               log_hil_reservation)
 from hil_slurm_constants import (SHOW_OBJ_TIME_FMT, RES_CREATE_TIME_FMT,
                                  SHOW_PARTITION_MAXTIME_HMS_FMT,
                                  RES_CREATE_HIL_FEATURES,
@@ -38,7 +38,9 @@ from hil_slurm_settings import (HIL_PARTITION_PREFIX,
                                 HIL_RESERVATION_DEFAULT_DURATION,
                                 HIL_RESERVATION_GRACE_PERIOD,
                                 HIL_SLURMCTLD_PROLOG_LOGFILE,
-                                USER_HIL_SUBDIR, USER_HIL_LOGFILE)
+                                HIL_ENDPOINT,
+                                HIL_SLURM_PROJECT)
+
 
 def _get_prolog_environment():
     '''
@@ -53,13 +55,7 @@ def _get_prolog_environment():
                'nodelist': 'SLURM_JOB_NODELIST'
                }
 
-    return {env_var: os.environ.get(slurm_env_var)
-            for env_var, slurm_env_var in env_map.iteritems()}
-
-
-def _get_user_hil_subdir(env_dict):
-    home = os.path.expanduser('~' + env_dict['username'])
-    return os.path.join(home, USER_HIL_SUBDIR)
+    return {env_var: os.environ.get(slurm_env_var) for env_var, slurm_env_var in env_map.iteritems()}
 
 
 def _check_hil_partition(env_dict, pdata_dict):
@@ -71,15 +67,16 @@ def _check_hil_partition(env_dict, pdata_dict):
 
     pname = pdata_dict['PartitionName']
     if not pname.startswith(HIL_PARTITION_PREFIX):
-        log_info('Partition name `%s` does not match `%s*`' % (pname,
-                                                               HIL_PARTITION_PREFIX))
+        log_info('Partition name `%s` does not match `%s*`' %
+                 (pname, HIL_PARTITION_PREFIX))
         status = False
 
     # Verify the partition state is UP
 
     if RES_CHECK_PARTITION_STATE:
         if (pdata_dict['State'] != 'UP'):
-            log_info('Partition `%s` state (`%s`) is not UP' % (pname, pdata_dict['State']))
+            log_info('Partition `%s` state (`%s`) is not UP' %
+                     (pname, pdata_dict['State']))
             status = False
 
     # Verify the partition is not the default partition
@@ -89,7 +86,8 @@ def _check_hil_partition(env_dict, pdata_dict):
             log_info('Partition `%s` is the default partition, cannot be used for HIL' % pname)
             status = False
 
-    # Verify the partition is not shared by checking 'Shared' and 'ExclusiveUser' attributes
+    # Verify the partition is not shared by checking 'Shared' and
+    # 'ExclusiveUser' attributes
 
     if RES_CHECK_SHARED_PARTITION:
         if (pdata_dict['Shared'] != 'NO'):
@@ -123,10 +121,11 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
         If the user specified a start time for the job, use that
         Otherwise, use the current time
     End time:
-        if the job has an end time, use that and extend it by the HIL grace period.
-        If the job does not have an end time (e.g., TimeLimit UNLIMITED), set the
-        reservation end time to either the partition MaxTime, if defined, or the HIL default
-        maximum time.
+        if the job has an end time, use that and extend it by the HIL
+          grace period.
+        If the job does not have an end time (e.g., TimeLimit UNLIMITED),
+          set the reservation end time to either the partition MaxTime,
+          if defined, or the HIL default maximum time.
     '''
     t_job_start_s = jobdata_dict['StartTime']
     t_job_end_s = jobdata_dict['EndTime']
@@ -145,8 +144,8 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
 
         if 'UNLIMITED' in jobdata_dict['TimeLimit']:
 
-            # Job does not have a time limit. See if the partition has a max time.
-            # If so, use that. If not, use the HIL default duration.
+            # Job does not have a time limit. See if the partition has a
+            # max time.  If so, use that. If not, use the HIL default duration.
 
             p_max_time_s = pdata_dict['MaxTime']
             log_debug('Partition MaxTime is %s' % p_max_time_s)
@@ -154,7 +153,8 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
 
                 # Partition does not have a max time, use HIL default.
                 log_debug('No job or partition time limit, using HIL default reservation duration')
-                t_end_dt = t_start_dt + timedelta(seconds=HIL_RESERVATION_DEFAULT_DURATION)
+                t_end_dt = (t_start_dt +
+                            timedelta(seconds=HIL_RESERVATION_DEFAULT_DURATION))
 
             else:
 
@@ -162,7 +162,8 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
                 log_debug('Using partition time limit to calculate reservation end time')
                 d_hms = p_max_time_s.split('-')
                 if (len(d_hms) == 1):
-                    p_max_hms_dt = datetime.strptime(d_hms[0], SHOW_PARTITION_MAXTIME_HMS_FMT)
+                    p_max_hms_dt = datetime.strptime(d_hms[0],
+                                                     SHOW_PARTITION_MAXTIME_HMS_FMT)
                     p_max_timedelta = timedelta(hours=p_max_hms_dt.hour,
                                                 minutes=p_max_hms_dt.minute,
                                                 seconds=p_max_hms_dt.second)
@@ -170,7 +171,8 @@ def _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict):
                     # Days field is present
                     p_max_days_timedelta = datetime.timedelta(days=int(d_hms[0]))
 
-                    p_max_hms_dt = datetime.strptime(d_hms[1], SHOW_PARTITION_MAXTIME_HMS_FMT)
+                    p_max_hms_dt = datetime.strptime(d_hms[1],
+                                                     SHOW_PARTITION_MAXTIME_HMS_FMT)
                     p_max_hms_timedelta = timedelta(hours=p_max_hms_dt.hour,
                                                     minutes=p_max_hms_dt.minute,
                                                     seconds=p_max_hms_dt.second)
@@ -219,15 +221,6 @@ def _create_hil_reservation(restype_s, t_start_s, t_end_s, env_dict, pdata_dict,
     return resname, stderr_data
 
 
-def _update_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname, **kwargs):
-    '''
-    Update (modify) a HIL reservation.
-    One use is to change the start time of the release reservation to
-    the current time, after the reserve reservation has been deleted
-    '''
-    return update_slurm_reservation(resname, debug=False, **kwargs)
-
-
 def _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname):
     '''
     Delete a HIL reservation after validating HIL name prefix and owner name
@@ -240,50 +233,50 @@ def _delete_hil_reservation(env_dict, pdata_dict, jobdata_dict, resname):
         log_info('Deleting HIL reservation `%s`' % resname)
         return delete_slurm_reservation(resname, debug=False)
     else:
-        log_info('Cannot delete HIL reservation, error in name (`%s`)' % resname)
+        log_info('Cannot delete HIL reservation, error in name (`%s`)' %
+                 resname)
         return None, 'hil_release: error: Invalid reservation name'
-
-
-def _log_hil_reservation(resname, stderr_data, t_start_s=None, t_end_s=None):
-    if len(stderr_data):
-        log_error('Error creating reservation `%s`'% resname)
-        log_error(stderr_data)
-    else:
-        log_info('Created  HIL reservation `%s`' % resname)
 
 
 def _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict):
     '''
-    Create HIL reserve and release reservations if they do not already exist.
-    Reservation times may overlap so long as the MAINT flag is set
+    Runs in Slurm control daemon prolog context
+
+    Create HIL reserve reservation if it does not already exist.
+    The HIL monitor will reserve the nodes and create the corresponding Slurm HIL release
+    reservation.
+
+    Reservation start and end times may overlap so long as the MAINT flag is set
     '''
     t_start_s, t_end_s = _get_hil_reservation_times(env_dict, pdata_dict, jobdata_dict)
-    
-    for restype_s in [HIL_RESERVE, HIL_RELEASE]:
-        resname, stderr_data = _create_hil_reservation(restype_s, t_start_s, t_end_s,
+
+    resname, stderr_data = _create_hil_reservation(HIL_RESERVE, t_start_s, t_end_s,
                                                    env_dict, pdata_dict, jobdata_dict)
-        _log_hil_reservation(resname, stderr_data, t_start_s, t_end_s)
+    log_hil_reservation(resname, stderr_data, t_start_s, t_end_s)
 
 
 def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
     '''
+    Runs in Slurm control daemon epilog context
+
     Delete the reserve reservation in which the release job was run.
-    - Verify the reservation is a HIL areserve reservation
+    - Verify the reservation is a HIL reserve reservation
     - Verify the reservation is owned by the user
-    - Get reserve reservation data, including the start time
-    - Generate release reservation name
-    - Update the start time of the release reservation
+    - Get reserve reservation data via 'scontrol'
+    - Delete the reserve reservation in which the hil_release command was run
+
     Release reservation will be deleted later by the HIL reservation monitor
     '''
     reserve_resname = jobdata_dict['Reservation']
 
     if reserve_resname:
         if not is_hil_reservation(reserve_resname, HIL_RESERVE):
-            log_error('Oops, reservation `%s` is not a HIL reserve reservation' % reserve_resname)
+            log_error('Reservation `%s` is not a HIL reserve reservation' %
+                      reserve_resname)
 
         elif env_dict['username'] not in reserve_resname:
-            log_error('Reservation `%s` not owned by user `%s`' % (reserve_resname,
-                                                                   env_dict['username']))
+            log_error('Reservation `%s` not owned by user `%s`' %
+                      (reserve_resname, env_dict['username']))
         else:
             # Basic validation done
             # Get reserve reservation data
@@ -299,7 +292,8 @@ def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
                 log_error(stderr_data)
 
     else:
-        log_error('No reservation name specified to `%s` command' % jobdata_dict['JobName'])
+        log_error('No reservation name specified to `%s` command' %
+                  jobdata_dict['JobName'])
 
 
 def process_args():
@@ -317,51 +311,61 @@ def process_args():
 def main(argv=[]):
 
     args = process_args()
-    log_init('hil_slurmctld.prolog', HIL_SLURMCTLD_PROLOG_LOGFILE, logging.DEBUG)
+    log_init('hil_slurmctld.prolog', HIL_SLURMCTLD_PROLOG_LOGFILE,
+             logging.DEBUG)
 
     if args.hil_prolog:
         pass
     elif args.hil_epilog:
         pass
     else:
-        log_debug('Must specify one of --hil_prolog or --hil_epilog', separator=True)
-        return
+        log_debug('Must specify one of --hil_prolog or --hil_epilog',
+                  separator=True)
+        return False
 
-    # Collect prolog/epilog environment, job data, and partition data into dictionaries,
-    # perform basic sanity checks
-    # Since data for one partition and one job is expected, select the first dict in the list
+    # Collect prolog/epilog environment, job data, and partition data into
+    # dictionaries, perform basic sanity checks.
+    # Since data for one partition and one job is expected, select the
+    # first dict in the list
 
     env_dict = _get_prolog_environment()
+    if not env_dict['partition']:
+        log_debug('Missing Slurm control daemon prolog / epilog environment.')
+        return False
+
     pdata_dict = get_partition_data(env_dict['partition'])[0]
     jobdata_dict = get_job_data(env_dict['job_id'])[0]
 
-    if not pdata_dict or not jobdata_dict or not env_dict:
+    if not pdata_dict or not jobdata_dict:
         log_debug('One of pdata_dict, jobdata_dict, or env_dict is empty')
         log_debug('Job data', jobdata_dict)
         log_debug('P   data', pdata_dict)
-        return
+        return False
 
     if not _check_hil_partition(env_dict, pdata_dict):
-        return
+        return False
 
     # Verify the command is a HIL command.  If so, process it.
 
     hil_cmd = _check_hil_command(env_dict)
     if not hil_cmd:
-        return
+        return True
+
+    status = True
 
     if args.hil_prolog:
         if (hil_cmd == 'hil_reserve'):
             log_info('HIL Slurmctld Prolog', separator=True)
             log_debug('Processing reserve request')
-            _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict)
+            status = _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict)
 
     elif args.hil_epilog:
         if (hil_cmd == 'hil_release'):
             log_info('HIL Slurmctld Epilog', separator=True)
             log_debug('Processing release request')
-            _hil_release_cmd(env_dict, pdata_dict, jobdata_dict)
-    return
+            status = _hil_release_cmd(env_dict, pdata_dict, jobdata_dict)
+
+    return status
 
 
 if __name__ == '__main__':

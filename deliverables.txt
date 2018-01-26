@@ -1,8 +1,8 @@
 MOC / HIL Project Deliverables
 
-V0.2
+V0.3
 
-24-Jul-2017
+15-Aug-2017
 
 tpd001@gmail.com
 
@@ -68,10 +68,9 @@ the MOC / HIL system.
 
   - Slurm MOC / HIL reservation monitor framework
 
+  - Understanding of HIL functions and API
 
 * MOC / HIL Work Remaining
-
-1. Understand HIL functions and API
 
 2. Develop interface between MOC / HIL reservation monitor and HIL
    infrastructure
@@ -79,17 +78,24 @@ the MOC / HIL system.
 3. Develop interface between MOC / HIL reservation monitor and HIL
    node and network state maintenance code
 
-4. Develop MOC / HIL reservation state storage, or equivalent, to
-   support hil_release operations
-
-5. Develop Additional priviliged and non-privileged software to
-   maintain MOC / HIL system, as required
-
 6. Installation infrastructure, including definition of same
 
 7. System test
 
 8. Documentation
+
+
+* Removed from Work List
+
+4. Develop MOC / HIL reservation state storage, or equivalent, to
+   support hil_release operations
+
+   Not required, Slurm reservations are used to store state.
+
+5. Develop Additional priviliged and non-privileged software to
+   maintain MOC / HIL system, as required
+
+   Now considered part of another project phase
 
 //EOF
 
