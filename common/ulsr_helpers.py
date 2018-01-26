@@ -1,7 +1,7 @@
 """
 MassOpenCloud / Hardware Isolation Layer (MOC/HIL)
 
-Slurm and *NX Subprocess Command Helpers
+ULSR Helper Functions
 
 May 2017, Tim Donahue	tpd001@gmail.com
 """
@@ -9,21 +9,22 @@ May 2017, Tim Donahue	tpd001@gmail.com
 import os
 from pwd import getpwnam, getpwuid
 from subprocess import Popen, PIPE
+from sys import _getframe
 from time import time
 
-from hil_slurm_constants import (HIL_RESNAME_PREFIX, HIL_RESNAME_FIELD_SEPARATOR,
-                                 HIL_RESERVATION_OPERATIONS, RES_CREATE_FLAGS,
-                                 HIL_RESERVE, HIL_RELEASE)
-from hil_slurm_settings import SLURM_INSTALL_DIR
-from hil_slurm_logging import log_debug, log_info, log_error
+from ulsr_constants import (ULSR_RESNAME_PREFIX, ULSR_RESNAME_FIELD_SEPARATOR,
+                            ULSR_RESERVATION_OPERATIONS, RES_CREATE_FLAGS,
+                            HIL_RESERVE, HIL_RELEASE)
+from ulsr_settings import SLURM_INSTALL_DIR
+from ulsr_logging import log_debug, log_info, log_error
 
 
-def _output_debug_info(fname, stdout_data, stderr_data):
-    log_debug('%s: Stdout  %s' % (fname, stdout_data))
-    log_debug('%s: Stderr  %s' % (fname, stderr_data))
+def _output_stdio_data(fn, stdout_data, stderr_data):
+    log_debug('%s: Stdout  %s' % (fn, stdout_data))
+    log_debug('%s: Stderr  %s' % (fn, stderr_data))
 
 
-def _exec_subprocess_cmd(cmd):
+def exec_subprocess_cmd(cmd):
     '''
     Execute a command in a subprocess and wait for completion
     '''
@@ -39,10 +40,9 @@ def _exec_subprocess_cmd(cmd):
         log_debug('Exception: %s' % e)
 
     if debug:
-        f = _exec_subprocess_cmd.__name__
-        log_debug('%s: cmd is %s' % (f, cmd))
-        log_debug('%s: stdout is %s' % (f, stdout_data))
-        log_debug('%s: stderr is %s' % (f, stderr_data))
+        fn = _getframe().f_code.co_name
+        log_debug('%s: cmd is %s' % (fn, cmd))
+        _output_stdio_data(fn, stdout_data, stderr_data)
 
     return stdout_data, stderr_data
 
@@ -100,11 +100,11 @@ def exec_scontrol_cmd(action, entity, entity_id=None, debug=True, **kwargs):
     if debug:
         log_debug('exec_scontrol_cmd(): Command  %s' % cmd)
 
-    stdout_data, stderr_data = _exec_subprocess_cmd(cmd)
+    stdout_data, stderr_data = exec_subprocess_cmd(cmd)
 
     if debug:
-        log_debug('exec_scontrol_cmd(): Stdout  %s' % stdout_data)
-        log_debug('exec_scontrol_cmd(): Stderr  %s' % stderr_data)
+        fn = _getframe().f_code.co_name
+        _output_stdio_data(fn, stdout_data, stderr_data)
 
     return stdout_data, stderr_data
 
@@ -182,25 +182,25 @@ def update_slurm_reservation(name, debug=False, **kwargs):
     return exec_scontrol_cmd('update', None, reservation=name, debug=debug, **kwargs)
 
 
-def get_hil_reservation_name(env_dict, restype_s, t_start_s):
+def get_ulsr_reservation_name(env_dict, restype_s):
     '''
-    Create a reservation name, combining the HIL reservation prefix,
+    Create a reservation name, combining the ULSR reservation prefix,
     the username, the job ID, and the ToD (YMD_HMS)
 
     Structure:
       NamePrefix _ [release|reserve] _ uname _ job_UID _ str(int(time()))
     '''
-    resname = HIL_RESNAME_PREFIX + restype_s + HIL_RESNAME_FIELD_SEPARATOR
-    resname += env_dict['username'] + HIL_RESNAME_FIELD_SEPARATOR
-    resname += env_dict['job_uid'] + HIL_RESNAME_FIELD_SEPARATOR
+    resname = ULSR_RESNAME_PREFIX + restype_s + ULSR_RESNAME_FIELD_SEPARATOR
+    resname += env_dict['username'] + ULSR_RESNAME_FIELD_SEPARATOR
+    resname += env_dict['job_uid'] + ULSR_RESNAME_FIELD_SEPARATOR
     resname += str(int(time()))
     return resname
 
 
-def parse_hil_reservation_name(resname):
+def parse_ulsr_reservation_name(resname):
     '''
-    Attempt to split a reservation name into HIL reservation name components:
-    HIL reservation prefix, reservation type, user name, uid, and time
+    Attempt to split a reservation name into ULSR reservation name components:
+    ULSR reservation prefix, reservation type, user name, uid, and time
 
     This looks like overkill, except for the presence of other reservations in the
     system, with semi-arbitrary names.
@@ -211,37 +211,37 @@ def parse_hil_reservation_name(resname):
     uid = None
     time_s = None
 
-    if resname.startswith(HIL_RESNAME_PREFIX):
-        resname_partitions = resname.partition(HIL_RESNAME_PREFIX)
+    if resname.startswith(ULSR_RESNAME_PREFIX):
+        resname_partitions = resname.partition(ULSR_RESNAME_PREFIX)
         prefix = resname_partitions[1]
 
         try:
-            restype, user, uid, time_s = resname_partitions[2].split(HIL_RESNAME_FIELD_SEPARATOR)
+            restype, user, uid, time_s = resname_partitions[2].split(ULSR_RESNAME_FIELD_SEPARATOR)
         except:
             pass
 
     return prefix, restype, user, uid, time_s
 
 
-def is_hil_reservation(resname, restype_in):
+def is_ulsr_reservation(resname, restype_in):
     '''
     Check if the passed reservation name:
-    - Starts with the HIL reservation prefix
-    - Is a HIL reserve or release reservation
+    - Starts with the ULSR reservation prefix
+    - Is a ULSR reserve or release reservation
     - Contains a valid user name and UID
     - Optionally, is specifically a reserve or release reservation
-    - $$$ Could verify nodes have HIL property set
+    - $$$ Could verify nodes have the ULSR property set
     '''
-    prefix, restype, uname, uid, _ = parse_hil_reservation_name(resname)
-    if (prefix != HIL_RESNAME_PREFIX):
-#       log_error('No HIL reservation prefix')
+    prefix, restype, uname, uid, _ = parse_ulsr_reservation_name(resname)
+    if (prefix != ULSR_RESNAME_PREFIX):
+#       log_error('No ULSR reservation prefix')
         return False
 
     if restype_in:
         if (restype != restype_in):
 #           log_error('Reservation type mismatch')
             return False
-    elif restype not in HIL_RESERVATION_OPERATIONS:
+    elif restype not in ULSR_RESERVATION_OPERATIONS:
         log_error('Unknown reservation type')
         return False
 
@@ -290,16 +290,16 @@ def get_job_data(job_id):
     return get_object_data('job', job_id, debug=False)
 
 
-def get_hil_reservations():
+def get_ulsr_reservations():
     '''
-    Get a list of all Slurm reservations, return that subset which are HIL reservations
+    Get a list of all Slurm reservations, return that subset which are ULSR reservations
     '''
     resdata_dict_list = []
 
     resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
 
     for resdata_dict in resdata_dict_list:
-        if resdata_dict and is_hil_reservation(resdata_dict['ReservationName'], None):
+        if resdata_dict and is_ulsr_reservation(resdata_dict['ReservationName'], None):
             continue
         else:
             resdata_dict_list.remove(resdata_dict)
@@ -307,11 +307,11 @@ def get_hil_reservations():
     return resdata_dict_list
 
 
-def log_hil_reservation(resname, stderr_data, t_start_s=None, t_end_s=None):
+def log_ulsr_reservation(resname, stderr_data, t_start_s=None, t_end_s=None):
     if len(stderr_data):
         log_error('Error creating reservation `%s`'% resname)
         log_error('  Error string: %s' % stderr_data.strip('\n'), separator=False)
     else:
-        log_info('Created  HIL reservation `%s`' % resname)
+        log_info('Created  ULSR reservation `%s`' % resname)
 
 # EOF

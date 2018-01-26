@@ -1,7 +1,7 @@
 """
 MassOpenCloud / Hardware Isolation Layer (MOC/HIL)
 
-HIL Slurm Logging support
+ULSR Logging support
 
 June 2017, Tim Donahue	tpd001@gmail.com
 """

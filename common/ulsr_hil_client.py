@@ -12,8 +12,8 @@ import time
 
 from hil.client.client import Client, RequestsHTTPClient
 from hil.client.base import FailedAPICallException
-from hil_slurm_logging import log_info, log_debug, log_error
-from hil_slurm_settings import HIL_ENDPOINT, HIL_USER, HIL_PW
+from ulsr_logging import log_info, log_debug, log_error
+from ulsr_settings import HIL_ENDPOINT, HIL_USER, HIL_PW
 
 # timeout ensures that networking actions are completed in a resonable time.
 HIL_TIMEOUT = 20

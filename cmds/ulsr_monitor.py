@@ -8,26 +8,23 @@ May 2017, Tim Donahue	tdonahue@mit.edu
 """
 
 import hostlist
-import inspect
 import logging
 from os import listdir
-from os.path import realpath, dirname, isfile, join
+from os.path import dirname, isfile
 import sys
 from time import time, gmtime, mktime, strptime, strftime
 
-libdir = realpath(join(dirname(inspect.getfile(inspect.currentframe())), '../common'))
-sys.path.append(libdir)
+import ulsr_importpath
 
-from hil_slurm_client import hil_init, hil_reserve_nodes, hil_free_nodes
-from hil_slurm_settings import HIL_MONITOR_LOGFILE, HIL_ENDPOINT, HIL_SLURM_PROJECT
-from hil_slurm_constants import (SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE,
-                                 RES_CREATE_FLAGS, RES_CREATE_HIL_FEATURES,
-                                 RES_CREATE_TIME_FMT)
-from hil_slurm_helpers import (exec_scontrol_show_cmd, is_hil_reservation,
-                               parse_hil_reservation_name,
-                               create_slurm_reservation, delete_slurm_reservation,
-                               get_hil_reservations, log_hil_reservation)
-from hil_slurm_logging import log_init, log_info, log_debug, log_error
+from ulsr_hil_client import hil_init, hil_reserve_nodes, hil_free_nodes
+from ulsr_settings import ULSR_MONITOR_LOGFILE, HIL_ENDPOINT, HIL_SLURM_PROJECT
+from ulsr_constants import (SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE,
+                            RES_CREATE_FLAGS, RES_CREATE_HIL_FEATURES,
+                            RES_CREATE_TIME_FMT)
+from ulsr_helpers import (exec_scontrol_show_cmd,
+                          parse_ulsr_reservation_name, delete_slurm_reservation,
+                          get_ulsr_reservations, log_ulsr_reservation)
+from ulsr_logging import log_init, log_info, log_debug, log_error
 
 
 def _process_reserve_reservations(hil_client, reserve_res_dict_list):
@@ -59,7 +56,7 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list):
                                                                 flags=RES_CREATE_FLAGS,
                                                                 features=RES_CREATE_HIL_FEATURES,
                                                                 debug=False)
-            log_hil_reservation(release_resname, stderr_data, t_start_s, t_end_s)
+            log_ulsr_reservation(release_resname, stderr_data, t_start_s, t_end_s)
             n += 1
         except:
             log_error('Failed to reserve nodes in HIL reservation `%s`' % resname)
@@ -97,11 +94,11 @@ def _process_release_reservations(hil_client, release_res_dict_list):
     return n
 
 
-def _find_hil_singleton_reservations(hil_reservations_dict, singleton_type):
+def _find_ulsr_singleton_reservations(ulsr_reservations_dict, singleton_type):
     '''
     Find all reserve or release reservations which do not have a pair
     release or reserve reservation.  These singleton reservations exist
-    during the HIL reservation creation and release processes, respectively.
+    during the ULSR reservation creation and release processes, respectively.
     '''
     singleton_reservation_dict_list = []
 
@@ -118,12 +115,12 @@ def _find_hil_singleton_reservations(hil_reservations_dict, singleton_type):
     # Look for reservations which have a pair member.
     # If any singleton reservations found, add them to the list
 
-    for resname, resdata_dict in hil_reservations_dict.iteritems():
-        _, restype, _, _, _ = parse_hil_reservation_name(resname)
+    for resname, resdata_dict in ulsr_reservations_dict.iteritems():
+        _, restype, _, _, _ = parse_ulsr_reservation_name(resname)
         if (restype == singleton_type):
             # Check for matching reservation.
             # If found, continue. Else add the singleton to the list.
-            if resname.replace(singleton_type, pair_type, 1) in hil_reservations_dict:
+            if resname.replace(singleton_type, pair_type, 1) in ulsr_reservations_dict:
                 continue
             else:
                 singleton_reservation_dict_list.append(resdata_dict)
@@ -134,35 +131,37 @@ def _find_hil_singleton_reservations(hil_reservations_dict, singleton_type):
 def main(argv=[]):
     '''
     '''
-    log_init('hil_monitor', HIL_MONITOR_LOGFILE, logging.DEBUG)
+    log_init('ulsr_monitor', ULSR_MONITOR_LOGFILE, logging.DEBUG)
 
-    # Look for HIL ULSR reservations.
+    # Look for ULSR reservations.
     # If none found, return
-    hil_reservation_dict_list = get_hil_reservations()
-    if not len(hil_reservation_dict_list):
+    ulsr_reservation_dict_list = get_ulsr_reservations()
+    if not len(ulsr_reservation_dict_list):
         return
 
-    log_info('HIL Reservation Monitor', separator=True)
+    log_info('ULSR Reservation Monitor', separator=True)
     log_debug('')
 
-    # Construct a dictionary of HIL reservation data, keyed by reservation name.
+    # Construct a dictionary of ULSR reservation data, keyed by reservation name.
     # Values are reservation data dictionaries
 
-    all_hil_reservations_dict = {}
+    all_ulsr_reservations_dict = {}
 
-    for resdata_dict in hil_reservation_dict_list:
+    for resdata_dict in ulsr_reservation_dict_list:
         resname = resdata_dict['ReservationName']
-        all_hil_reservations_dict[resname] = resdata_dict
+        all_ulsr_reservations_dict[resname] = resdata_dict
 
-    if not len(all_hil_reservations_dict):
+    if not len(all_ulsr_reservations_dict):
         return
 
     # Find singleton RESERVE and RELEASE reservations
     # If none found, there's nothing to do
 
-    reserve_res_dict_list = _find_hil_singleton_reservations(all_hil_reservations_dict, HIL_RESERVE)
-    release_res_dict_list = _find_hil_singleton_reservations(all_hil_reservations_dict, HIL_RELEASE)
-    if not len(reserve_res_dict_list) and not len(release_res_dict_list):
+    reserve_res_dict_list = _find_ulsr_singleton_reservations(all_ulsr_reservations_dict, 
+                                                              HIL_RESERVE)
+    release_res_dict_list = _find_ulsr_singleton_reservations(all_ulsr_reservations_dict, 
+                                                              HIL_RELEASE)
+    if not len(reserve_res_dict_list) and not len(reserve_res_dict_list):
         return
 
     # Attempt to connect to the HIL server.
@@ -177,9 +176,9 @@ def main(argv=[]):
     n_reserved = _process_reserve_reservations(hil_client, reserve_res_dict_list)
 
     if n_released:
-        log_info('HIL monitor: Processed %s release reservations' % n_released)
+        log_info('ULSR monitor: Processed %s release reservations' % n_released)
     if n_reserved:
-        log_info('HIL monitor: Processed %s reserve reservations' % n_reserved)
+        log_info('ULSR monitor: Processed %s reserve reservations' % n_reserved)
     return
 
 

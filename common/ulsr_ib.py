@@ -1,17 +1,18 @@
 """
 MassOpenCloud (MOC) / Hardware Isolation Layer (HIL)
 
-User Level Slurm Reservations 
+User Level Slurm Reservations
 
 Infiniband support routines
 
 November 2017, Tim Donahue  tdonahue@mit.edu
 """
+
 from sys import _getframe
 
-from hil_slurm_helpers import _exec_subprocess_cmd, _output_debug_info
-from hil_slurm_settings import DISABLE_IB_LINKS
-from hil_slurm_logging import log_debug, log_info, log_error
+from ulsr_helpers import _exec_subprocess_cmd, _output_stdio_data
+from ulsr_settings import DISABLE_IB_LINKS
+from ulsr_logging import log_debug, log_info, log_error
 
 
 def exec_subprocess_cmd(cmd):
@@ -68,7 +69,7 @@ def update_infiniband(nodelist):
     log_info('Infiniband connections will be shut down')
 
     for node in nodelist:
-        
+
 
 IBINFO_FILE = '/home/tdonahue/Documents/clush.out'
 IBINFO_FILE = '/home/tdonahue/Documents/ibl_all.out'
@@ -108,4 +109,3 @@ for switch_id, port_list in switches.iteritems():
     print 'Switch ID  %s:  %s ports' % (switch_id, len(port_list))
     for port_number in sorted(port_list, key=lambda(n): int(n)):
         print '  Port ID %s' % port_number
-
