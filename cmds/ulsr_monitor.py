@@ -7,7 +7,6 @@ Periodic Reservation Monitor
 May 2017, Tim Donahue	tdonahue@mit.edu
 """
 
-import hostlist
 import logging
 from os import listdir
 from os.path import dirname, isfile
@@ -23,7 +22,8 @@ from ulsr_constants import (SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE,
                             RES_CREATE_TIME_FMT)
 from ulsr_helpers import (exec_scontrol_show_cmd,
                           parse_ulsr_reservation_name, delete_slurm_reservation,
-                          get_ulsr_reservations, log_ulsr_reservation)
+                          get_ulsr_reservations, log_ulsr_reservation,
+                          get_nodelist_from_resdata)
 from ulsr_logging import log_init, log_info, log_debug, log_error
 
 
@@ -35,7 +35,7 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list):
     '''
     n = 0
     for reserve_res_dict in reserve_res_dict_list:
-        nodelist = hostlist.expand_hostlist(reserve_res_dict['Nodes'])
+        nodelist = get_nodelist_from_resdata(reserve_res_dict)
         resname = reserve_res_dict['ReservationName']
 
         try:
@@ -72,7 +72,7 @@ def _process_release_reservations(hil_client, release_res_dict_list):
     n = 0
 
     for release_res_dict in release_res_dict_list:
-        nodelist = hostlist.expand_hostlist(release_res_dict['Nodes'])
+        nodelist = get_nodelist_from_resdata(release_res_dict)
 
         # Attempt to move the node back to the Slurm loaner project
         # If successful, delete the Slurm (HIL release) reservation

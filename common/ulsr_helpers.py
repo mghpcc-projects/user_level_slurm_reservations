@@ -6,6 +6,7 @@ ULSR Helper Functions
 May 2017, Tim Donahue	tpd001@gmail.com
 """
 
+import hostlist
 import os
 from pwd import getpwnam, getpwuid
 from subprocess import Popen, PIPE
@@ -274,6 +275,17 @@ def get_object_data(what_obj, obj_id, debug=False):
     return objdata_dict_list
 
 
+def get_nodelist_from_resdata(resdata_dict):
+    return hostlist.expand_hostlist(resdata_dict['Nodes'])
+
+
+def get_reservation_data(resname):
+    '''
+    Get data on a particular ULSR Slurm reservation
+    '''
+    return get_object_data('reservation', resname, debug=False)
+
+    
 def get_partition_data(partition_id):
     '''
     Get a list of dictionaries of information on the partition(s),
