@@ -14,8 +14,7 @@ from sys import _getframe
 from time import time
 
 from ulsr_constants import (ULSR_RESNAME_PREFIX, ULSR_RESNAME_FIELD_SEPARATOR,
-                            ULSR_RESERVATION_OPERATIONS, RES_CREATE_FLAGS,
-                            HIL_RESERVE, HIL_RELEASE)
+                            ULSR_RESERVATION_OPERATIONS, RES_CREATE_FLAGS)
 from ulsr_settings import SLURM_INSTALL_DIR
 from ulsr_logging import log_debug, log_info, log_error
 

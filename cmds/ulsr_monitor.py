@@ -17,7 +17,7 @@ import ulsr_importpath
 
 from ulsr_hil_client import hil_init, hil_reserve_nodes, hil_free_nodes
 from ulsr_settings import ULSR_MONITOR_LOGFILE, HIL_ENDPOINT, HIL_SLURM_PROJECT
-from ulsr_constants import (SHOW_OBJ_TIME_FMT, HIL_RESERVE, HIL_RELEASE,
+from ulsr_constants import (SHOW_OBJ_TIME_FMT, ULSR_RESERVE, ULSR_RELEASE,
                             RES_CREATE_FLAGS, RES_CREATE_HIL_FEATURES,
                             RES_CREATE_TIME_FMT)
 from ulsr_helpers import (exec_scontrol_show_cmd,
@@ -40,7 +40,7 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list):
 
         try:
             hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client)
-            release_resname = resname.replace(HIL_RESERVE, HIL_RELEASE, 1)
+            release_resname = resname.replace(ULSR_RESERVE, ULSR_RELEASE, 1)
 
             t_start_s = strftime(RES_CREATE_TIME_FMT, gmtime(time()))
             t_end_s = reserve_res_dict['EndTime']
@@ -104,10 +104,10 @@ def _find_ulsr_singleton_reservations(ulsr_reservations_dict, singleton_type):
 
     # Select the pair type based on the reservation type of interest
 
-    if (singleton_type == HIL_RESERVE):
-        pair_type = HIL_RELEASE
-    elif (singleton_type == HIL_RELEASE):
-        pair_type = HIL_RESERVE
+    if (singleton_type == ULSR_RESERVE):
+        pair_type = ULSR_RELEASE
+    elif (singleton_type == ULSR_RELEASE):
+        pair_type = ULSR_RESERVE
     else:
         log_error('Invalid reservation type (`%s`)' % pair_type)
         return singleton_reservation_dict_list
@@ -158,9 +158,9 @@ def main(argv=[]):
     # If none found, there's nothing to do
 
     reserve_res_dict_list = _find_ulsr_singleton_reservations(all_ulsr_reservations_dict, 
-                                                              HIL_RESERVE)
+                                                              ULSR_RESERVE)
     release_res_dict_list = _find_ulsr_singleton_reservations(all_ulsr_reservations_dict, 
-                                                              HIL_RELEASE)
+                                                              ULSR_RELEASE)
     if not len(reserve_res_dict_list) and not len(reserve_res_dict_list):
         return
 

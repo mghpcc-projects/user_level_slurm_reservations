@@ -25,7 +25,7 @@ from ulsr_helpers import (get_partition_data, get_job_data, get_object_data,
 from ulsr_constants import (SHOW_OBJ_TIME_FMT, RES_CREATE_TIME_FMT,
                             SHOW_PARTITION_MAXTIME_HMS_FMT,
                             RES_CREATE_HIL_FEATURES,
-                            HIL_RESERVE, HIL_RELEASE,
+                            ULSR_RESERVE, ULSR_RELEASE,
                             ULSR_RESERVATION_COMMANDS,
                             RES_CREATE_FLAGS)
 from ulsr_logging import log_init, log_info, log_debug, log_error
@@ -247,7 +247,7 @@ def _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict):
     '''
     t_start_s, t_end_s = _get_ulsr_reservation_times(env_dict, pdata_dict, jobdata_dict)
 
-    resname, stderr_data = _create_ulsr_reservation(HIL_RESERVE, t_start_s, t_end_s,
+    resname, stderr_data = _create_ulsr_reservation(ULSR_RESERVE, t_start_s, t_end_s,
                                                    env_dict, pdata_dict, jobdata_dict)
     log_ulsr_reservation(resname, stderr_data, t_start_s, t_end_s)
 
@@ -267,7 +267,7 @@ def _hil_release_cmd(env_dict, pdata_dict, jobdata_dict):
     reserve_resname = jobdata_dict['Reservation']
 
     if reserve_resname:
-        if not is_ulsr_reservation(reserve_resname, HIL_RESERVE):
+        if not is_ulsr_reservation(reserve_resname, ULSR_RESERVE):
             log_error('Reservation `%s` is not a HIL reserve reservation' %
                       reserve_resname)
 
