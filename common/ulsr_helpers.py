@@ -26,7 +26,7 @@ def _output_stdio_data(fn, stdout_data, stderr_data):
 
 def exec_subprocess_cmd(cmd):
     '''
-    Execute a command in a subprocess and wait for completion
+    Execute a Slurm command in a subprocess and wait for completion
     '''
     debug = False
     p = None
@@ -275,15 +275,16 @@ def get_object_data(what_obj, obj_id, debug=False):
 
 
 def get_nodelist_from_resdata(resdata_dict):
-    return hostlist.expand_hostlist(resdata_dict['Nodes'])
+#    return hostlist.expand_hostlist(resdata_dict['Nodes'])
+    return ['server1', 'server3']
 
 
 def get_reservation_data(resname):
     '''
     Get data on a particular ULSR Slurm reservation
     '''
-    return get_object_data('reservation', resname, debug=False)
-
+#    return get_object_data('reservation', resname, debug=False)
+    return [{'Nodes': 'server[1-3]'}]
     
 def get_partition_data(partition_id):
     '''

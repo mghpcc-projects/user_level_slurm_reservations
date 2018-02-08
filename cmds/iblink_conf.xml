@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+
+<!-- IB network topology and elements accessible to ULSR management -->
+
+<iblink_config>
+  <control id="Any"/>
+  
+  <node name="server1">
+    <switch guid="0xf4521403007d5511">
+      <port number="11"/>
+      <port number="22"/>
+      <port/>
+    </switch>
+    <switch guid="0xf4521403007d5512">
+    </switch>
+  </node>
+
+  <node name="server2">
+    <switch guid="0xf4521403007d5511">
+      <port number="33"/>
+      <port number="44"/>
+      <port/>
+    </switch>
+    <switch guid="0xf4521403007d5522">
+      <port number="55"/>
+      <port number="66"/>
+    </switch>
+  </node>
+
+  <node name="server3">
+    <switch guid="0xf4521403007d5533">
+      <port number="77"/>
+      <port number="88"/>
+    </switch>
+  </node>
+
+  <node name="server3">
+  </node>
+
+  <node>
+    <switch guid="0xf4521403007d5544">
+      <port number="99"/>
+      <port number="100"/>
+    </switch>
+  </node>
+
+</iblink_config>

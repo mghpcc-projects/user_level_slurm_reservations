@@ -2,7 +2,7 @@
 MassOpenCloud / Hardware Isolation Layer (HIL)
 User Level Slurm Reservations (ULSR)
 
-Infiniband Link Management 
+Infiniband Link Management
 
 December 2017, Tim Donahue	tdonahue@mit.edu
 """
@@ -11,20 +11,22 @@ import argparse
 import errno
 import hostlist
 import logging
+import os
 import shlex
+import stat
 import sys
 import xml.etree.ElementTree as ET
 
 import ulsr_importpath
 from ulsr_helpers import (exec_subprocess_cmd, get_reservation_data, is_ulsr_reservation,
                           get_nodelist_from_resdata)
-from ulsr_settings import ULSR_IB_MGMT_LOGFILE
+from ulsr_settings import (ULSR_IB_MGMT_LOGFILE, ULSR_IBLINK_CFGFILE, 
+                           IBPORTSTATE_CMD, IBLINKINFO_CMD, IBSTATUS_CMD, IBSTAT_CMD)
 from ulsr_logging import log_init, log_info, log_debug, log_error
 
 IBLINKINFO_CMD = 'iblinkinfo.sh'
-IBPORTSTATE_CMD = 'ibportstate.sh'
+IBPORTSTATE_CMD = 'ibportstate'
 ULSR_IBLINK_CFGFILE = 'iblink_conf.xml'
-DEBUG = True
 
 
 def _validate_switch_id(guid):
@@ -39,7 +41,7 @@ def _validate_switch_id(guid):
 
 def _validate_port_number(port_number):
     '''
-    Validate the switch port number
+    Perform appropriate port number validation here
     '''
     if port_number is None:
         return False
@@ -47,90 +49,132 @@ def _validate_port_number(port_number):
         return True
 
 
-def _dump_parsed_config_file(filename, nodelist, switch_dict):
+def _validate_files(cfgfile, ib_ctrl_program):
+    '''
+    Check mode bits of IB control program, IB control program directory,
+    and the permitted IB port control configuration file.
+    Verify the IB port control program exists
+    '''
+    if not cfgfile:
+        log_error('Config file not specified, exiting')
+        return errno.EINVAL
+
+    # Verify permissions are sufficiently restrictive
+    this_filename = os.path.abspath(__file__)
+    this_dirname = os.path.dirname(this_filename)
+    file_paths = [this_dirname, this_filename, cfgfile]
+
+    ow_mode = stat.S_IRWXG | stat.S_IRWXO
+
+    for path in file_paths:
+        try:
+            st = os.stat(path)
+            if (st.st_mode & ow_mode):
+                log_error('Path `%s` permissions (%s) too open, exiting' %
+                          (path, oct(st.st_mode)))
+                return errno.EPERM
+        except:
+            log_error('File or directory `%s` not found, exiting' % path)
+            return errno.ENOENT
+
+    # Verify IB port control program exists
+    try:
+        st = os.stat(ib_ctrl_program)
+    except:
+        log_error('Infiniband port control program not found, exiting')
+        return errno.ENOENT
+
+    return 0
+
+
+def _dump_parsed_config_file(cfgfile, node_dict):
     '''
     Display the results of the config file parse
     '''
-    print '\nConfig File: %s' % filename
+    print '\nConfig File: %s' % cfgfile
     print '\nNodes'
-    for nodename in nodelist:
+    for nodename in node_dict.keys():
         print '  %s' % nodename
 
     print '\nSwitches'
-    for guid, port_list in switch_dict.iteritems():
-        print '  %s' % guid
-        for port in sorted(port_list):
-            print '    Port %s' % port
+    for nodename, switch_dict in node_dict.iteritems():
+        for guid, port_list in switch_dict.iteritems():
+            print '  %s' % guid
+            for port in sorted(port_list):
+                print '    Port %s' % port
 
 
-def parse_iblink_cfgfile(cfgfile, debug=False):
+def _parse_iblink_cfgfile(cfgfile, debug=False):
     '''
-    Parse the XML file containing the list of switches and port numbers 
+    Parse the XML file containing the list of switches and port numbers
     we are authorized to work on.
 
     Return a list of nodenames, switch GUIDs, and port numbers
 
+    {nodename: {switch_guid: [port_number, port_number]}, ...}
+
     Note that while the association between node names and switches present
-    in the XML is not currently maintained, it would be straightforward to 
+    in the XML is not currently maintained, it would be straightforward to
     do so.
     '''
     tree = ET.parse(cfgfile)
     root = tree.getroot()
 
-    nodelist = []
+    node_dict = {}
     switch_dict = {}
 
     for node in root.findall('node'):
         nodename = node.get('name')
-
         if nodename is None:
-            log_error('Missing node name', separator=False)
+            log_error('IB config file: Missing node name', separator=False)
             continue
 
-        if nodename not in nodelist:
-            # New node, add to list of nodes
-            nodelist.append(nodename)
-            if debug:
-                print 'Node %s has been added' % nodename
+        # If the node is not in the set, add it, else print a diagnostic
+        # Nodes may appear in the file twice
+        if nodename not in node_dict:
+            node_dict[nodename] = {}
+        else:
+            log_info('IB config file: Duplicate node entry for node `%s`, processing' %
+                     nodename)
 
         for switch in node.findall('switch'):
             guid = switch.get('guid')
             if not _validate_switch_id(guid):
-                log_error('Node %s: Invalid switch ID (%s)' % (nodename, guid), 
-                          separator=False)
+                log_error('IB config file: Node `%s` has invalid switch ID (%s)' %
+                          (nodename, guid), separator=False)
                 continue
 
+            switch_dict = node_dict[nodename]
             if guid not in switch_dict:
                 # New switch, add an empty port list
                 switch_dict[guid] = []
-                if debug:
-                    print 'Switch %s added' % guid
 
             for port in switch.findall('port'):
                 port_number = port.get('number')
                 if not _validate_port_number(port_number):
-                    log_error('Node %s switch %s - Invalid port (%s)' % 
+                    log_error('IB config file: Node `%s` switch %s has invalid port (%s)' %
                               (nodename, guid, port_number), separator=False)
                     continue
 
                 if port_number in switch_dict[guid]:
-                    log_error('Node %s switch %s: Duplicate port (%s)' % 
+                    log_error('IB config file: Node `%s` switch %s has duplicate port (%s)' %
                               (nodename, guid, port_number), separator=False)
                     continue
                 else:
                     switch_dict[guid].append(port_number)
-                    if debug:
-                        print('  Port %s added' % port_number)
-        
-    if DEBUG:
-        _dump_parsed_config_file(cfgfile, nodelist, switch_dict)
+    if debug:
+        _dump_parsed_config_file(cfgfile, node_dict)
 
-    return nodelist, switch_dict
+    return node_dict
 
 
-def _control_iblinks(switch_dict, disable=False, enable=False, debug=False):
+def _control_iblinks(node_dict, disable=False, enable=False, debug=False, just_check=True):
     '''
     Perform IB control operation on all the switch ports in the dictionary
+
+    switch_dict is {switch_guid1: [switch_port1, switch_port2, ...],
+                    switch_guid2: [switch_port1, switch_port2, ...],
+                    ...}
     '''
     status = 0
 
@@ -138,29 +182,34 @@ def _control_iblinks(switch_dict, disable=False, enable=False, debug=False):
         log_error('Conflicting IB link controls, ignoring', separator=False)
         return False
 
-    ibportstate_cmd_fmt = 'ibportstate -G {} {} {}'
+    ibportstate_cmd_fmt = '{} -G {} {} {}'
 
     if enable:
-        verb = 'enable'
+        verb = 'enabl'
     elif disable:
-        verb = 'disable'
+        verb = 'disabl'
 
     # Loop through the switch GUIDs, then over the list of ports on each switch
+    for nodename, switch_dict in node_dict.iteritems():
+        for switch_guid, port_list in switch_dict.iteritems():
+            for port in port_list:
+                ibportstate_cmd = ibportstate_cmd_fmt.format(IBPORTSTATE_CMD, switch_guid,
+                                                             port, verb)
+                if just_check:
+                    stderr_data = ''
+                    action = 'check'
+                else:
+                    stdout_data, stderr_data = exec_subprocess_cmd(shlex.split(ibportstate_cmd))
+                    action = verb
 
-    for guid, port_list in switch_dict.iteritems():
-
-        for port in port_list:
-
-            ibportstate_cmd = ibportstate_cmd_fmt.format(guid, port, verb)
-            stdout_data, stderr_data = exec_subprocess_cmd(shlex.split(ibportstate_cmd))
-
-            if (len(stderr_data) != 0):
-                log_error('Failed to %s port %s on switch %s`' % (verb, port, guid))
-                log_debug('  %s' % stderr_data)
-                status = errno.EIO
-            else:
-                log_info('Switch %s  Port %s:  %sd' % (guid, port, verb))
-
+                    if (len(stderr_data) != 0):
+                        log_error('Failed to %s port %s on switch %s`' %
+                                  (action, port, switch_guid))
+                        log_debug('  %s' % stderr_data)
+                        status = errno.EIO
+                    else:
+                        log_info('For node `%s`: Switch %s  port %s:  %sed' %
+                                 (nodename, switch_guid, port, action))
     return status
 
 
@@ -168,12 +217,15 @@ def _parse_arguments():
     '''
     '''
     parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--check', action='store_true', dest='just_check',
+                        help='Do not modify IB network', default=False)
     parser.add_argument('-d', '--debug', action='store_true', dest='debug',
                         help='Display debug information')
     parser.add_argument('-r', '--reservation', dest='resname', required=True,
                         metavar='RESERVATION', help='ULSR reservation name')
-    parser.add_argument('-c', '--configfile', dest='cfgfile',
-                        metavar='FILE', help='Config file name')
+    parser.add_argument('-f', '--file', dest='cfgfile',
+                        metavar='FILE', help='Config file name',
+                        default=ULSR_IBLINK_CFGFILE)
     return parser.parse_args()
 
 
@@ -185,17 +237,25 @@ def main(argv=[]):
     -r / --reservation <name>: ULSR reservation name
     '''
     log_init('ULSR_Infiniband_mgmt', ULSR_IB_MGMT_LOGFILE, logging.DEBUG)
-
     log_info('ULSR Infiniband Management', separator=True)
-    log_info('Using config file `%s`' % ULSR_IBLINK_CFGFILE)
-    log_debug('')
 
     args = _parse_arguments()
+    if args.just_check:
+        log_info('Check mode (-c) specified, IB network will not be modified')
+
+    log_info('Processing reservation `%s`' % args.resname)
+    log_info('Using IB network config file `%s`' % args.cfgfile)
+    log_debug('')
+
+    # Verify restrictive permissions on this file, this dir, and config file
+    # Verify IB port state command exists
+
+    if _validate_files(args.cfgfile, IBPORTSTATE_CMD):
+        sys.exit(errno.EPERM)
 
     # Parse the topology / allowed operations config file
 
-    cfgfile = ULSR_IBLINK_CFGFILE
-    permit_nodelist, switch_dict = parse_iblink_cfgfile(cfgfile)
+    node_dict = _parse_iblink_cfgfile(args.cfgfile, args.debug)
 
     # Validate the passed reservation, get list of nodes in reservation
 
@@ -210,16 +270,21 @@ def main(argv=[]):
 
     reservation_nodelist = get_nodelist_from_resdata(resdata_dict_list[0])
 
-    # Verify reservation nodes are in the IB link control permit list
-
-    for node in reservation_nodelist:
-        if node not in permit_nodelist:
-            log_error('Reservation node `%s` not in configured permit list, exiting' % node)
+    # Verify reservation nodes are in the IB link control permit list,
+    # and build a dict which may be acted upon
+    node_action_dict = {}
+    permit_nodelist = node_dict.keys()
+    for reserved_node in reservation_nodelist:
+        if reserved_node in permit_nodelist:
+            node_action_dict[reserved_node] = node_dict[reserved_node]
+        else:
+            log_error('Reservation node `%s` not in configured permit list, exiting' %
+                      reserved_node)
             sys.exit(errno.EPERM)
 
     # Issue Infiniband management commands to control switch ports
-
-    status = _control_iblinks(switch_dict, enable=True, debug=True)
+    status = _control_iblinks(node_action_dict, just_check=args.just_check,
+                              enable=True, debug=True)
 
     sys.exit(status)
 
