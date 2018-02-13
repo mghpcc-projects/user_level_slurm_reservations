@@ -41,8 +41,9 @@ def log_error(message=None, separator=True):
     _log_common(logging.error, message, separator_s=s, print_exception=True)
 
 
-def log_warning(message=None):
-    _log_common(logging.warning, message, separator_s=warn_error_sep, print_exception=True)
+def log_warning(message=None, separator=True):
+    s = warn_error_sep if separator else None
+    _log_common(logging.warning, message, separator_s=s, print_exception=True)
 
 
 def log_info(message, separator=False):

@@ -3,8 +3,9 @@
 <!-- IB network topology and elements accessible to ULSR management -->
 
 <iblink_config>
-  <control id="Any"/>
-  
+  <control permit="Any"/>
+  <control link_disable="True"/>
+
   <node name="server1">
     <switch guid="0xf4521403007d5511">
       <port number="11"/>

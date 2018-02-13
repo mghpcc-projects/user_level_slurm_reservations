@@ -22,7 +22,7 @@ from ulsr_helpers import (exec_subprocess_cmd, get_reservation_data, is_ulsr_res
                           get_nodelist_from_resdata)
 from ulsr_settings import (ULSR_IB_MGMT_LOGFILE, ULSR_IBLINK_CFGFILE, 
                            IBPORTSTATE_CMD, IBLINKINFO_CMD, IBSTATUS_CMD, IBSTAT_CMD)
-from ulsr_logging import log_init, log_info, log_debug, log_error
+from ulsr_logging import log_init, log_info, log_warning, log_error, log_debug
 
 IBLINKINFO_CMD = 'iblinkinfo.sh'
 IBPORTSTATE_CMD = 'ibportstate'
@@ -87,7 +87,7 @@ def _validate_files(cfgfile, ib_ctrl_program):
     return 0
 
 
-def _dump_parsed_config_file(cfgfile, node_dict):
+def _dump_parsed_config_file(cfgfile, node_dict, control_dict=None):
     '''
     Display the results of the config file parse
     '''
@@ -102,6 +102,10 @@ def _dump_parsed_config_file(cfgfile, node_dict):
             print '  %s' % guid
             for port in sorted(port_list):
                 print '    Port %s' % port
+
+
+    if control_dict:
+        pass
 
 
 def _parse_iblink_cfgfile(cfgfile, debug=False):
@@ -122,6 +126,23 @@ def _parse_iblink_cfgfile(cfgfile, debug=False):
 
     node_dict = {}
     switch_dict = {}
+
+    # Process control elements
+    permit_any = False
+    link_disable = False
+
+    for ctrl in root.findall('control'):
+        if 'permit' in ctrl.attrib:
+            permit_any = True if (ctrl.get('permit') == 'Any') else False
+        elif 'link_disable' in ctrl.attrib:
+            link_disable = True if (ctrl.get('link_disable') == 'True') else False
+
+    if permit_any:
+        log_warning('Configuration allows access to any IB switch and link', separator=False)
+    if link_disable:
+        log_warning('Configuration allows disabling IB links', separator=False)
+
+    # Process node elements
 
     for node in root.findall('node'):
         nodename = node.get('name')
