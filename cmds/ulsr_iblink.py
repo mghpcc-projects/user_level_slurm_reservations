@@ -25,7 +25,7 @@ from ulsr_settings import (ULSR_IB_MGMT_LOGFILE, ULSR_IBLINK_CFGFILE,
 from ulsr_logging import log_init, log_info, log_warning, log_error, log_debug
 
 IBLINKINFO_CMD = 'iblinkinfo.sh'
-IBPORTSTATE_CMD = 'ibportstate'
+IBPORTSTATE_CMD = '/usr/sbin/ibportstate'
 ULSR_IBLINK_CFGFILE = 'iblink_conf.xml'
 
 
@@ -189,9 +189,46 @@ def _parse_iblink_cfgfile(cfgfile, debug=False):
     return node_dict
 
 
+def _get_iblink_list(nodelist, user=None):
+    '''
+    Need to 
+    '''
+    switch_iblink_list = []
+
+    iblinkinfo_cmd_fmt = 'ssh {} {} {} {}@{} sudo /usr/sbin/iblinkinfo -l -D 1'
+    target_fmt = '{}@{}'
+    option1 = '-o UserKnownHostsFile=/dev/null'
+    option2 = '-o StrictHostKeyChecking=no'
+    option3 = '-q'
+
+    if not user:
+        user = 'cc'
+
+    for node in nodelist:
+        iblinkinfo_cmd = iblinkinfo_cmd_fmt.format(option1, option2, option3, user, node)
+        print 'iblinkinfo_cmd is %s' % iblinkinfo_cmd
+        print '  Split iblinkinfo_cmd is %s' % shlex.split(iblinkinfo_cmd)
+
+        stdout_data, stderr_data = exec_subprocess_cmd(shlex.split(iblinkinfo_cmd))
+
+        if (len(stderr_data) != 0):
+            print stderr_data
+            log_error('Failed to obtain IB link information from server `%s`' % node)
+            switch_iblink_list = []
+            break
+        else:
+            print stdout_data
+            switch_iblink_list.append(stdout_data)
+
+    print switch_iblink_list
+    return switch_iblink_list
+
+
 def _control_iblinks(node_dict, disable=False, enable=False, debug=False, just_check=True):
     '''
     Perform IB control operation on all the switch ports in the dictionary
+
+    node_dict is {nodename: {switch_dict}}
 
     switch_dict is {switch_guid1: [switch_port1, switch_port2, ...],
                     switch_guid2: [switch_port1, switch_port2, ...],
@@ -290,6 +327,7 @@ def main(argv=[]):
         sys.exit(errno.ENXIO)
 
     reservation_nodelist = get_nodelist_from_resdata(resdata_dict_list[0])
+    print 'reservation nodelist is %s' % reservation_nodelist
 
     # Verify reservation nodes are in the IB link control permit list,
     # and build a dict which may be acted upon
@@ -303,10 +341,13 @@ def main(argv=[]):
                       reserved_node)
             sys.exit(errno.EPERM)
 
-    # Issue Infiniband management commands to control switch ports
-    status = _control_iblinks(node_action_dict, just_check=args.just_check,
-                              enable=True, debug=True)
+    # Get switch IDs and port numbers for IB links connecting to servers
+    iblink_dict = _get_iblink_list(reservation_nodelist)
 
+    # Issue Infiniband management commands to control switch ports
+#    status = _control_iblinks(node_action_dict, just_check=args.just_check,
+#                              enable=True, debug=True)
+    status = 0
     sys.exit(status)
 
 

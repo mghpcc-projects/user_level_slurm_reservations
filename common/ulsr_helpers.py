@@ -275,8 +275,7 @@ def get_object_data(what_obj, obj_id, debug=False):
 
 
 def get_nodelist_from_resdata(resdata_dict):
-#    return hostlist.expand_hostlist(resdata_dict['Nodes'])
-    return ['server1', 'server3']
+    return hostlist.expand_hostlist(resdata_dict['Nodes'])
 
 
 def get_reservation_data(resname):
@@ -284,7 +283,9 @@ def get_reservation_data(resname):
     Get data on a particular ULSR Slurm reservation
     '''
 #    return get_object_data('reservation', resname, debug=False)
-    return [{'Nodes': 'server[1-3]'}]
+#    return [{'Nodes': 'server[1-3]'}]
+    return [{'Nodes': 'ib-test-6-[2-3]'}]
+
     
 def get_partition_data(partition_id):
     '''
