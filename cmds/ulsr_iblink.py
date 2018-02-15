@@ -9,6 +9,7 @@ December 2017, Tim Donahue	tdonahue@mit.edu
 
 import argparse
 import errno
+import glob
 import hostlist
 import logging
 import os
@@ -189,6 +190,40 @@ def _parse_iblink_cfgfile(cfgfile, debug=False):
     return node_dict
 
 
+def _find_ib_devices():
+    '''
+    Return a list of all umad IB devices in IB_DEVICE_DIR
+    '''
+    pattern = IB_DEVICE_NAME_PREFIX + '*' 
+    ib_device_list = glob.glob(pattern)
+    return ib_device_list
+
+
+def _check_ib_access():
+    '''
+    '''
+    ib_device_list = _find_ib_devices()
+    if (len(ib_device_list) == 0):
+        log_error('No Infiniband devices matching `%s` found' % pattern)
+        return False
+
+    for ib_device in ib_device_list:
+        if not os.access(ib_device, (os.R_OK | os.W_OK)):
+            return FALSE
+
+    return True
+
+
+def _generate_link_info_cmd_fmt(user, have_privs=False):
+    '''
+    Returns a link info command template of the form:
+       ssh <user>@{<host or IP>} <ssh_options> <command>
+    If 
+    '''
+    if have_privs:
+
+def _generate_portstate_cmd_fmt():
+
 def _get_iblink_list(nodelist, user=None):
     '''
     Need to 
@@ -220,7 +255,9 @@ def _get_iblink_list(nodelist, user=None):
             print stdout_data
             switch_iblink_list.append(stdout_data)
 
-    print switch_iblink_list
+    for l in switch_iblink_list:
+        print l
+
     return switch_iblink_list
 
 
@@ -327,7 +364,7 @@ def main(argv=[]):
         sys.exit(errno.ENXIO)
 
     reservation_nodelist = get_nodelist_from_resdata(resdata_dict_list[0])
-    print 'reservation nodelist is %s' % reservation_nodelist
+#   print 'reservation nodelist is %s' % reservation_nodelist
 
     # Verify reservation nodes are in the IB link control permit list,
     # and build a dict which may be acted upon
