@@ -22,12 +22,10 @@ import ulsr_importpath
 from ulsr_helpers import (exec_subprocess_cmd, get_reservation_data, is_ulsr_reservation,
                           get_nodelist_from_resdata)
 from ulsr_settings import (ULSR_IB_MGMT_LOGFILE, ULSR_IBLINK_CFGFILE, 
-                           IBPORTSTATE_CMD, IBLINKINFO_CMD, IBSTATUS_CMD, IBSTAT_CMD)
+                           IBPORTSTATE_CMD, IBLINKINFO_CMD, IBSTATUS_CMD, IBSTAT_CMD,
+                           CNH_SSS_LINKINFO_CMD, CNH_SSS_PORTSTATE_CMD,
+                           SSH_OPTIONS, IB_DEVICE_NAME_PREFIX)
 from ulsr_logging import log_init, log_info, log_warning, log_error, log_debug
-
-IBLINKINFO_CMD = 'iblinkinfo.sh'
-IBPORTSTATE_CMD = '/usr/sbin/ibportstate'
-ULSR_IBLINK_CFGFILE = 'iblink_conf.xml'
 
 
 def _validate_switch_id(guid):
@@ -53,14 +51,16 @@ def _validate_port_number(port_number):
 def _validate_files(cfgfile, ib_ctrl_program):
     '''
     Check mode bits of IB control program, IB control program directory,
-    and the permitted IB port control configuration file.
-    Verify the IB port control program exists
+    and the file containing the list of servers, switches, and links
+    we are permitted to operate on.
+    Verify the IB port control program exists.
     '''
     if not cfgfile:
         log_error('Config file not specified, exiting')
         return errno.EINVAL
 
     # Verify permissions are sufficiently restrictive
+
     this_filename = os.path.abspath(__file__)
     this_dirname = os.path.dirname(this_filename)
     file_paths = [this_dirname, this_filename, cfgfile]
@@ -201,6 +201,8 @@ def _find_ib_devices():
 
 def _check_ib_access():
     '''
+    Check if we have RW access to all local UMAD devices.
+    If so, return True, else return False
     '''
     ib_device_list = _find_ib_devices()
     if (len(ib_device_list) == 0):
@@ -209,40 +211,36 @@ def _check_ib_access():
 
     for ib_device in ib_device_list:
         if not os.access(ib_device, (os.R_OK | os.W_OK)):
-            return FALSE
+            log_debug('IB devices not directly accessible')
+            return False
 
     return True
 
 
-def _generate_link_info_cmd_fmt(user, have_privs=False):
+def _generate_remote_cmd_template(user, remote_cmd_s):
     '''
-    Returns a link info command template of the form:
-       ssh <user>@{<host or IP>} <ssh_options> <command>
-    If 
+    Generate an SSH command template programmable by server name or IP address,
+    with command for remote execution appended
+    For example:
+        ssh <user>@{username here} ssh <ssh_options> <remote command> <command args>
     '''
-    if have_privs:
+    ssh_cmd_template = 'ssh ' + ''.join('{} '.format(opt) for opt in SSH_OPTIONS)
+    ssh_cmd_template += '{}@'.format(user)
+    ssh_cmd_template += '{} '		# For server name or IP address
+    return ssh_cmd_template + remote_cmd_s
 
-def _generate_portstate_cmd_fmt():
 
-def _get_iblink_list(nodelist, user=None):
+def _get_iblink_list(nodelist, user, ibdev_access):
     '''
-    Need to 
     '''
     switch_iblink_list = []
 
-    iblinkinfo_cmd_fmt = 'ssh {} {} {} {}@{} sudo /usr/sbin/iblinkinfo -l -D 1'
-    target_fmt = '{}@{}'
-    option1 = '-o UserKnownHostsFile=/dev/null'
-    option2 = '-o StrictHostKeyChecking=no'
-    option3 = '-q'
-
-    if not user:
-        user = 'cc'
+    iblinkinfo_cmd = IBLINKINFO_CMD if ibdev_access else CNH_SSS_LINKINFO_CMD
+    remote_cmd_template = _generate_remote_cmd_template(user, iblinkinfo_cmd)
 
     for node in nodelist:
-        iblinkinfo_cmd = iblinkinfo_cmd_fmt.format(option1, option2, option3, user, node)
-        print 'iblinkinfo_cmd is %s' % iblinkinfo_cmd
-        print '  Split iblinkinfo_cmd is %s' % shlex.split(iblinkinfo_cmd)
+        remote_cmd = remote_cmd_template.format(node)
+        print 'Remote command is %s' % shlex.split(remote_cmd)
 
         stdout_data, stderr_data = exec_subprocess_cmd(shlex.split(iblinkinfo_cmd))
 
@@ -261,7 +259,8 @@ def _get_iblink_list(nodelist, user=None):
     return switch_iblink_list
 
 
-def _control_iblinks(node_dict, disable=False, enable=False, debug=False, just_check=True):
+def _control_iblinks(node_dict, ibdev_access, disable=False, enable=False, debug=False, 
+                     just_check=True):
     '''
     Perform IB control operation on all the switch ports in the dictionary
 
@@ -277,19 +276,24 @@ def _control_iblinks(node_dict, disable=False, enable=False, debug=False, just_c
         log_error('Conflicting IB link controls, ignoring', separator=False)
         return False
 
-    ibportstate_cmd_fmt = '{} -G {} {} {}'
+    if ibdev_access:
+        # ibportstate -G 
+        ibportstate_cmd_template = IBPORTSTATE_CMD + ' -G '
+    else:
+        # ibendis.sh
+        ibportstate_cmd_template = CNH_SSS_PORTSTATE_CMD
 
-    if enable:
-        verb = 'enabl'
-    elif disable:
-        verb = 'disabl'
+    # <guid> <port> <verb>
+    ibportstate_cmd_template += '{} {} {}'
+
+    verb = 'enabl' if enable else ('disabl' if disable else '')
 
     # Loop through the switch GUIDs, then over the list of ports on each switch
     for nodename, switch_dict in node_dict.iteritems():
         for switch_guid, port_list in switch_dict.iteritems():
             for port in port_list:
-                ibportstate_cmd = ibportstate_cmd_fmt.format(IBPORTSTATE_CMD, switch_guid,
-                                                             port, verb)
+                ibportstate_cmd = ibportstate_cmd_template.format(switch_guid, port, verb)
+                print 'Port state command is %s' % ibportstate_cmd
                 if just_check:
                     stderr_data = ''
                     action = 'check'
@@ -378,8 +382,12 @@ def main(argv=[]):
                       reserved_node)
             sys.exit(errno.EPERM)
 
+    # Check if we have local Infiniband UMAD access
+    ibdev_access = _check_ib_access()
+                                          
     # Get switch IDs and port numbers for IB links connecting to servers
-    iblink_dict = _get_iblink_list(reservation_nodelist)
+    user = 'cc'
+    iblink_dict = _get_iblink_list(reservation_nodelist, user, ibdev_access)
 
     # Issue Infiniband management commands to control switch ports
 #    status = _control_iblinks(node_action_dict, just_check=args.just_check,

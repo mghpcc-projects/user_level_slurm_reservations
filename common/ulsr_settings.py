@@ -46,13 +46,24 @@ IB_DEVICE_NAME_PREFIX = '/dev/infiniband/umad'
 
 DISABLE_IB_LINKS = True
 
+# Default List of Servers, Switches, and Links Permissible to Control
+ 
 ULSR_IBLINK_CFGFILE = 'iblink_conf.xml'
 
-IBLINKINFO_CMD = '/usr/sbin/iblinkinfo'
+# Privileged Mode Commands 
+
+IBLINKINFO_CMD = '/usr/sbin/iblinkinfo -l -D 1'
 IBPORTSTATE_CMD = '/usr/sbin/ibportstate'
 IBSTATUS_CMD = '/usr/sbin/ibstatus'
 IBSTAT_CMD = '/usr/sbin/ibstat'
+
+# Untrusted Mode Commands 
+
 CNH_SSS_LINKINFO_CMD = '/usr/local/bin/iblinkinfo_me.sh'
 CNH_SSS_PORTSTATE_CMD = '/usr/local/bin/ibendis.sh'
+
+# SSH Options
+
+SSH_OPTIONS = ['-o UserKnownHostsFile=/dev/null', '-o StrictHostKeyChecking=no', '-q']
 
 # EOF
