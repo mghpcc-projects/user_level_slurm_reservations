@@ -40,14 +40,19 @@ RES_CHECK_PARTITION_STATE = True
 
 # Infiniband Management Settings
 
+IB_DEVICE_DIR = '/dev/infiniband'
+IB_DEVICE_NAME_PREFIX = '/dev/infiniband/umad'
+
+
 DISABLE_IB_LINKS = True
 
 ULSR_IBLINK_CFGFILE = 'iblink_conf.xml'
 
-IBLINKINFO_CMD = 'iblinkinfo.sh'
-IBPORTSTATE_CMD = 'ibportstate'
-IBSTATUS_CMD = 'ibstatus'
-IBSTAT_CMD = 'ibstat'
-
+IBLINKINFO_CMD = '/usr/sbin/iblinkinfo'
+IBPORTSTATE_CMD = '/usr/sbin/ibportstate'
+IBSTATUS_CMD = '/usr/sbin/ibstatus'
+IBSTAT_CMD = '/usr/sbin/ibstat'
+CNH_SSS_LINKINFO_CMD = '/usr/local/bin/iblinkinfo_me.sh'
+CNH_SSS_PORTSTATE_CMD = '/usr/local/bin/ibendis.sh'
 
 # EOF
