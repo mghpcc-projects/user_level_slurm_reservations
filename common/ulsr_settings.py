@@ -28,7 +28,7 @@ ULSR_PARTITION_PREFIX = 'ULSR_partition'
 
 # Slurm Reservation Times
 
-ULSR_RESERVATION_DEFAULT_DURATION = 24 * 60 * 60	# Seconds
+ULSR_RESERVATION_DEFAULT_DURATION = 24 * 60 * 60        # Seconds
 ULSR_RESERVATION_GRACE_PERIOD = 4 * 60 * 60		# Seconds
 
 # Partition validation controls
@@ -40,27 +40,19 @@ RES_CHECK_PARTITION_STATE = True
 
 # Infiniband Management Settings
 
-IB_DEVICE_DIR = '/dev/infiniband'
-IB_DEVICE_NAME_PREFIX = '/dev/infiniband/umad'
+IB_UMAD_DEVICE_DIR = '/dev/infiniband'
+IB_UMAD_NAME_PREFIX = '/dev/infiniband/umad'
 
+# Privileged Mode Commands
 
-DISABLE_IB_LINKS = True
-
-# Default List of Servers, Switches, and Links Permissible to Control
- 
-ULSR_IBLINK_CFGFILE = 'iblink_conf.xml'
-
-# Privileged Mode Commands 
-
-IBLINKINFO_CMD = '/usr/sbin/iblinkinfo -l -D 1'
+IBLINKINFO_CMD = '/usr/sbin/iblinkinfo -l -D 0 -P'
 IBPORTSTATE_CMD = '/usr/sbin/ibportstate'
-IBSTATUS_CMD = '/usr/sbin/ibstatus'
-IBSTAT_CMD = '/usr/sbin/ibstat'
+IBSTAT_CMD = '/usr/sbin/ibstat -s'
 
-# Untrusted Mode Commands 
+# Untrusted Mode Commands
 
-CNH_SSS_LINKINFO_CMD = '/usr/local/bin/iblinkinfo_me.sh'
-CNH_SSS_PORTSTATE_CMD = '/usr/local/bin/ibendis.sh'
+SS_LINKINFO_CMD = '/usr/local/bin/iblinkinfo_me.sh'
+SS_PORTSTATE_CMD = '/usr/local/bin/ibendis.sh'
 
 # SSH Options
 

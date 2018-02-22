@@ -15,7 +15,7 @@ from time import time
 
 from ulsr_constants import (ULSR_RESNAME_PREFIX, ULSR_RESNAME_FIELD_SEPARATOR,
                             ULSR_RESERVATION_OPERATIONS, RES_CREATE_FLAGS)
-from ulsr_settings import SLURM_INSTALL_DIR
+from ulsr_settings import SLURM_INSTALL_DIR, SSH_OPTIONS
 from ulsr_logging import log_debug, log_info, log_error
 
 
@@ -24,18 +24,22 @@ def _output_stdio_data(fn, stdout_data, stderr_data):
     log_debug('%s: Stderr  %s' % (fn, stderr_data))
 
 
-def exec_subprocess_cmd(cmd):
+def exec_subprocess_cmd(cmd, input=None):
     '''
     Execute a Slurm command in a subprocess and wait for completion
     '''
     debug = False
     p = None
     try:
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE)
-        (stdout_data, stderr_data) = p.communicate()
+        if input:
+            p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
+            (stdout_data, stderr_data) = p.communicate(input=input)
+        else:
+            p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+            (stdout_data, stderr_data) = p.communicate()
     except Exception as e:
         stdout_data = None
-        stderr_data ='error: Exception on Popen or communicate'
+        stderr_data = 'error: Exception on Popen or communicate'
         log_debug('Exception on Popen or communicate')
         log_debug('Exception: %s' % e)
 
@@ -95,7 +99,7 @@ def exec_scontrol_cmd(action, entity, entity_id=None, debug=True, **kwargs):
 
     if kwargs:
         for k, v in kwargs.iteritems():
-            cmd.append('%s=%s' % (k,v))
+            cmd.append('%s=%s' % (k, v))
 
     if debug:
         log_debug('exec_scontrol_cmd(): Command  %s' % cmd)
@@ -132,7 +136,7 @@ def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
     entity_error_dict = {
         'reservation': 'not found',
         'job': 'Invalid job id'
-        }
+    }
 
     cmd = 'scontrol show ' + entity
     if (len(stderr_data) != 0):
@@ -150,6 +154,19 @@ def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
         stdout_dict_list = _scontrol_show_stdout_to_dict_list(stdout_data, stderr_data)
 
     return stdout_dict_list, stdout_data, stderr_data
+
+
+def _generate_ssh_remote_cmd_template(user, remote_cmd_s):
+    '''
+    Generate an SSH command template programmable by server name or IP address,
+    with command for remote execution appended
+    For example:
+        ssh <user>@{username here} ssh <ssh_options> <remote command> <command args>
+    '''
+    ssh_cmd_template = 'ssh ' + ''.join('{} '.format(opt) for opt in SSH_OPTIONS)
+    ssh_cmd_template += '{}@'.format(user)
+    ssh_cmd_template += '{} '		# For server name or IP address
+    return ssh_cmd_template + remote_cmd_s
 
 
 def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None,
@@ -276,17 +293,17 @@ def get_object_data(what_obj, obj_id, debug=False):
 
 def get_nodelist_from_resdata(resdata_dict):
     return hostlist.expand_hostlist(resdata_dict['Nodes'])
+#   return ['ib-test-6-2', 'ib-test-6-3']
 
 
 def get_reservation_data(resname):
     '''
     Get data on a particular ULSR Slurm reservation
     '''
-#    return get_object_data('reservation', resname, debug=False)
-#    return [{'Nodes': 'server[1-3]'}]
-    return [{'Nodes': 'ib-test-6-[2-3]'}]
+    return get_object_data('reservation', resname, debug=False)
+#   return [{'Nodes': 'ib-test-6-[2-3]'}]
 
-    
+
 def get_partition_data(partition_id):
     '''
     Get a list of dictionaries of information on the partition(s),
@@ -322,7 +339,7 @@ def get_ulsr_reservations():
 
 def log_ulsr_reservation(resname, stderr_data, t_start_s=None, t_end_s=None):
     if len(stderr_data):
-        log_error('Error creating reservation `%s`'% resname)
+        log_error('Error creating reservation `%s`' % resname)
         log_error('  Error string: %s' % stderr_data.strip('\n'), separator=False)
     else:
         log_info('Created  ULSR reservation `%s`' % resname)
