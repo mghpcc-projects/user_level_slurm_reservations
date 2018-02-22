@@ -372,7 +372,8 @@ def _control_switch_ports_via_ss(switch_ports, user, just_check=True,
     return True
 
 
-def control_iblinks(nodelist, user, priv_mode=False, just_check=True, debug=False):
+def update_ib_links(nodelist, user, priv_mode=False, just_check=True, 
+                    enable=False, disable=False, debug=False):
     '''
     '''
     if priv_mode and _check_ib_umad_access():

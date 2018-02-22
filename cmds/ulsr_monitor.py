@@ -7,6 +7,7 @@ Periodic Reservation Monitor
 May 2017, Tim Donahue	tdonahue@mit.edu
 """
 
+import getpass
 import logging
 from os import listdir
 from os.path import dirname, isfile
@@ -24,6 +25,7 @@ from ulsr_helpers import (exec_scontrol_show_cmd,
                           parse_ulsr_reservation_name, delete_slurm_reservation,
                           get_ulsr_reservations, log_ulsr_reservation,
                           get_nodelist_from_resdata)
+from ulsr_ib_helpers import update_ib_links
 from ulsr_logging import log_init, log_info, log_debug, log_error
 
 
@@ -31,15 +33,24 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list):
     '''
     Move nodes reserved in HIL reserve reservation from the HIL Slurm (loaner) project
     to the HIL free pool.
+    If successful, update IB links
     If successful, create the associated Slurm HIL reserve reservation
     '''
     n = 0
+    user = getpass.getuser()
     for reserve_res_dict in reserve_res_dict_list:
         nodelist = get_nodelist_from_resdata(reserve_res_dict)
         resname = reserve_res_dict['ReservationName']
 
         try:
+            # Invoke HIL client to reserve nodes in HIL
             hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client)
+
+            # Update IB links 
+            status = update_ib_links(nodelist, user, priv_mode=False, 
+                                     enable=True, disable=False, debug=True)
+
+            # Construct release reservation name and attempt to create
             release_resname = resname.replace(ULSR_RESERVE, ULSR_RELEASE, 1)
 
             t_start_s = strftime(RES_CREATE_TIME_FMT, gmtime(time()))
@@ -128,10 +139,26 @@ def _find_ulsr_singleton_reservations(ulsr_reservations_dict, singleton_type):
     return singleton_reservation_dict_list
 
 
+def _parse_arguments():
+    '''
+    '''
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--check', action='store_true', dest='just_check',
+                        help='Do not modify IB network', default=False)
+    parser.add_argument('-d', '--debug', action='store_true', dest='debug',
+                        help='Display debug information')
+    parser.add_argument('-u', '--user', dest=ssh_user, type=str, default=None,
+                        help='Username for remote command execution')
+
+    return parser.parse_args()
+
+
 def main(argv=[]):
     '''
     '''
     log_init('ulsr_monitor', ULSR_MONITOR_LOGFILE, logging.DEBUG)
+
+    args = _parse_arguments()
 
     # Look for ULSR reservations.
     # If none found, return
@@ -141,6 +168,11 @@ def main(argv=[]):
 
     log_info('ULSR Reservation Monitor', separator=True)
     log_debug('')
+
+    if args.ssh_user:
+        log_info('Remote commands will be run as `%s`' % args.ssh_user)
+    if args.just_check:
+        log_info('Check mode (-c) specified, IB network will not be modified')
 
     # Construct a dictionary of ULSR reservation data, keyed by reservation name.
     # Values are reservation data dictionaries
