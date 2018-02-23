@@ -49,7 +49,7 @@ DEFAULT_IB_PERMIT_CFGFILE = 'ulsr_ibproxy.conf'
 
 IBLINKINFO_CMD = '/usr/sbin/iblinkinfo -l -D 0 -P'
 IBPORTSTATE_CMD = '/usr/sbin/ibportstate'
-IBSTAT_CMD = '/usr/sbin/ibstat -s'
+IBSTAT_CMD = '/usr/sbin/ibstat -p'
 
 # Untrusted Mode Commands
 
@@ -59,6 +59,7 @@ SS_PORTSTATE_CMD = '/usr/local/bin/ibendis.sh'
 # SSH Options
 
 SSH_OPTIONS = ['-o UserKnownHostsFile=/dev/null', '-o StrictHostKeyChecking=no', '-q']
+SSH_OPTIONS = ['-o UserKnownHostsFile=/dev/null', '-o StrictHostKeyChecking=no']
 
 # Subprocess Timeout (seconds)
 # Subproccesses which do not complete in this time will be killed

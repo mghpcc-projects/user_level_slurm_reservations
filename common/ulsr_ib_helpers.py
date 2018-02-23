@@ -89,14 +89,18 @@ def _parse_ib_permit_file(permit_cfgfile, debug=False):
     '''
     permit_any = False
     permitted_port_dict = {}
+    n = 0
 
     with open(permit_cfgfile) as fp:
-        n = 1
         while True:
+            n += 1
             line = fp.readline()
             if not line:
                 break
             line = line.strip()
+            if not len(line):
+                continue
+
             if line.startswith('#'):
                 continue
 
@@ -298,7 +302,8 @@ def _control_switch_ports_direct(switch_ports, user, just_check=True,
         for switch_guid in switch_ports[node]:
 
             # ibportstate -G <switch_guid> <switch_port> <verb>
-            ib_cmd_template = IBPORTSTATE_CMD + '-G {}'.format(guid) + ' {}' + ' {}'.format(verb)
+            ib_cmd_template = IBPORTSTATE_CMD + ' -G {}'.format(switch_guid)
+            ib_cmd_template += ' {}' + ' {}'.format(verb)
 
             for port in switch_ports[node][switch_guid]:
                 remote_cmd = ib_cmd_template.format(port)
@@ -338,8 +343,7 @@ def _get_switch_ports_via_ss(nodelist, user, debug=False):
         stderr_data = ''
         stdout_data, stderr_data = exec_subprocess_cmd(shlex.split(remote_cmd))
         if len(stderr_data):
-            log_error('Failed to retrieve peer switch port info from `%s` port %s, aborting' %
-                      (node, host_port))
+            log_error('Failed to retrieve peer switch port info from `%s`, aborting' % node)
             status = False
             break
 
@@ -414,7 +418,9 @@ def update_ib_links(nodelist, user, priv_mode=False, just_check=True,
         permitfile = permit_cfgfile if permit_cfgfile else DEFAULT_IB_PERMIT_CFGFILE
 
         permit_any, permitted_ports = _parse_ib_permit_file(permitfile, debug)
-        if not permit_any:
+        if permit_any:
+            log_info('Permit file contains ANY, any switch port may be modified')
+        else:
             if not _check_ib_ports_permitted(switch_ports, permitted_ports):
                 return False
 
@@ -424,7 +430,7 @@ def update_ib_links(nodelist, user, priv_mode=False, just_check=True,
         log_debug('Using privileged shell scripts for link control')
 
         switch_ports = _get_switch_ports_via_ss(nodelist, user, debug=debug)
-        status = control_switch_ports_via_ss(switch_ports, user, just_check=just_check,
-                                             enable=True, disable=False, debug=debug)
+        status = _control_switch_ports_via_ss(switch_ports, user, just_check=just_check,
+                                              enable=True, disable=False, debug=debug)
     return status
 # EOF
