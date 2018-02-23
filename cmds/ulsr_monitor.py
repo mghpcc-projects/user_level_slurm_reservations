@@ -7,6 +7,7 @@ Periodic Reservation Monitor
 May 2017, Tim Donahue	tdonahue@mit.edu
 """
 
+import argparse
 import getpass
 import logging
 from os import listdir
@@ -147,9 +148,10 @@ def _parse_arguments():
                         help='Do not modify IB network', default=False)
     parser.add_argument('-d', '--debug', action='store_true', dest='debug',
                         help='Display debug information')
-    parser.add_argument('-u', '--user', dest=ssh_user, type=str, default=None,
+    parser.add_argument('-u', '--user',  default=None, 
                         help='Username for remote command execution')
-
+    parser.add_argument('-f', '--file', default=None, 
+                        help='Permit file for IB operations')
     return parser.parse_args()
 
 

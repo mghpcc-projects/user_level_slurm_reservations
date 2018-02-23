@@ -41,7 +41,7 @@ RES_CHECK_PARTITION_STATE = True
 # Infiniband Management Settings
 
 IB_UMAD_DEVICE_DIR = '/dev/infiniband'
-IB_UMAD_NAME_PREFIX = '/dev/infiniband/umad'
+IB_UMAD_DEVICE_NAME_PREFIX = '/dev/infiniband/umad'
 
 # Privileged Mode Commands
 
