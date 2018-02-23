@@ -315,7 +315,7 @@ def _control_switch_ports_direct(switch_ports, user, just_check=True,
                         status = False
                         break
                 else:
-                    log_debug('IB link control cmd: `%s`' % remote_cmd)
+                    log_info('IB link control cmd: `%s`' % remote_cmd)
 
     return status
 
@@ -343,17 +343,20 @@ def _get_switch_ports_via_ss(nodelist, user, debug=False):
         stderr_data = ''
         stdout_data, stderr_data = exec_subprocess_cmd(shlex.split(remote_cmd))
         if len(stderr_data):
+            print stderr_data
             log_error('Failed to retrieve peer switch port info from `%s`, aborting' % node)
             status = False
             break
 
         for line in stdout_data.split('\n'):
             line = line.strip()
-            if line:
-                switch_guid, switch_port = _parse_iblinkinfo_line(node, line)
-                if not switch_guid:
-                    status = False
-                    break
+            if not line:
+                continue
+
+            switch_guid, switch_port = _parse_iblinkinfo_line(node, line)
+            if not switch_guid:
+                status = False
+                break
 
             if switch_guid in switch_ports[node]:
                 switch_ports[node][switch_guid].append(switch_port)
@@ -382,21 +385,23 @@ def _control_switch_ports_via_ss(switch_ports, user, just_check=True,
     verb = '' if just_check else ('enable' if enable else ('disable' if disable else ''))
 
     if just_check:
-        log_info('Check mode, swich port state should not change')
+        log_info('Running in check mode, switch port state should not change')
 
     # switch_ports dict format:
     # {node: {switch1_guid: [port_number, ...], switch2_guid: [...], ...}, node2: {}}
+
+    cmd_input = ''
 
     for node in switch_ports:
         for switch_guid in switch_ports[node]:
             for port in switch_ports[node][switch_guid]:
                 cmd_input += '{} {} {}\n'.format(switch_guid, port, verb)
 
-    cmd = SS_PORTSTATE_CMD
+    local_cmd = SS_PORTSTATE_CMD
 
-    log_info('IB link control command: \n  %s %s' % (cmd, cmd_input))
+    log_info('IB link control command: %s %s' % (local_cmd, cmd_input))
 
-    stdout_data, stderr_data = exec_subprocess_cmd(shlex.split(remote_cmd), input=cmd_input)
+    stdout_data, stderr_data = exec_subprocess_cmd(shlex.split(local_cmd), input=cmd_input)
     if len(stderr_data):
         log_error('Failed to update switch ports')
         return False
@@ -427,7 +432,7 @@ def update_ib_links(nodelist, user, priv_mode=False, just_check=True,
         status = _control_switch_ports_direct(switch_ports, user, just_check=just_check,
                                               enable=True, disable=False, debug=debug)
     else:
-        log_debug('Using privileged shell scripts for link control')
+        log_debug('Using privileged shell scripts for link discovery and control')
 
         switch_ports = _get_switch_ports_via_ss(nodelist, user, debug=debug)
         status = _control_switch_ports_via_ss(switch_ports, user, just_check=just_check,
