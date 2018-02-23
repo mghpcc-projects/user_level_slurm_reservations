@@ -8,7 +8,7 @@ May 2017, Tim Donahue	tdonahue@mit.edu
 
 DEBUG = True
 
-SLURM_INSTALL_DIR = '/usr/bin/'
+SLURM_INSTALL_DIR = '/usr/local/bin/'
 
 # Log files
 
@@ -57,5 +57,10 @@ SS_PORTSTATE_CMD = '/usr/local/bin/ibendis.sh'
 # SSH Options
 
 SSH_OPTIONS = ['-o UserKnownHostsFile=/dev/null', '-o StrictHostKeyChecking=no', '-q']
+
+# Subprocess Timeout (seconds)
+# Subproccesses which do not complete in this time will be killed
+
+SUBPROCESS_TIMEOUT = 60
 
 # EOF

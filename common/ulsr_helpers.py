@@ -11,11 +11,12 @@ import os
 from pwd import getpwnam, getpwuid
 from subprocess import Popen, PIPE
 from sys import _getframe
+from threading import Timer
 from time import time
 
 from ulsr_constants import (ULSR_RESNAME_PREFIX, ULSR_RESNAME_FIELD_SEPARATOR,
                             ULSR_RESERVATION_OPERATIONS, RES_CREATE_FLAGS)
-from ulsr_settings import SLURM_INSTALL_DIR, SSH_OPTIONS
+from ulsr_settings import SLURM_INSTALL_DIR, SSH_OPTIONS, SUBPROCESS_TIMEOUT
 from ulsr_logging import log_debug, log_info, log_error
 
 
@@ -24,19 +25,29 @@ def _output_stdio_data(fn, stdout_data, stderr_data):
     log_debug('%s: Stderr  %s' % (fn, stderr_data))
 
 
+def _kill_subprocess(subprocess, timeout, cmd):
+    timeout['value'] = True
+    subprocess.kill()
+    log_error('Subprocess command `%s` timed out after %s seconds' % (cmd, SUBPROCESS_TIMEOUT))
+
+
 def exec_subprocess_cmd(cmd, input=None):
     '''
     Execute a Slurm command in a subprocess and wait for completion
+    $$$ Consider adding a command timeout here, perhaps using
+    $$$ a Timer class instance
     '''
+    stdin = PIPE if input else None
+    timeout = {'value': False}
     debug = False
-    p = None
+
     try:
-        if input:
-            p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE)
-            (stdout_data, stderr_data) = p.communicate(input=input)
-        else:
-            p = Popen(cmd, stdout=PIPE, stderr=PIPE)
-            (stdout_data, stderr_data) = p.communicate()
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=stdin)
+        timer = Timer(SUBPROCESS_TIMEOUT, _kill_subprocess, [p, timeout, cmd]).start()
+        (stdout_data, stderr_data) = p.communicate(input=input)
+        if timeout['value']:
+            stderr_data = '[Errno 62] Timer expired'
+
     except Exception as e:
         stdout_data = None
         stderr_data = 'error: Exception on Popen or communicate'
