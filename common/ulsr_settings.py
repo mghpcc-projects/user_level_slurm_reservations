@@ -43,6 +43,8 @@ RES_CHECK_PARTITION_STATE = True
 IB_UMAD_DEVICE_DIR = '/dev/infiniband'
 IB_UMAD_DEVICE_NAME_PREFIX = '/dev/infiniband/umad'
 
+DEFAULT_IB_PERMIT_CFGFILE = 'ulsr_ibproxy.conf'
+
 # Privileged Mode Commands
 
 IBLINKINFO_CMD = '/usr/sbin/iblinkinfo -l -D 0 -P'

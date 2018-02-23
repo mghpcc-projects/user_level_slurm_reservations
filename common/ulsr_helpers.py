@@ -167,7 +167,7 @@ def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
     return stdout_dict_list, stdout_data, stderr_data
 
 
-def _generate_ssh_remote_cmd_template(user, remote_cmd_s):
+def generate_ssh_remote_cmd_template(user, remote_cmd_s):
     '''
     Generate an SSH command template programmable by server name or IP address,
     with command for remote execution appended

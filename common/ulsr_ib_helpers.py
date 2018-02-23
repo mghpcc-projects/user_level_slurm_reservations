@@ -6,15 +6,20 @@ Infiniband Link Management Support Routines
 
 December 2017, Tim Donahue	tdonahue@mit.edu
 """
+
 import errno
 import glob
 import logging
+import os
+import shlex
 import stat
 import sys
 
 import ulsr_importpath
 
-from ulsr_settings import (IB_UMAD_DEVICE_NAME_PREFIX,
+from ulsr_helpers import generate_ssh_remote_cmd_template, exec_subprocess_cmd
+
+from ulsr_settings import (IB_UMAD_DEVICE_NAME_PREFIX, DEFAULT_IB_PERMIT_CFGFILE,
                            IBLINKINFO_CMD, IBPORTSTATE_CMD, IBSTAT_CMD,
                            SS_LINKINFO_CMD, SS_PORTSTATE_CMD)
 from ulsr_logging import log_info, log_warning, log_error, log_debug
@@ -25,7 +30,7 @@ def _check_ib_umad_access():
     Check if we have RW access to all local UMAD devices.
     If so, return True, else return False
     '''
-    umad_name_match_pattern = IB_UMAD_NAME_PREFIX + '*'
+    umad_name_match_pattern = IB_UMAD_DEVICE_NAME_PREFIX + '*'
     umad_list = glob.glob(umad_name_match_pattern)
 
     if (len(umad_list) == 0):
@@ -76,25 +81,26 @@ def check_ib_file_access(permit_cfgfile, ib_ctrl_program):
     return True, 0
 
 
-def parse_ib_permit_file(permit_cfgfile, debug=False):
+def _parse_ib_permit_file(permit_cfgfile, debug=False):
     '''
     Read and parse the switch and port permit file.
     Return a dict of the form {guid: [port, port, ...], ...} and
     a 'permit any' indication
     '''
     permit_any = False
-    permitted_link_dict = {}
+    permitted_port_dict = {}
 
     with open(permit_cfgfile) as fp:
         n = 1
-        line = fp.readline()
-        while line:
+        while True:
+            line = fp.readline()
+            if not line:
+                break
             line = line.strip()
-
             if line.startswith('#'):
                 continue
 
-            if ' any ' in line.lower():
+            if line.lower.startswith('any'):
                 permit_any = True
                 continue
 
@@ -110,15 +116,37 @@ def parse_ib_permit_file(permit_cfgfile, debug=False):
                 log_error('Permit config file `%s`: Malformed line %s' % (permit_cfgfile, n))
                 continue
 
-            if guid in permitted_link_dict:
-                permitted_link_dict[guid].append(port)
+            if guid in permitted_port_dict:
+                permitted_port_dict[guid].append(port)
             else:
-                permitted_link_dict[guid] = [port]
+                permitted_port_dict[guid] = [port]
 
-            line = fp.readline()
             n += 1
 
-    return permit_any, permitted_link_dict
+    return permit_any, permitted_port_dict
+
+
+def _check_ib_ports_permitted(switch_ports, permitted_ports):
+    '''
+    Compare the switch GUIDs and port numbers found on the far 
+    end of each node's IB links against the list of GUIDs and port
+    numbers we are permitted to operate on. If any impermissible links 
+    are found return false.
+
+    switch_ports: {node: {switch_guid1: [port, ...], guid2: [port, ...]}}
+    permitted_ports: {{switch_guid1: [port, ...], guid2: [port, ...]}
+    '''
+    for node, switch_ports in switch_ports.iteritems():
+        for guid, port_list in switch_ports.iteritems():
+            if guid not in permitted_ports:
+                log_error('Switch GUID %s not among permitted switches' % guid)
+                return False
+
+            for port in port_list:
+                if port not in permitted_ports[guid]:
+                    log_error('Switch GUID %s port %s not among permitted ports' % (guid, port))
+                    return False
+    return True
 
 
 def _parse_iblinkinfo_line(node, line):
@@ -158,7 +186,7 @@ def _get_node_ib_ports_direct(nodelist, user, debug=False):
     status = True
     node_ib_ports = {node: [] for node in nodelist}
 
-    ibstat_cmd_template = generate_remote_cmd_template(IBSTAT_CMD)
+    ibstat_cmd_template = generate_ssh_remote_cmd_template(user, IBSTAT_CMD)
 
     for node in nodelist:
         remote_cmd = ibstat_cmd_template.format(node)
@@ -211,7 +239,7 @@ def _get_switch_ports_direct(nodelist, user, debug=False):
     # {node: {switch1_guid: [port_number, ...], switch2_guid: [], ...}}
     switch_ports = {node: {} for node in nodelist}
 
-    ib_cmd_template = generate_ssh_remote_cmd_template(IBLINKINFO_CMD)
+    ib_cmd_template = generate_ssh_remote_cmd_template(user, IBLINKINFO_CMD)
 
     for node in nodelist:
 
@@ -300,7 +328,7 @@ def _get_switch_ports_via_ss(nodelist, user, debug=False):
       1. Works for a single interface, and single HCA per host
     '''
     status = True
-    ss_cmd_template = generate_ssh_remote_cmd_template(SS_LINKINFO_CMD)
+    ss_cmd_template = generate_ssh_remote_cmd_template(user, SS_LINKINFO_CMD)
 
     switch_ports = {node: {} for node in nodelist}
 
@@ -372,14 +400,24 @@ def _control_switch_ports_via_ss(switch_ports, user, just_check=True,
     return True
 
 
-def update_ib_links(nodelist, user, priv_mode=False, just_check=True, 
-                    enable=False, disable=False, debug=False):
+def update_ib_links(nodelist, user, priv_mode=False, just_check=True,
+                    enable=False, disable=False, permit_cfgfile=None, debug=False):
     '''
     '''
+    status = True
+
     if priv_mode and _check_ib_umad_access():
         log_info('Privileged mode enabled and UMADs accessible, using direct controls')
 
         switch_ports = _get_switch_ports_direct(nodelist, user, debug=debug)
+
+        permitfile = permit_cfgfile if permit_cfgfile else DEFAULT_IB_PERMIT_CFGFILE
+
+        permit_any, permitted_ports = _parse_ib_permit_file(permitfile, debug)
+        if not permit_any:
+            if not _check_ib_ports_permitted(switch_ports, permitted_ports):
+                return False
+
         status = _control_switch_ports_direct(switch_ports, user, just_check=just_check,
                                               enable=True, disable=False, debug=debug)
     else:
@@ -388,6 +426,5 @@ def update_ib_links(nodelist, user, priv_mode=False, just_check=True,
         switch_ports = _get_switch_ports_via_ss(nodelist, user, debug=debug)
         status = control_switch_ports_via_ss(switch_ports, user, just_check=just_check,
                                              enable=True, disable=False, debug=debug)
-
-
+    return status
 # EOF

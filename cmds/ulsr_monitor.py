@@ -148,10 +148,12 @@ def _parse_arguments():
                         help='Do not modify IB network', default=False)
     parser.add_argument('-d', '--debug', action='store_true', dest='debug',
                         help='Display debug information')
-    parser.add_argument('-u', '--user',  default=None, 
-                        help='Username for remote command execution')
     parser.add_argument('-f', '--file', default=None, 
                         help='Permit file for IB operations')
+    parser.add_argument('-p', '--priv_ib_access', default=None, 
+                        help='Privileged mode, may access IB network directly')
+    parser.add_argument('-u', '--user',  default=None, 
+                        help='Username for remote command execution')
     return parser.parse_args()
 
 
