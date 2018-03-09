@@ -15,7 +15,7 @@ MONITOR_PY_FILES := ulsr_monitor.py
 COMMAND_PY_FILES := $(PROLOG_PY_FILES) $(MONITOR_PY_FILES)
 
 PROLOG_SH_FILES := ulsr_slurmctld_prolog.sh ulsr_slurmctld_epilog.sh 
-MONITOR_SH_FILES := ulsr_slurm_monitor.sh
+MONITOR_SH_FILES := ulsr_monitor.sh
 AUDIT_SH_FILES := ulsr_audit.sh
 COMMAND_SH_FILES := $(PROLOG_SH_FILES) $(MONITOR_SH_FILES) $(AUDIT_SH_FILES)
 
