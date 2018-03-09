@@ -30,7 +30,7 @@ from ulsr_ib_helpers import update_ib_links
 from ulsr_logging import log_init, log_info, log_debug, log_error
 
 
-def _process_reserve_reservations(hil_client, reserve_res_dict_list):
+def _process_reserve_reservations(hil_client, reserve_res_dict_list, debug=False):
     '''
     Move nodes reserved in HIL reserve reservation from the HIL Slurm (loaner) project
     to the HIL free pool.
@@ -49,7 +49,7 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list):
 
             # Update IB links 
             status = update_ib_links(nodelist, user, priv_mode=False, 
-                                     enable=True, disable=False, debug=True)
+                                     enable=True, disable=False, debug=debug)
 
             # Construct release reservation name and attempt to create
             release_resname = resname.replace(ULSR_RESERVE, ULSR_RELEASE, 1)
@@ -67,16 +67,17 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list):
                                                                 nodes=reserve_res_dict['Nodes'],
                                                                 flags=RES_CREATE_FLAGS,
                                                                 features=RES_CREATE_HIL_FEATURES,
-                                                                debug=False)
+                                                                debug=debug)
             log_ulsr_reservation(release_resname, stderr_data, t_start_s, t_end_s)
             n += 1
-        except:
-            log_error('Failed to reserve nodes in HIL reservation `%s`' % resname)
+        except Exception as e:
+            log_error('HIL reservation failed for nodes in `%s`' % resname)
+            log_debug('  %s' % e)
 
     return n
 
 
-def _process_release_reservations(hil_client, release_res_dict_list):
+def _process_release_reservations(hil_client, release_res_dict_list, debug=False):
     '''
     Move nodes reserved in HIL release reservations back to the HIL Slurm (loaner) project,
     then deleted the associated Slurm HIL release reservation
@@ -93,7 +94,7 @@ def _process_release_reservations(hil_client, release_res_dict_list):
 
             release_resname = release_res_dict['ReservationName']
 
-            stdout_data, stderr_data = delete_slurm_reservation(release_resname, debug=False)
+            stdout_data, stderr_data = delete_slurm_reservation(release_resname, debug=debug)
             if (len(stderr_data) == 0):
                 log_info('Deleted HIL release reservation `%s`' % release_resname)
                 n += 1
@@ -147,12 +148,12 @@ def _parse_arguments():
     parser.add_argument('-c', '--check', action='store_true', dest='just_check',
                         help='Do not modify IB network', default=False)
     parser.add_argument('-d', '--debug', action='store_true', dest='debug',
-                        help='Display debug information')
+                        help='Display debug information', default=False)
     parser.add_argument('-f', '--file', default=None, 
                         help='Permit file for IB operations')
     parser.add_argument('-p', '--priv_ib_access', default=None, 
                         help='Privileged mode, may access IB network directly')
-    parser.add_argument('-u', '--user',  default=None, 
+    parser.add_argument('-u', '--user',  type=str, dest='ssh_user', default=None, 
                         help='Username for remote command execution')
     return parser.parse_args()
 
@@ -164,14 +165,16 @@ def main(argv=[]):
 
     args = _parse_arguments()
 
-    # Look for ULSR reservations.
-    # If none found, return
-    ulsr_reservation_dict_list = get_ulsr_reservations()
-    if not len(ulsr_reservation_dict_list):
-        return
-
     log_info('ULSR Reservation Monitor', separator=True)
     log_debug('')
+
+    # Look for ULSR reservations.
+    # If none found, return
+    ulsr_reservation_dict_list = get_ulsr_reservations(debug=args.debug)
+    if not len(ulsr_reservation_dict_list):
+        if args.debug:
+            log_debug('Reservation list empty, nothing to do')
+        return
 
     if args.ssh_user:
         log_info('Remote commands will be run as `%s`' % args.ssh_user)
@@ -208,9 +211,10 @@ def main(argv=[]):
         log_error('Unable to connect to HIL server `%s` to process HIL reservations' % HIL_ENDPOINT)
         return
 
-    n_released = _process_release_reservations(hil_client, release_res_dict_list)
-    n_reserved = _process_reserve_reservations(hil_client, reserve_res_dict_list)
-
+    n_released = _process_release_reservations(hil_client, release_res_dict_list,
+                                               debug=args.debug)
+    n_reserved = _process_reserve_reservations(hil_client, reserve_res_dict_list,
+                                               debug=args.debug)
     if n_released:
         log_info('ULSR monitor: Processed %s release reservations' % n_released)
     if n_reserved:

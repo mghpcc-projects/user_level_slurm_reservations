@@ -13,10 +13,14 @@ from subprocess import Popen, PIPE
 from sys import _getframe
 from threading import Timer
 from time import time
+from traceback import format_stack
 
 from ulsr_constants import (ULSR_RESNAME_PREFIX, ULSR_RESNAME_FIELD_SEPARATOR,
                             ULSR_RESERVATION_OPERATIONS, RES_CREATE_FLAGS)
-from ulsr_settings import SLURM_INSTALL_DIR, SSH_OPTIONS, SUBPROCESS_TIMEOUT
+from ulsr_settings import (SLURM_INSTALL_DIR, SSH_OPTIONS, SUBPROCESS_TIMEOUT,
+                           SLURM_AVAILABLE, HIL_AVAILABLE, IB_AVAILABLE,
+                           TEST_RESNAME, TEST_NODELIST, TEST_RESDATA, TEST_JOB_DATA,
+                           TEST_PARTITION_DATA)                           
 from ulsr_logging import log_debug, log_info, log_error
 
 
@@ -31,11 +35,18 @@ def _kill_subprocess(subprocess, timeout, cmd):
     log_error('Subprocess command `%s` timed out after %s seconds' % (cmd, SUBPROCESS_TIMEOUT))
 
 
+def debug_display_stack(prefix):
+    '''
+    Display the call stack, 
+    '''
+    stack = format_stack()[:-2]
+    for frame in stack:
+        log_debug('%s %s' % (prefix, frame.strip()))
+
+
 def exec_subprocess_cmd(cmd, input=None):
     '''
     Execute a Slurm command in a subprocess and wait for completion
-    $$$ Consider adding a command timeout here, perhaps using
-    $$$ a Timer class instance
     '''
     stdin = PIPE if input else None
     timeout = {'value': False}
@@ -124,7 +135,7 @@ def exec_scontrol_cmd(action, entity, entity_id=None, debug=True, **kwargs):
     return stdout_data, stderr_data
 
 
-def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
+def exec_scontrol_show_cmd(entity, entity_id, debug=True, **kwargs):
     '''
     Run the 'scontrol show' command on the entity and ID
     Convert standard output data to a list of dictionaries, one per line
@@ -151,13 +162,16 @@ def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
 
     cmd = 'scontrol show ' + entity
     if (len(stderr_data) != 0):
-        log_debug('Command `%s` failed' % cmd)
+        log_debug('Command `%s` failed (1)' % cmd)
         log_debug('  stderr: %s' % stderr_data)
+        debug_display_stack('  ')
 
     elif (entity in entity_error_dict) and (entity_error_dict[entity] in stdout_data):
         if debug:
-            log_debug('Command `%s` failed' % cmd)
+            log_debug('Command `%s` failed (2)' % cmd)
             log_debug('  stderr: %s' % stderr_data)
+            debug_display_stack('  ')
+
         stderr_data = stdout_data
         stdout_data = None
 
@@ -181,7 +195,7 @@ def generate_ssh_remote_cmd_template(user, remote_cmd_s):
 
 
 def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None,
-                             flags=RES_CREATE_FLAGS, features=None, debug=False):
+                             flags=RES_CREATE_FLAGS, features=None, debug=True):
     '''
     Create a Slurm reservation via 'scontrol create reservation'
     '''
@@ -190,24 +204,29 @@ def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None,
 
     t_end_arg = {'duration': 'UNLIMITED'} if t_end_s is None else {'endtime': t_end_s}
 
-    return exec_scontrol_cmd('create', 'reservation', entity_id=None, debug=debug,
-                             ReservationName=name, starttime=t_start_s,
-                             user=user, nodes=nodes, flags=flags, features=features,
-                             **t_end_arg)
+    if is_slurm_available():
+        stdout_data, stderr_data = exec_scontrol_cmd('create', 'reservation', 
+                                                     entity_id=None, debug=debug,
+                                                     ReservationName=name, starttime=t_start_s,
+                                                     user=user, nodes=nodes, flags=flags, 
+                                                     features=features, **t_end_arg)
+    else:
+        stdout_data, stderr_data = ('', '')
+
+    return stdout_data, stderr_data
 
 
-def delete_slurm_reservation(name, debug=False):
+def delete_slurm_reservation(name, debug=True):
     '''
     Delete a Slurm reservation via 'scontrol delete reservation=<name>'
     '''
-    return exec_scontrol_cmd('delete', None, debug=debug, reservation=name)
+    if is_slurm_available():
+        stdout_data, stderr_data = exec_scontrol_cmd('delete', None, debug=debug, 
+                                                     reservation=name)
+    else:
+        stdout_data, stderr_data = ('', '')
 
-
-def update_slurm_reservation(name, debug=False, **kwargs):
-    '''
-    Update a Slurm reservation via 'scontrol update reservation=<name> <kwargs>'
-    '''
-    return exec_scontrol_cmd('update', None, reservation=name, debug=debug, **kwargs)
+    return stdout_data, stderr_data
 
 
 def get_ulsr_reservation_name(env_dict, restype_s):
@@ -251,7 +270,7 @@ def parse_ulsr_reservation_name(resname):
     return prefix, restype, user, uid, time_s
 
 
-def is_ulsr_reservation(resname, restype_in):
+def is_ulsr_reservation(resname, restype_in, debug=False):
     '''
     Check if the passed reservation name:
     - Starts with the ULSR reservation prefix
@@ -262,12 +281,14 @@ def is_ulsr_reservation(resname, restype_in):
     '''
     prefix, restype, uname, uid, _ = parse_ulsr_reservation_name(resname)
     if (prefix != ULSR_RESNAME_PREFIX):
-#       log_error('No ULSR reservation prefix')
+        if debug:
+            log_error('No ULSR reservation prefix')
         return False
 
     if restype_in:
         if (restype != restype_in):
-#           log_error('Reservation type mismatch')
+            if debug:
+                log_error('Reservation type mismatch')
             return False
     elif restype not in ULSR_RESERVATION_OPERATIONS:
         log_error('Unknown reservation type')
@@ -277,17 +298,19 @@ def is_ulsr_reservation(resname, restype_in):
         pwdbe1 = getpwnam(uname)
         pwdbe2 = getpwuid(int(uid))
         if pwdbe1 != pwdbe2:
-#           log_error('Reservation `%s`: User and UID inconsistent' % resname)
+            if debug:
+                log_error('Reservation `%s`: User and UID inconsistent' % resname)
             return False
 
     except KeyError:
-#       log_error('Key error')
+        if debug:
+            log_error('Key error on uname / UID lookup')
         return False
 
     return True
 
 
-def get_object_data(what_obj, obj_id, debug=False):
+def get_object_data(what_obj, obj_id, debug=True):
     '''
     Get a list of dictionaries of information on the object, via
     'scontrol show <what_object> <object_id>'
@@ -303,16 +326,19 @@ def get_object_data(what_obj, obj_id, debug=False):
 
 
 def get_nodelist_from_resdata(resdata_dict):
-    return hostlist.expand_hostlist(resdata_dict['Nodes'])
-#   return ['ib-test-6-2', 'ib-test-6-3']
+    '''
+    Expand and return the nodelist from Slurm reservation data
+    '''
+    return (hostlist.expand_hostlist(resdata_dict['Nodes']) if is_slurm_available() 
+            else TEST_NODELIST)
 
 
 def get_reservation_data(resname):
     '''
     Get data on a particular ULSR Slurm reservation
     '''
-    return get_object_data('reservation', resname, debug=False)
-#   return [{'Nodes': 'ib-test-6-[2-3]'}]
+    return (get_object_data('reservation', resname, debug=False) if is_slurm_available() 
+            else TEST_RESDATA)
 
 
 def get_partition_data(partition_id):
@@ -320,7 +346,8 @@ def get_partition_data(partition_id):
     Get a list of dictionaries of information on the partition(s),
     via 'scontrol show partition'
     '''
-    return get_object_data('partition', partition_id, debug=False)
+    return (get_object_data('partition', partition_id, debug=False) if is_slurm_available()
+            else TEST_PARTITION_DATA)
 
 
 def get_job_data(job_id):
@@ -328,19 +355,26 @@ def get_job_data(job_id):
     Get a list of dictionaries of information on the job(s),
     via 'scontrol show job'
     '''
-    return get_object_data('job', job_id, debug=False)
+    return (get_object_data('job', job_id, debug=False) if is_slurm_available() 
+            else TEST_JOB_DATA)
 
 
-def get_ulsr_reservations():
+def get_ulsr_reservations(debug=False):
     '''
     Get a list of all Slurm reservations, return that subset which are ULSR reservations
     '''
     resdata_dict_list = []
 
-    resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
+    if is_slurm_available():
+        resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
+    else:
+        if debug:
+            log_debug('Slurm unavailable, returning %s' % TEST_RESDATA)
+        resdata_dict_list = TEST_RESDATA
 
     for resdata_dict in resdata_dict_list:
-        if resdata_dict and is_ulsr_reservation(resdata_dict['ReservationName'], None):
+        if resdata_dict and is_ulsr_reservation(resdata_dict['ReservationName'], 
+                                                None, debug=debug):
             continue
         else:
             resdata_dict_list.remove(resdata_dict)
@@ -349,10 +383,29 @@ def get_ulsr_reservations():
 
 
 def log_ulsr_reservation(resname, stderr_data, t_start_s=None, t_end_s=None):
+    '''
+    '''
     if len(stderr_data):
         log_error('Error creating reservation `%s`' % resname)
         log_error('  Error string: %s' % stderr_data.strip('\n'), separator=False)
     else:
         log_info('Created  ULSR reservation `%s`' % resname)
+
+# Test Support
+# In the future, these may be smarter
+
+_hil_available = HIL_AVAILABLE
+_slurm_available = SLURM_AVAILABLE
+_ib_available = IB_AVAILABLE
+
+def is_hil_available():
+    return _hil_available
+
+def is_slurm_available():
+    return _slurm_available
+
+def is_ib_available():
+    return _ib_available
+
 
 # EOF

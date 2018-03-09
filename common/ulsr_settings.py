@@ -19,6 +19,7 @@ ULSR_IB_MGMT_LOGFILE = '/var/log/ulsr/ulsr_ib_mgmt.log'
 
 # HIL Configuration
 
+HIL_AVAILABLE = False
 HIL_ENDPOINT = "http://10.0.0.16:80"
 HIL_USER = 'admin'
 HIL_PW = 'NavedIsSleepy'
@@ -28,6 +29,7 @@ ULSR_PARTITION_PREFIX = 'ULSR_partition'
 
 # Slurm Reservation Times
 
+SLURM_AVAILABLE = False
 ULSR_RESERVATION_DEFAULT_DURATION = 24 * 60 * 60        # Seconds
 ULSR_RESERVATION_GRACE_PERIOD = 4 * 60 * 60		# Seconds
 
@@ -40,6 +42,7 @@ RES_CHECK_PARTITION_STATE = True
 
 # Infiniband Management Settings
 
+IB_AVAILABLE = True
 IB_UMAD_DEVICE_DIR = '/dev/infiniband'
 IB_UMAD_DEVICE_NAME_PREFIX = '/dev/infiniband/umad'
 
@@ -65,5 +68,26 @@ SSH_OPTIONS = ['-o UserKnownHostsFile=/dev/null', '-o StrictHostKeyChecking=no']
 # Subproccesses which do not complete in this time will be killed
 
 SUBPROCESS_TIMEOUT = 60
+
+# Test Settings
+
+from ulsr_constants import ULSR_RESNAME_PREFIX
+
+TEST_USER = 'cc'
+TEST_UID = '1000'
+
+TEST_RESNAME = ULSR_RESNAME_PREFIX + 'reserve' + '_' 
+TEST_RESNAME += TEST_USER + '_' + TEST_UID + '_' + '1520606201'
+
+TEST_NODELIST = ['ib-test-2',]
+
+TEST_RESDATA = [{'Nodes': TEST_NODELIST, 'ReservationName': TEST_RESNAME}]
+
+TEST_JOB_DATA = [{'JobName': 'hil_reserve', 'TimeLimit': 'UNLIMITED', 
+                  'StartTime': '2018-01-01T00:00:00', 'EndTime': '2018-12-31T23:59:59',
+                  'Reservation': TEST_RESNAME}]
+
+TEST_PARTITION_DATA = [{'Shared': 'NO', 'ExclusiveUser': 'YES', 'Default': 'NO', 
+                        'State': 'UP', 'PartitionName': ULSR_PARTITION_PREFIX}]
 
 # EOF

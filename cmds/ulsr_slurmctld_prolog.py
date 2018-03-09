@@ -127,7 +127,8 @@ def _get_ulsr_reservation_times(env_dict, pdata_dict, jobdata_dict):
     '''
     t_job_start_s = jobdata_dict['StartTime']
     t_job_end_s = jobdata_dict['EndTime']
-#   log_debug('Job start %s  Job end %s' % (t_job_start_s, t_job_end_s))
+    if args.debug:
+        log_debug('Job start %s  Job end %s' % (t_job_start_s, t_job_end_s))
 
     t_start_dt = datetime.strptime(t_job_start_s, SHOW_OBJ_TIME_FMT)
 
@@ -214,7 +215,7 @@ def _create_ulsr_reservation(restype_s, t_start_s, t_end_s, env_dict, pdata_dict
                                                         t_start_s, t_end_s,
                                                         nodes=None, flags=RES_CREATE_FLAGS,
                                                         features=RES_CREATE_HIL_FEATURES,
-                                                        debug=False)
+                                                        debug=args.debug)
     return resname, stderr_data
 
 
@@ -226,9 +227,9 @@ def _delete_ulsr_reservation(env_dict, pdata_dict, jobdata_dict, resname):
     '''
     # Minimally validate the specified reservation
 
-    if is_ulsr_reservation(resname, None):
+    if is_ulsr_reservation(resname, None, debug=args.debug):
         log_info('Deleting ULSR reservation `%s`' % resname)
-        return delete_slurm_reservation(resname, debug=False)
+        return delete_slurm_reservation(resname, debug=args.debug)
     else:
         log_info('Cannot delete ULSR reservation, error in name (`%s`)' %
                  resname)
@@ -248,7 +249,7 @@ def _hil_reserve_cmd(env_dict, pdata_dict, jobdata_dict):
     t_start_s, t_end_s = _get_ulsr_reservation_times(env_dict, pdata_dict, jobdata_dict)
 
     resname, stderr_data = _create_ulsr_reservation(ULSR_RESERVE, t_start_s, t_end_s,
-                                                   env_dict, pdata_dict, jobdata_dict)
+                                                    env_dict, pdata_dict, jobdata_dict)
     log_ulsr_reservation(resname, stderr_data, t_start_s, t_end_s)
 
 
@@ -301,7 +302,9 @@ def process_args():
                         help='Function as the ULSR prolog')
     parser.add_argument('--ulsr_epilog', action='store_true', default=False,
                         help='Function as the ULSR epilog')
-
+    parser.add_argument('-d', '--debug', action='store_true', default=False,
+                        help='Display debug information')
+                        
     return parser.parse_args()
 
 
