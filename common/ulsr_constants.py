@@ -3,7 +3,7 @@ MassOpenCloud / Hardware Isolation Layer (HIL)
 
 ULSR Constants
 
-June 2017, Tim Donahue	tpd001@gmail.com
+June 2017, Tim Donahue	tdonahue@mit.edu
 """
 
 SHOW_OBJ_TIME_FMT = '%Y-%m-%dT%H:%M:%S'
