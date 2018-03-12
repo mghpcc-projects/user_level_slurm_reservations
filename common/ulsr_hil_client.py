@@ -13,12 +13,10 @@ import time
 from hil.client.client import Client, RequestsHTTPClient
 from hil.client.base import FailedAPICallException
 from ulsr_logging import log_info, log_debug, log_error
-from ulsr_settings import HIL_ENDPOINT, HIL_USER, HIL_PW
+from ulsr_settings import HIL_AVAILABLE, HIL_ENDPOINT, HIL_USER, HIL_PW
 
 # timeout ensures that networking actions are completed in a resonable time.
 HIL_TIMEOUT = 20
-
-DEBUG = False
 
 class HILClientFailure(Exception):
     """Exception indicating that the HIL client failed"""
@@ -46,7 +44,7 @@ def _hil_client_connect(endpoint_ip, name, pw):
 
 
 def hil_init():
-    return _hil_client_connect(HIL_ENDPOINT, HIL_USER, HIL_PW)
+    return _hil_client_connect(HIL_ENDPOINT, HIL_USER, HIL_PW) if HIL_AVAILABLE else True
 
 
 def check_hil_interface():
@@ -65,6 +63,9 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
     network is also controlled by HIL. If we removed all networks, then we will
     not be able to perform any IPMI operations on nodes.
     '''
+    if not HIL_AVAILABLE:
+        return
+
     if not hil_client:
         hil_client = hil_init()
 
@@ -134,6 +135,9 @@ def hil_free_nodes(nodelist, to_project, hil_client=None):
     network is also controlled by HIL. If we removed all networks, then we will
     not be able to perform any IPMI operations on nodes.
     '''
+    if not HIL_AVAILABLE:
+        return
+
     if not hil_client:
         hil_client = hil_init()
 

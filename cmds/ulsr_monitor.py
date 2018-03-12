@@ -22,8 +22,8 @@ from ulsr_settings import ULSR_MONITOR_LOGFILE, HIL_ENDPOINT, HIL_SLURM_PROJECT
 from ulsr_constants import (SHOW_OBJ_TIME_FMT, ULSR_RESERVE, ULSR_RELEASE,
                             RES_CREATE_FLAGS, RES_CREATE_HIL_FEATURES,
                             RES_CREATE_TIME_FMT)
-from ulsr_helpers import (exec_scontrol_show_cmd,
-                          parse_ulsr_reservation_name, delete_slurm_reservation,
+from ulsr_helpers import (exec_scontrol_show_cmd, parse_ulsr_reservation_name, 
+                          create_slurm_reservation, delete_slurm_reservation,
                           get_ulsr_reservations, log_ulsr_reservation,
                           get_nodelist_from_resdata)
 from ulsr_ib_helpers import update_ib_links

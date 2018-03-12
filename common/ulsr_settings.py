@@ -6,8 +6,6 @@ ULSR Control Settings
 May 2017, Tim Donahue	tdonahue@mit.edu
 """
 
-DEBUG = True
-
 SLURM_INSTALL_DIR = '/usr/local/bin/'
 
 # Log files
@@ -81,7 +79,8 @@ TEST_RESNAME += TEST_USER + '_' + TEST_UID + '_' + '1520606201'
 
 TEST_NODELIST = ['ib-test-2',]
 
-TEST_RESDATA = [{'Nodes': TEST_NODELIST, 'ReservationName': TEST_RESNAME}]
+TEST_RESDATA = [{'Users': TEST_USER, 'Nodes': TEST_NODELIST, 'ReservationName': TEST_RESNAME,
+                 'StartTime': '2018-01-01T00:00:00', 'EndTime': '2018-12-31T23:59:59'}]
 
 TEST_JOB_DATA = [{'JobName': 'hil_reserve', 'TimeLimit': 'UNLIMITED', 
                   'StartTime': '2018-01-01T00:00:00', 'EndTime': '2018-12-31T23:59:59',
