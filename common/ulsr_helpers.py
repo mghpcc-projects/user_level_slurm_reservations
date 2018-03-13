@@ -21,9 +21,6 @@ from ulsr_settings import (SLURM_INSTALL_DIR, SSH_OPTIONS, SUBPROCESS_TIMEOUT,
                            SLURM_AVAILABLE, HIL_AVAILABLE, IB_AVAILABLE,
                            TEST_RESNAME, TEST_NODELIST, TEST_RESDATA, TEST_JOB_DATA,
                            TEST_PARTITION_DATA)
-# $$$ Temporary
-from ulsr_settings import SS_PORTSTATE_CMD
-from ulsr_constants import IBENDIS_PERROR
 
 from ulsr_logging import log_debug, log_info, log_error
 
@@ -34,6 +31,9 @@ def _output_stdio_data(fn, stdout_data, stderr_data):
 
 
 def _kill_subprocess(subprocess, timeout, cmd):
+    '''
+    Used to kill a subprocess which has timed out
+    '''
     timeout['value'] = True
     subprocess.kill()
     log_error('Subprocess command `%s` timed out after %s seconds' % (cmd, SUBPROCESS_TIMEOUT))
@@ -48,7 +48,7 @@ def debug_display_stack(prefix):
         log_debug('%s %s' % (prefix, frame.strip()))
 
 
-def exec_subprocess_cmd(cmd, input=None, debug=False):
+def exec_subprocess_cmd(cmd, input=None, perror_fn=None, debug=False):
     '''
     Execute a Slurm command in a subprocess and wait for completion
     '''
@@ -60,21 +60,19 @@ def exec_subprocess_cmd(cmd, input=None, debug=False):
         p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=stdin)
         timer = Timer(SUBPROCESS_TIMEOUT, _kill_subprocess, [p, timeout, cmd])
         timer.start()
+
         (stdout_data, stderr_data) = p.communicate(input=input)
+
         if timeout['value']:
             stderr_data = '[Errno 62] Timer expired'
+
         elif p.returncode:
-            log_debug('Subprocess return code %s' % p.returncode)
-            # HACK
-            if SS_PORTSTATE_CMD in cmd:
-                if p.returncode in IBENDIS_PERROR:
-                    stderr_data = '%s (%s)' % (IBENDIS_PERROR[p.returncode], p.returncode)
-                else:
-                    stderr_data = '%s Unknown error (%s)' % (SS_PORTSTATE_CMD, p.returncode)
+            if perror_fn:
+                stderr_data = perror_fn(cmd, p.returncode)
 
     except Exception as e:
         stdout_data = None
-        stderr_data = 'error: Exception on Popen or communicate'
+        stderr_data = 'Exception in Popen or communicate'
         log_error('`%s` subprocess exec exception' % cmd)
         log_error('Exception: %s' % e)
 

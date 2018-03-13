@@ -19,8 +19,7 @@ import ulsr_importpath
 
 from ulsr_helpers import generate_ssh_remote_cmd_template, exec_subprocess_cmd
 
-from ulsr_settings import (IB_AVAILABLE, 
-                           IB_UMAD_DEVICE_NAME_PREFIX, DEFAULT_IB_PERMIT_CFGFILE,
+from ulsr_settings import (IB_AVAILABLE, IB_UMAD_DEVICE_NAME_PREFIX,
                            IBLINKINFO_CMD, IBPORTSTATE_CMD, IBSTAT_CMD,
                            SS_LINKINFO_CMD, SS_PORTSTATE_CMD)
 from ulsr_logging import log_info, log_warning, log_error, log_debug
@@ -46,41 +45,43 @@ def _check_ib_umad_access():
     return True
 
 
-def check_ib_file_access(permit_cfgfile, ib_ctrl_program):
+def _check_ib_file_access(permit_cfgfile, ib_ctrl_program):
     '''
-    Verify permissions on the the IB switch & link permit file
+    Verify permissions on the the IB switch GUID & port permit file
     Verify the IB link control program exists
     '''
-    if not permit_file:
-        log_error('Switch and link permit file not specified, exiting')
+    if not permit_cfgfile:
+        log_error('IB permit config file not specified, exiting')
         return False, errno.EINVAL
 
     ow_mode = stat.S_IRWXG | stat.S_IRWXO
 
     this_filename = os.path.abspath(__file__)
     this_dirname = os.path.dirname(this_filename)
+    permit_cfgfile_dir = os.path.dirname(os.path.abspath(permit_cfgfile))
 
-    file_paths = [this_dirname, this_filename, permit_file, ib_ctrl_program]
+    file_paths = [this_dirname, this_filename, permit_cfgfile, permit_cfgfile_dir,
+                  ib_ctrl_program]
 
     for path in file_paths:
         try:
             st = os.stat(path)
             if (st.st_mode & ow_mode):
-                log_error('Path `%s` permissions (%s) too open, exiting' %
+                log_error('Path `%s` permissions (%s) too open' %
                           (path, oct(st.st_mode)))
-                return False, errno.EPERM
+                return False
         except:
-            log_error('File or directory `%s` not found, exiting' % path)
-            return False, errno.ENOENT
+            log_error('File or directory `%s` not found' % path)
+            return False
 
     # Verify IB port control program exists
     try:
         st = os.stat(ib_ctrl_program)
     except:
-        log_error('Infiniband port control program not found, exiting')
-        return False, errno.ENOENT
+        log_error('Infiniband port control program not found')
+        return False
 
-    return True, 0
+    return True
 
 
 def _parse_ib_permit_file(permit_cfgfile, debug=False):
@@ -92,6 +93,8 @@ def _parse_ib_permit_file(permit_cfgfile, debug=False):
     permit_any = False
     permitted_port_dict = {}
     n = 0
+
+    log_debug('Parsing IB permit config file `%s`' % permit_cfgfile)
 
     with open(permit_cfgfile) as fp:
         while True:
@@ -138,9 +141,9 @@ def _parse_ib_permit_file(permit_cfgfile, debug=False):
 
 def _check_ib_ports_permitted(switch_ports, permitted_ports):
     '''
-    Compare the switch GUIDs and port numbers found on the far 
+    Compare the switch GUIDs and port numbers found on the far
     end of each node's IB links against the list of GUIDs and port
-    numbers we are permitted to operate on. If any impermissible links 
+    numbers we are permitted to operate on. If any impermissible links
     are found return false.
 
     switch_ports: {node: {switch_guid1: [port, ...], guid2: [port, ...]}}
@@ -246,7 +249,12 @@ def _get_switch_ports_direct(nodelist, user, debug=False):
     if not node_ib_ports:
         return False, {}
 
-    # {node: {switch1_guid: [port_number, ...], switch2_guid: [], ...}}
+    # So far as we know, ibportstate accepts a single (GUID, port, verb) tuple
+    # Loop over the set of GUIDs and ports and issue one command per (GUID, port)
+    #
+    # switch_ports dict format:
+    # {node: {switch1_guid: [port_number, ...], switch2_guid: [...], ...}, node2: {}}
+
     switch_ports = {node: {} for node in nodelist}
 
     ib_cmd_template = generate_ssh_remote_cmd_template(user, IBLINKINFO_CMD)
@@ -259,13 +267,11 @@ def _get_switch_ports_direct(nodelist, user, debug=False):
         # for each
         for host_port in range(nports, 0, -1):
             remote_cmd = ib_cmd_template.format(node) + ' {}'.format(host_port)
-            stdout_data = ''
-            stderr_data = ''
+            stdout_data, stderr_data = '', ''
             stdout_data, stderr_data = exec_subprocess_cmd(shlex.split(remote_cmd), debug=debug)
             if len(stderr_data):
                 log_error('Failed to retrieve peer IB switch port info from `%s` port %s, aborting' %
                           (node, host_port))
-                print 'Stderr data is %s' % stderr_data
                 status = False
                 break
 
@@ -287,8 +293,7 @@ def _get_switch_ports_direct(nodelist, user, debug=False):
     return status, switch_ports
 
 
-def _control_switch_ports_direct(switch_ports, user, just_check=True,
-                                 enable=False, disable=False, debug=False):
+def _control_switch_ports_direct(switch_ports, user, args, enable=False, disable=False):
     '''
     Enable or disable, or just perform a 'dry run' (no change), of IB
     switch ports listed in the switch_ports dictionary.
@@ -314,11 +319,10 @@ def _control_switch_ports_direct(switch_ports, user, just_check=True,
 
             for port in switch_ports[node][switch_guid]:
                 remote_cmd = ib_cmd_template.format(port)
-                stdout_data = ''
-                stderr_data = ''
-                if not just_check:
-                    stdout_data, stderr_data = exec_subprocess_cmd(shlex.split(remote_cmd), 
-                                                                   debug=debug)
+                stdout_data, stderr_data = '', ''
+                if not args.just_check:
+                    stdout_data, stderr_data = exec_subprocess_cmd(shlex.split(remote_cmd),
+                                                                   debug=args.debug)
                     if len(stderr_data):
                         status = False
                         break
@@ -326,6 +330,26 @@ def _control_switch_ports_direct(switch_ports, user, just_check=True,
                     log_info('IB link control cmd: `%s`' % remote_cmd)
 
     return status
+
+
+def _ss_perror_string(cmd, exit_code):
+    '''
+    Convert the nonzero exit code of ibendis.sh to a string, which may be
+    returned as stderr data
+    '''
+    IBENDIS_EXIT_CODE_MAP = {1: 'Invalid GUID format',
+                             2: 'Invalid port number format',
+                             3: 'Invalid port action',
+                             4: 'Invalid input line',
+                             5: 'Failed GUID / port combination check',
+                             6: 'File checks failed'}
+
+    if exit_code in IBENDIS_EXIT_CODE_MAP:
+        perror_string = '%s (%s)' % (IBENDIS_EXIT_CODE_MAP[exit_code], exit_code)
+    else:
+        perror_string = '%s Unknown error (%s)' % (cmd, exit_code)
+
+    return perror_string
 
 
 def _get_switch_ports_via_ss(nodelist, user, debug=False):
@@ -379,27 +403,27 @@ def _get_switch_ports_via_ss(nodelist, user, debug=False):
     return status, switch_ports
 
 
-def _control_switch_ports_via_ss(switch_ports, user, just_check=True,
-                                 enable=False, disable=False, debug=False):
+def _control_switch_ports_via_ss(switch_ports, user, args, enable=False, disable=False):
     '''
     Enable or disable, or just perform a 'dry run' (no change) of IB switch
     ports listed in the switch_ports directory.
     Use the privileged (sudo) shell script to perform the work.
     '''
     if enable and disable:
-        log_error('Invalid link control operation, either enable or disable, not both')
+        log_error('Invalid link control op, either `enable` or `disable`, not both')
         return False
 
-    verb = '' if just_check else ('enable' if enable else ('disable' if disable else ''))
-    verb = 'enable'
-    
+    verb = '' if args.just_check else ('enable' if enable else ('disable' if disable else ''))
+
+    # Construct the string of (GUID, port, verb, \n) tuples passed to the shell script
+    # via stdin
+    #
     # switch_ports dict format:
     # {node: {switch1_guid: [port_number, ...], switch2_guid: [...], ...}, node2: {}}
 
     cmd_input = ''
 
     for node in switch_ports:
-        print switch_ports
         for switch_guid in switch_ports[node]:
             for port in switch_ports[node][switch_guid]:
                 cmd_input += '{} {} {}\n'.format(switch_guid, port, verb)
@@ -409,19 +433,24 @@ def _control_switch_ports_via_ss(switch_ports, user, just_check=True,
     log_info('IB link control command: `%s %s`' % (local_cmd, cmd_input.strip()))
 
     stdout_data, stderr_data = exec_subprocess_cmd(shlex.split(local_cmd), input=cmd_input,
-                                                   debug=debug)
+                                                   perror_fn=_ss_perror_string,
+                                                   debug=args.debug)
     if len(stderr_data):
+        # The port state control command returned an error, but may also
+        # have written to stdout.
         log_error('Failed to update IB switch ports (%s)' % stderr_data)
+        if args.debug:
+            for line in stdout_data.split('#'):
+                log_debug('  %s' % line.strip(), separator=False)
         return False
 
     return True
 
 
-def update_ib_links(nodelist, user, priv_mode=False, just_check=True,
-                    enable=False, disable=False, permit_cfgfile=None, debug=False):
+def update_ib_links(nodelist, user, args, enable=False, disable=False):
     '''
-    Update the reservation's Infiniband links, if any. 
-    Check if direct IB access is enabled.  
+    Update the reservation's Infiniband links, if any.
+    Check if direct IB access is enabled.
     If so, use IB direct access.
     If not, use the separately installed, privileged scripts.
 
@@ -430,21 +459,24 @@ def update_ib_links(nodelist, user, priv_mode=False, just_check=True,
     '''
     status = True
 
-    if priv_mode and _check_ib_umad_access():
+    if args.priv_ib_access and _check_ib_umad_access():
         log_info('Privileged mode (`-p`), UMADs accessible, using direct IB access')
 
-        status, switch_ports = _get_switch_ports_direct(nodelist, user, debug=debug)
+        status, switch_ports = _get_switch_ports_direct(nodelist, user, debug=args.debug)
         if not status:
             return status
 
-        permitfile = permit_cfgfile if permit_cfgfile else DEFAULT_IB_PERMIT_CFGFILE
+        # Check file access modes
+
+        if not _check_ib_file_access(args.ib_permitfile, IBPORTSTATE_CMD):
+            return False
 
         # Parse the file containing the list of switch GUIDs and port numbers
         # we are permitted to work on
 
-        permit_any, permitted_ports = _parse_ib_permit_file(permitfile, debug)
+        permit_any, permitted_ports = _parse_ib_permit_file(args.ib_permitfile, args.debug)
         if permit_any:
-            log_info('Permit file (`%s`) contains `ANY`,' % permitfile)
+            log_info('Permit file (`%s`) contains `ANY`,' % args.ib_permitfile)
             log_info('  any switch port may be modified')
         else:
             if not _check_ib_ports_permitted(switch_ports, permitted_ports):
@@ -452,19 +484,19 @@ def update_ib_links(nodelist, user, priv_mode=False, just_check=True,
 
         # Update the switch ports via direct IB UMAD access
 
-        status = _control_switch_ports_direct(switch_ports, user, just_check=just_check,
-                                              enable=True, disable=False, debug=debug)
+        status = _control_switch_ports_direct(switch_ports, user, args,
+                                              enable=True, disable=False)
     else:
         log_info('Using privileged shell scripts for IB access')
 
-        status, switch_ports = _get_switch_ports_via_ss(nodelist, user, debug=debug)
+        status, switch_ports = _get_switch_ports_via_ss(nodelist, user, debug=args.debug)
         if not status:
             return status
-        
+
         # Update the switch ports by invoking privileged scripts
 
-        status = _control_switch_ports_via_ss(switch_ports, user, just_check=just_check,
-                                              enable=True, disable=False, debug=debug)
+        status = _control_switch_ports_via_ss(switch_ports, user, args,
+                                              enable=True, disable=False)
     return status
 
 # EOF
