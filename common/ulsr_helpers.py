@@ -20,13 +20,17 @@ from ulsr_constants import (ULSR_RESNAME_PREFIX, ULSR_RESNAME_FIELD_SEPARATOR,
 from ulsr_settings import (SLURM_INSTALL_DIR, SSH_OPTIONS, SUBPROCESS_TIMEOUT,
                            SLURM_AVAILABLE, HIL_AVAILABLE, IB_AVAILABLE,
                            TEST_RESNAME, TEST_NODELIST, TEST_RESDATA, TEST_JOB_DATA,
-                           TEST_PARTITION_DATA)                           
+                           TEST_PARTITION_DATA)
+# $$$ Temporary
+from ulsr_settings import SS_PORTSTATE_CMD
+from ulsr_constants import IBENDIS_PERROR
+
 from ulsr_logging import log_debug, log_info, log_error
 
 
 def _output_stdio_data(fn, stdout_data, stderr_data):
-    log_debug('%s: Stdout  %s' % (fn, stdout_data))
-    log_debug('%s: Stderr  %s' % (fn, stderr_data))
+    log_debug('%s: stdout:  %s' % (fn, stdout_data))
+    log_debug('%s: stderr:  %s' % (fn, stderr_data))
 
 
 def _kill_subprocess(subprocess, timeout, cmd):
@@ -37,14 +41,14 @@ def _kill_subprocess(subprocess, timeout, cmd):
 
 def debug_display_stack(prefix):
     '''
-    Display the call stack, 
+    Display the call stack,
     '''
     stack = format_stack()[:-2]
     for frame in stack:
         log_debug('%s %s' % (prefix, frame.strip()))
 
 
-def exec_subprocess_cmd(cmd, input=None):
+def exec_subprocess_cmd(cmd, input=None, debug=False):
     '''
     Execute a Slurm command in a subprocess and wait for completion
     '''
@@ -54,16 +58,28 @@ def exec_subprocess_cmd(cmd, input=None):
 
     try:
         p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=stdin)
-        timer = Timer(SUBPROCESS_TIMEOUT, _kill_subprocess, [p, timeout, cmd]).start()
+        timer = Timer(SUBPROCESS_TIMEOUT, _kill_subprocess, [p, timeout, cmd])
+        timer.start()
         (stdout_data, stderr_data) = p.communicate(input=input)
         if timeout['value']:
             stderr_data = '[Errno 62] Timer expired'
+        elif p.returncode:
+            log_debug('Subprocess return code %s' % p.returncode)
+            # HACK
+            if SS_PORTSTATE_CMD in cmd:
+                if p.returncode in IBENDIS_PERROR:
+                    stderr_data = '%s (%s)' % (IBENDIS_PERROR[p.returncode], p.returncode)
+                else:
+                    stderr_data = '%s Unknown error (%s)' % (SS_PORTSTATE_CMD, p.returncode)
 
     except Exception as e:
         stdout_data = None
         stderr_data = 'error: Exception on Popen or communicate'
-        log_debug('Exception on Popen or communicate')
-        log_debug('Exception: %s' % e)
+        log_error('`%s` subprocess exec exception' % cmd)
+        log_error('Exception: %s' % e)
+
+    finally:
+        timer.cancel()
 
     if debug:
         fn = _getframe().f_code.co_name
@@ -126,7 +142,7 @@ def exec_scontrol_cmd(action, entity, entity_id=None, debug=True, **kwargs):
     if debug:
         log_debug('exec_scontrol_cmd(): Command  %s' % cmd)
 
-    stdout_data, stderr_data = exec_subprocess_cmd(cmd)
+    stdout_data, stderr_data = exec_subprocess_cmd(cmd, debug=debug)
 
     if debug:
         fn = _getframe().f_code.co_name
@@ -205,10 +221,10 @@ def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None,
     t_end_arg = {'duration': 'UNLIMITED'} if t_end_s is None else {'endtime': t_end_s}
 
     if is_slurm_available():
-        stdout_data, stderr_data = exec_scontrol_cmd('create', 'reservation', 
+        stdout_data, stderr_data = exec_scontrol_cmd('create', 'reservation',
                                                      entity_id=None, debug=debug,
                                                      ReservationName=name, starttime=t_start_s,
-                                                     user=user, nodes=nodes, flags=flags, 
+                                                     user=user, nodes=nodes, flags=flags,
                                                      features=features, **t_end_arg)
     else:
         stdout_data, stderr_data = ('', '')
@@ -221,7 +237,7 @@ def delete_slurm_reservation(name, debug=True):
     Delete a Slurm reservation via 'scontrol delete reservation=<name>'
     '''
     if is_slurm_available():
-        stdout_data, stderr_data = exec_scontrol_cmd('delete', None, debug=debug, 
+        stdout_data, stderr_data = exec_scontrol_cmd('delete', None, debug=debug,
                                                      reservation=name)
     else:
         stdout_data, stderr_data = ('', '')
@@ -329,7 +345,7 @@ def get_nodelist_from_resdata(resdata_dict):
     '''
     Expand and return the nodelist from Slurm reservation data
     '''
-    return (hostlist.expand_hostlist(resdata_dict['Nodes']) if is_slurm_available() 
+    return (hostlist.expand_hostlist(resdata_dict['Nodes']) if is_slurm_available()
             else TEST_NODELIST)
 
 
@@ -337,7 +353,7 @@ def get_reservation_data(resname):
     '''
     Get data on a particular ULSR Slurm reservation
     '''
-    return (get_object_data('reservation', resname, debug=False) if is_slurm_available() 
+    return (get_object_data('reservation', resname, debug=False) if is_slurm_available()
             else TEST_RESDATA)
 
 
@@ -355,7 +371,7 @@ def get_job_data(job_id):
     Get a list of dictionaries of information on the job(s),
     via 'scontrol show job'
     '''
-    return (get_object_data('job', job_id, debug=False) if is_slurm_available() 
+    return (get_object_data('job', job_id, debug=False) if is_slurm_available()
             else TEST_JOB_DATA)
 
 
@@ -369,11 +385,12 @@ def get_ulsr_reservations(debug=False):
         resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
     else:
         if debug:
-            log_debug('Slurm unavailable, returning %s' % TEST_RESDATA)
+            log_info('Slurm unavailable, using test job and reservation data')
+            log_debug('  %s' % TEST_RESDATA)
         resdata_dict_list = TEST_RESDATA
 
     for resdata_dict in resdata_dict_list:
-        if resdata_dict and is_ulsr_reservation(resdata_dict['ReservationName'], 
+        if resdata_dict and is_ulsr_reservation(resdata_dict['ReservationName'],
                                                 None, debug=debug):
             continue
         else:

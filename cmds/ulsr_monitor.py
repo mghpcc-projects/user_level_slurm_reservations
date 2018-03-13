@@ -30,79 +30,107 @@ from ulsr_ib_helpers import update_ib_links
 from ulsr_logging import log_init, log_info, log_debug, log_error
 
 
-def _process_reserve_reservations(hil_client, reserve_res_dict_list, debug=False):
+def _process_reserve_reservations(hil_client, reserve_res_dict_list, priv_ib_access, debug=False):
     '''
     Move nodes reserved in HIL reserve reservation from the HIL Slurm (loaner) project
     to the HIL free pool.
     If successful, update IB links
-    If successful, create the associated Slurm HIL reserve reservation
+    If successful, create the associated ULSR reserve reservation
     '''
     n = 0
     user = getpass.getuser()
+
     for reserve_res_dict in reserve_res_dict_list:
         nodelist = get_nodelist_from_resdata(reserve_res_dict)
         resname = reserve_res_dict['ReservationName']
 
+        # Invoke HIL client to reserve nodes in HIL
+        # If this fails, stop processing this reservation,
+        #  and continue with next reserve reservation
         try:
-            # Invoke HIL client to reserve nodes in HIL
             hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client)
 
-            # Update IB links 
-            status = update_ib_links(nodelist, user, priv_mode=False, 
-                                     enable=True, disable=False, debug=debug)
-
-            # Construct release reservation name and attempt to create
-            release_resname = resname.replace(ULSR_RESERVE, ULSR_RELEASE, 1)
-
-            t_start_s = strftime(RES_CREATE_TIME_FMT, gmtime(time()))
-            t_end_s = reserve_res_dict['EndTime']
-            if t_start_s >= t_end_s:
-                t_end_s = strftime(RES_CREATE_TIME_FMT, 
-                                   gmtime(time() + HIL_RESERVATION_DEFAULT_DURATION))
-
-            # $$$ May want to check for pre-existing reservation with same name
-            stdout_data, stderr_data = create_slurm_reservation(release_resname,
-                                                                reserve_res_dict['Users'],
-                                                                t_start_s, t_end_s,
-                                                                nodes=reserve_res_dict['Nodes'],
-                                                                flags=RES_CREATE_FLAGS,
-                                                                features=RES_CREATE_HIL_FEATURES,
-                                                                debug=debug)
-            log_ulsr_reservation(release_resname, stderr_data, t_start_s, t_end_s)
-            n += 1
         except Exception as e:
-            log_error('HIL reservation failed for nodes in `%s`' % resname)
+            log_error('HIL reservation failed for `%s`' % resname)
             log_debug('  %s' % e)
+            continue
+
+        # Attempt to update IB links 
+        # If this fails, stop processing this reservation,
+        # and continue with the next reservation
+
+        status = update_ib_links(nodelist, user, priv_mode=priv_ib_access,
+                                 enable=True, disable=False, debug=debug)
+        if not status:
+            log_error('Infiniband update failed for `%s`' % resname)
+            continue
+
+        # Construct release reservation name and attempt to create
+
+        release_resname = resname.replace(ULSR_RESERVE, ULSR_RELEASE, 1)
+
+        t_start_s = strftime(RES_CREATE_TIME_FMT, gmtime(time()))
+        t_end_s = reserve_res_dict['EndTime']
+        if t_start_s >= t_end_s:
+            t_end_s = strftime(RES_CREATE_TIME_FMT, 
+                               gmtime(time() + HIL_RESERVATION_DEFAULT_DURATION))
+
+        stdout_data, stderr_data = create_slurm_reservation(release_resname,
+                                                            reserve_res_dict['Users'],
+                                                            t_start_s, t_end_s,
+                                                            nodes=reserve_res_dict['Nodes'],
+                                                            flags=RES_CREATE_FLAGS,
+                                                            features=RES_CREATE_HIL_FEATURES,
+                                                            debug=debug)
+        log_ulsr_reservation(release_resname, stderr_data, t_start_s, t_end_s)
+        n += 1
 
     return n
 
 
-def _process_release_reservations(hil_client, release_res_dict_list, debug=False):
+def _process_release_reservations(hil_client, release_res_dict_list, priv_ib_access, debug=False):
     '''
-    Move nodes reserved in HIL release reservations back to the HIL Slurm (loaner) project,
-    then deleted the associated Slurm HIL release reservation
+    Move nodes reserved in HIL release reservations back to the HIL Slurm (loaner) project
+    If successful, update IB links
+    If successful, delete the associated ULSR release reservation
     '''
     n = 0
+    user = getpass.getuser()
 
     for release_res_dict in release_res_dict_list:
         nodelist = get_nodelist_from_resdata(release_res_dict)
+        release_resname = release_res_dict['ReservationName']
 
         # Attempt to move the node back to the Slurm loaner project
-        # If successful, delete the Slurm (HIL release) reservation
+        # If this fails, stop processing this reservation,
+        #  and continue with the next release reservation
         try:
             hil_free_nodes(nodelist, HIL_SLURM_PROJECT, hil_client)
 
-            release_resname = release_res_dict['ReservationName']
+        except Exception as e:
+            log_error('HIL free operation failed for `%s`', release_resname)
+            log_debug('  %s' % e)
+            continue
+            
+        # Attempt to update IB links
+        # If this fails, stop processing this reservation,
+        #  and continue with the next reservation
 
-            stdout_data, stderr_data = delete_slurm_reservation(release_resname, debug=debug)
-            if (len(stderr_data) == 0):
-                log_info('Deleted HIL release reservation `%s`' % release_resname)
-                n += 1
-            else:
-                log_error('Error deleting HIL release reservation `%s`' % release_resname)
-                log_error(stderr_data)
-        except:
-            log_error('Exception deleting HIL release reservation `%s`' % release_resname)
+        status = update_ib_links(nodelist, user, priv_mode=priv_ib_access,
+                                 enable=False, disable=False, debug=debug)
+        if not status:
+            log_error('Infiniband update failed for `%s`' % resname)
+            continue
+
+        # Delete the release reservation
+
+        stdout_data, stderr_data = delete_slurm_reservation(release_resname, debug=debug)
+        if (len(stderr_data) == 0):
+            log_info('Deleted HIL release reservation `%s`' % release_resname)
+            n += 1
+        else:
+            log_error('Error deleting HIL release reservation `%s`' % release_resname)
+            log_error(stderr_data)
 
     return n
 
@@ -148,13 +176,13 @@ def _parse_arguments():
     parser.add_argument('-c', '--check', action='store_true', dest='just_check',
                         help='Do not modify IB network', default=False)
     parser.add_argument('-d', '--debug', action='store_true', dest='debug',
-                        help='Display debug information', default=False)
+                         default=False, help='Display debug information')
     parser.add_argument('-f', '--file', default=None, 
                         help='Permit file for IB operations')
-    parser.add_argument('-p', '--priv_ib_access', default=None, 
-                        help='Privileged mode, may access IB network directly')
+    parser.add_argument('-p', '--priv_ib_access', action='store_true', default=False,
+                        help='Privileged mode, uses direct IB network access if possible')
     parser.add_argument('-u', '--user',  type=str, dest='ssh_user', default=None, 
-                        help='Username for remote command execution')
+                        help='Username for SSH remote cmd execution')
     return parser.parse_args()
 
 
@@ -177,9 +205,9 @@ def main(argv=[]):
         return
 
     if args.ssh_user:
-        log_info('Remote commands will be run as `%s`' % args.ssh_user)
+        log_info('Remote commands will be run as user `%s`' % args.ssh_user)
     if args.just_check:
-        log_info('Check mode (-c) specified, IB network will not be modified')
+        log_info('Check mode (`-c`) specified, IB network will not be modified')
 
     # Construct a dictionary of ULSR reservation data, keyed by reservation name.
     # Values are reservation data dictionaries
@@ -212,9 +240,9 @@ def main(argv=[]):
         return
 
     n_released = _process_release_reservations(hil_client, release_res_dict_list,
-                                               debug=args.debug)
+                                               args.priv_ib_access, debug=args.debug)
     n_reserved = _process_reserve_reservations(hil_client, reserve_res_dict_list,
-                                               debug=args.debug)
+                                               args.priv_ib_access, debug=args.debug)
     if n_released:
         log_info('ULSR monitor: Processed %s release reservations' % n_released)
     if n_reserved:

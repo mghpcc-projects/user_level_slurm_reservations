@@ -44,7 +44,15 @@ def _hil_client_connect(endpoint_ip, name, pw):
 
 
 def hil_init():
-    return _hil_client_connect(HIL_ENDPOINT, HIL_USER, HIL_PW) if HIL_AVAILABLE else True
+    '''
+    '''
+    if HIL_AVAILABLE:
+        status =_hil_client_connect(HIL_ENDPOINT, HIL_USER, HIL_PW)
+    else:
+        log_info('HIL unavailable, all HIL operations will appear to succeed')
+        status = True
+
+    return status
 
 
 def check_hil_interface():

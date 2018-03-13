@@ -40,11 +40,11 @@ RES_CHECK_PARTITION_STATE = True
 
 # Infiniband Management Settings
 
-IB_AVAILABLE = True
+IB_AVAILABLE = False
 IB_UMAD_DEVICE_DIR = '/dev/infiniband'
 IB_UMAD_DEVICE_NAME_PREFIX = '/dev/infiniband/umad'
 
-DEFAULT_IB_PERMIT_CFGFILE = 'ulsr_ibproxy.conf'
+DEFAULT_IB_PERMIT_CFGFILE = '/usr/local/bin/ulsr_ibproxy.conf'
 
 # Privileged Mode Commands
 
@@ -59,8 +59,8 @@ SS_PORTSTATE_CMD = '/usr/local/bin/ibendis.sh'
 
 # SSH Options
 
-SSH_OPTIONS = ['-o UserKnownHostsFile=/dev/null', '-o StrictHostKeyChecking=no', '-q']
 SSH_OPTIONS = ['-o UserKnownHostsFile=/dev/null', '-o StrictHostKeyChecking=no']
+SSH_OPTIONS = ['-o UserKnownHostsFile=/dev/null', '-o StrictHostKeyChecking=no', '-q']
 
 # Subprocess Timeout (seconds)
 # Subproccesses which do not complete in this time will be killed

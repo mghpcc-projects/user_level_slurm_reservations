@@ -28,5 +28,13 @@ ULSR_RESERVATION_COMMANDS = ['hil_%s' % op for op in ULSR_RESERVATION_OPERATIONS
 ULSR_RESNAME_PREFIX = 'flexalloc_MOC_'
 ULSR_RESNAME_FIELD_SEPARATOR = '_'
 
+# $$$ Temporary
 
+IBENDIS_PERROR = {1: 'Invalid GUID format',
+                  2: 'Invalid port number format',
+                  3: 'Invalid port action',
+                  4: 'Invalid input line',
+                  5: 'Failed GUID / port combination check',
+                  6: 'File checks failed'}
+    
 # EOF
