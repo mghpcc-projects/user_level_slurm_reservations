@@ -55,8 +55,6 @@ def _check_ib_file_access(permit_cfgfile, ib_ctrl_program):
         log_error('IB permit config file not specified, exiting')
         return False, errno.EINVAL
 
-    ow_mode = stat.S_IRWXG | stat.S_IRWXO
-
     this_filename = os.path.abspath(__file__)
     this_dirname = os.path.dirname(this_filename)
     permit_cfgfile_dir = os.path.dirname(os.path.abspath(permit_cfgfile))
@@ -67,20 +65,13 @@ def _check_ib_file_access(permit_cfgfile, ib_ctrl_program):
     for path in file_paths:
         try:
             st = os.stat(path)
-            if (st.st_mode & ow_mode):
+            if (st.st_mode & stat.S_IWOTH):
                 log_error('Path `%s` permissions (%s) too open' %
                           (path, oct(st.st_mode)))
                 return False
         except:
             log_error('File or directory `%s` not found' % path)
             return False
-
-    # Verify IB port control program exists
-    try:
-        st = os.stat(ib_ctrl_program)
-    except:
-        log_error('Infiniband port control program not found')
-        return False
 
     return True
 
