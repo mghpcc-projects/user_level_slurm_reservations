@@ -40,7 +40,7 @@ RES_CHECK_PARTITION_STATE = True
 
 # Infiniband Management Settings
 
-IB_AVAILABLE = False
+IB_AVAILABLE = True
 IB_UMAD_DEVICE_DIR = '/dev/infiniband'
 IB_UMAD_DEVICE_NAME_PREFIX = '/dev/infiniband/umad'
 
