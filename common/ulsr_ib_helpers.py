@@ -17,9 +17,10 @@ import sys
 
 import ulsr_importpath
 
-from ulsr_helpers import generate_ssh_remote_cmd_template, exec_subprocess_cmd
+from ulsr_helpers import (generate_ssh_remote_cmd_template, exec_subprocess_cmd,
+                          is_ib_available)
 
-from ulsr_settings import (IB_AVAILABLE, IB_UMAD_DEVICE_NAME_PREFIX,
+from ulsr_settings import (IB_UMAD_DEVICE_NAME_PREFIX,
                            IBLINKINFO_CMD, IBPORTSTATE_CMD, IBSTAT_CMD,
                            SS_LINKINFO_CMD, SS_PORTSTATE_CMD)
 from ulsr_logging import log_info, log_warning, log_error, log_debug
@@ -457,6 +458,12 @@ def update_ib_links(nodelist, user, args, enable=False, disable=False):
     Begin by obtaining a dictionary of switch GUIDs and port numbers from the
      nodes in the reservation.
     '''
+    # Check if IB access provided
+
+    if not is_ib_available():
+        log_info('Infiniband unavailable, all IB operations will appear to succeed')
+        return True
+
     status = True
 
     if args.priv_ib_access and _check_ib_umad_access():

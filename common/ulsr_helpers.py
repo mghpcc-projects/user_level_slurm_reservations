@@ -39,7 +39,7 @@ def _kill_subprocess(subprocess, timeout, cmd):
     log_error('Subprocess command `%s` timed out after %s seconds' % (cmd, SUBPROCESS_TIMEOUT))
 
 
-def debug_display_stack(prefix):
+def _debug_display_stack(prefix):
     '''
     Display the call stack,
     '''
@@ -50,11 +50,11 @@ def debug_display_stack(prefix):
 
 def exec_subprocess_cmd(cmd, input=None, perror_fn=None, debug=False):
     '''
-    Execute a Slurm command in a subprocess and wait for completion
+    Execute a command in a subprocess and wait for completion or timeout
     '''
     stdin = PIPE if input else None
     timeout = {'value': False}
-    debug = False
+    timer = None
 
     try:
         p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=stdin)
@@ -73,16 +73,17 @@ def exec_subprocess_cmd(cmd, input=None, perror_fn=None, debug=False):
     except Exception as e:
         stdout_data = None
         stderr_data = 'Exception in Popen or communicate'
-        log_error('`%s` subprocess exec exception' % cmd)
-        log_error('Exception: %s' % e)
+        log_error('`%s` subprocess exec exception' % cmd[:3])
 
     finally:
-        timer.cancel()
+        if timer:
+            timer.cancel()
 
-    if debug:
+    if False:
         fn = _getframe().f_code.co_name
         log_debug('%s: cmd is %s' % (fn, cmd))
         _output_stdio_data(fn, stdout_data, stderr_data)
+        _debug_display_stack(cmd)
 
     return stdout_data, stderr_data
 
@@ -118,7 +119,7 @@ def _scontrol_show_stdout_to_dict_list(stdout_data, stderr_data, debug=False):
     return stdout_dict_list
 
 
-def exec_scontrol_cmd(action, entity, entity_id=None, debug=True, **kwargs):
+def exec_scontrol_cmd(action, entity, entity_id=None, debug=False, **kwargs):
     '''
     Build an 'scontrol <action> <entity>' command and pass to an executor
     Specify single-line output to support stdout postprocessing
@@ -137,19 +138,12 @@ def exec_scontrol_cmd(action, entity, entity_id=None, debug=True, **kwargs):
         for k, v in kwargs.iteritems():
             cmd.append('%s=%s' % (k, v))
 
-    if debug:
-        log_debug('exec_scontrol_cmd(): Command  %s' % cmd)
+#   log_debug('exec_scontrol_cmd(): Command  %s' % cmd)
 
-    stdout_data, stderr_data = exec_subprocess_cmd(cmd, debug=debug)
-
-    if debug:
-        fn = _getframe().f_code.co_name
-        _output_stdio_data(fn, stdout_data, stderr_data)
-
-    return stdout_data, stderr_data
+    return exec_subprocess_cmd(cmd, debug=debug)
 
 
-def exec_scontrol_show_cmd(entity, entity_id, debug=True, **kwargs):
+def exec_scontrol_show_cmd(entity, entity_id, debug=False, **kwargs):
     '''
     Run the 'scontrol show' command on the entity and ID
     Convert standard output data to a list of dictionaries, one per line
@@ -175,17 +169,12 @@ def exec_scontrol_show_cmd(entity, entity_id, debug=True, **kwargs):
     }
 
     cmd = 'scontrol show ' + entity
+
     if (len(stderr_data) != 0):
-        log_debug('Command `%s` failed (1)' % cmd)
-        log_debug('  stderr: %s' % stderr_data)
-        debug_display_stack('  ')
+        if debug:
+            log_debug('Command `%s` failed' % cmd)
 
     elif (entity in entity_error_dict) and (entity_error_dict[entity] in stdout_data):
-        if debug:
-            log_debug('Command `%s` failed (2)' % cmd)
-            log_debug('  stderr: %s' % stderr_data)
-            debug_display_stack('  ')
-
         stderr_data = stdout_data
         stdout_data = None
 
@@ -209,7 +198,7 @@ def generate_ssh_remote_cmd_template(user, remote_cmd_s):
 
 
 def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None,
-                             flags=RES_CREATE_FLAGS, features=None, debug=True):
+                             flags=RES_CREATE_FLAGS, features=None, debug=False):
     '''
     Create a Slurm reservation via 'scontrol create reservation'
     '''
@@ -230,7 +219,7 @@ def create_slurm_reservation(name, user, t_start_s, t_end_s, nodes=None,
     return stdout_data, stderr_data
 
 
-def delete_slurm_reservation(name, debug=True):
+def delete_slurm_reservation(name, debug=False):
     '''
     Delete a Slurm reservation via 'scontrol delete reservation=<name>'
     '''
@@ -324,17 +313,17 @@ def is_ulsr_reservation(resname, restype_in, debug=False):
     return True
 
 
-def get_object_data(what_obj, obj_id, debug=True):
+def get_object_data(what_obj, obj_id, debug=False):
     '''
     Get a list of dictionaries of information on the object, via
     'scontrol show <what_object> <object_id>'
     '''
     objdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd(what_obj,
-                                                                         obj_id, debug=False)
+                                                                         obj_id, debug=debug)
     if (len(stderr_data) != 0):
         if debug:
             log_debug('Failed to retrieve data for %s `%s`' % (what_obj, obj_id))
-            log_debug('  %s' % stderr_data)
+            log_debug('  Stderr`: `%s' % stderr_data)
 
     return objdata_dict_list
 
@@ -347,29 +336,29 @@ def get_nodelist_from_resdata(resdata_dict):
             else TEST_NODELIST)
 
 
-def get_reservation_data(resname):
+def get_reservation_data(resname, debug=False):
     '''
     Get data on a particular ULSR Slurm reservation
     '''
-    return (get_object_data('reservation', resname, debug=False) if is_slurm_available()
+    return (get_object_data('reservation', resname, debug=debug) if is_slurm_available()
             else TEST_RESDATA)
 
 
-def get_partition_data(partition_id):
+def get_partition_data(partition_id, debug=False):
     '''
     Get a list of dictionaries of information on the partition(s),
     via 'scontrol show partition'
     '''
-    return (get_object_data('partition', partition_id, debug=False) if is_slurm_available()
+    return (get_object_data('partition', partition_id, debug=debug) if is_slurm_available()
             else TEST_PARTITION_DATA)
 
 
-def get_job_data(job_id):
+def get_job_data(job_id, debug=False):
     '''
     Get a list of dictionaries of information on the job(s),
     via 'scontrol show job'
     '''
-    return (get_object_data('job', job_id, debug=False) if is_slurm_available()
+    return (get_object_data('job', job_id, debug=debug) if is_slurm_available()
             else TEST_JOB_DATA)
 
 
@@ -380,7 +369,8 @@ def get_ulsr_reservations(debug=False):
     resdata_dict_list = []
 
     if is_slurm_available():
-        resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None)
+        resdata_dict_list, stdout_data, stderr_data = exec_scontrol_show_cmd('reservation', None,
+                                                                             debug=debug)
     else:
         if debug:
             log_info('Slurm unavailable, using test job and reservation data')

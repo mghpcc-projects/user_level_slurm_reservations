@@ -197,10 +197,11 @@ def main(argv=[]):
 
     # Look for ULSR reservations.
     # If none found, return
+
     ulsr_reservation_dict_list = get_ulsr_reservations(debug=args.debug)
     if not len(ulsr_reservation_dict_list):
         if args.debug:
-            log_debug('Reservation list empty, nothing to do')
+            log_debug('No ULSR reservations found, nothing to do')
         return
 
     if args.ssh_user:
@@ -217,9 +218,6 @@ def main(argv=[]):
         resname = resdata_dict['ReservationName']
         all_ulsr_reservations_dict[resname] = resdata_dict
 
-    if not len(all_ulsr_reservations_dict):
-        return
-
     # Find singleton RESERVE and RELEASE reservations
     # If none found, there's nothing to do
 
@@ -228,6 +226,8 @@ def main(argv=[]):
     release_res_dict_list = _find_ulsr_singleton_reservations(all_ulsr_reservations_dict, 
                                                               ULSR_RELEASE)
     if not len(reserve_res_dict_list) and not len(reserve_res_dict_list):
+        if args.debug:
+            log_debug('No singleton ULSR reserve or release reservations found')
         return
 
     # Attempt to connect to the HIL server.
@@ -237,6 +237,8 @@ def main(argv=[]):
     if not hil_client:
         log_error('Unable to connect to HIL server `%s` to process HIL reservations' % HIL_ENDPOINT)
         return
+
+    # Process reserve and release reservations
 
     n_released = _process_release_reservations(hil_client, release_res_dict_list, args)
     n_reserved = _process_reserve_reservations(hil_client, reserve_res_dict_list, args)
