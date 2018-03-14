@@ -33,13 +33,13 @@ def _hil_client_connect(endpoint_ip, name, pw):
     Note this call will succeed if the API server is running, but the network server is down           '''
     hil_http_client = RequestsHTTPClient()
     if not hil_http_client:
-        log_error('Unable to create HIL HTTP Client')
+        log_error('Unable to create HIL HTTP client (1)')
         return None
 
     hil_http_client.auth = (name, pw)
     c = Client(endpoint_ip, hil_http_client)
     if not c:
-        log_error('Unable to create HIL client')
+        log_error('Unable to create HIL client (2)')
 
     return c
 
