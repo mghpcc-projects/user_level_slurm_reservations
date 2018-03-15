@@ -18,9 +18,9 @@ ULSR_IB_MGMT_LOGFILE = '/var/log/ulsr/ulsr_ib_mgmt.log'
 # HIL Configuration
 
 HIL_AVAILABLE = False
-HIL_ENDPOINT = "http://10.0.0.16:80"
-HIL_USER = 'admin'
-HIL_PW = 'NavedIsSleepy'
+HIL_ENDPOINT = 
+HIL_USER = 
+HIL_PW = 
 HIL_SLURM_PROJECT = 'slurm'
 
 ULSR_PARTITION_PREFIX = 'ULSR_partition'
@@ -45,6 +45,10 @@ IB_UMAD_DEVICE_DIR = '/dev/infiniband'
 IB_UMAD_DEVICE_NAME_PREFIX = '/dev/infiniband/umad'
 
 DEFAULT_IB_PERMIT_CFGFILE = '/usr/local/bin/ulsr_ibproxy.conf'
+
+IB_DB_URL = 
+IB_DB_KEY = 
+IB_DB_CONTENT_TYPE = 'application/json'
 
 # Privileged Mode Commands
 
