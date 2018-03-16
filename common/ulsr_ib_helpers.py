@@ -19,7 +19,7 @@ import ulsr_importpath
 
 from ulsr_helpers import (generate_ssh_remote_cmd_template, exec_subprocess_cmd,
                           is_ib_available)
-
+from ulsr_ib_db import read_ib_db, write_ib_db
 from ulsr_settings import (IB_UMAD_DEVICE_NAME_PREFIX,
                            IBLINKINFO_CMD, IBPORTSTATE_CMD, IBSTAT_CMD,
                            SS_LINKINFO_CMD, SS_PORTSTATE_CMD)
@@ -180,6 +180,30 @@ def _parse_iblinkinfo_line(node, line):
     port_number = port_number_token.split()[2].strip()
 
     return peer_guid, port_number
+
+
+def _retrieve_ib_port_state(resname, debug=False):
+    '''
+    Retrieve previously-stored IB port state information for the 
+    named reservation
+
+    Should return a dict of the form 
+    {switch1_GUID: {port1_no: 'up' | 'down', ...}, switch2_GUID: {...}, ...}
+    '''
+    rdict = read_ib_db(resname, debug=debug)
+
+    if rdict:
+        return rdict['ibSplist'][0]
+    else:
+        return {}
+
+
+def _save_ib_port_state(resname, switch_ports, debug=False):
+    '''
+    Store IB port state information for the named reservation
+    in the database
+    '''
+    return write_ib_db(resname, switch_ports, debug=debug)
 
 
 def _get_node_ib_ports_direct(nodelist, user, debug=False):
