@@ -19,7 +19,7 @@ MONITOR_SH_FILES := ulsr_monitor.sh
 AUDIT_SH_FILES := ulsr_audit.sh
 COMMAND_SH_FILES := $(PROLOG_SH_FILES) $(MONITOR_SH_FILES) $(AUDIT_SH_FILES)
 
-LIB_PY_FILES = ulsr_hil_client.py ulsr_constants.py ulsr_helpers.py ulsr_logging.py ulsr_settings.py
+LIB_PY_FILES = ulsr_hil_client.py ulsr_constants.py ulsr_helpers.py ulsr_logging.py ulsr_settings.py ulsr_ib_helpers.py ulsr_ib_db.py
 
 DOCS = README.md LICENSE 
 
