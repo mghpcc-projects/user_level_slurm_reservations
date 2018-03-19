@@ -190,12 +190,7 @@ def _retrieve_ib_port_state(resname, debug=False):
     Should return a dict of the form 
     {switch1_GUID: {port1_no: 'up' | 'down', ...}, switch2_GUID: {...}, ...}
     '''
-    rdict = read_ib_db(resname, debug=debug)
-
-    if rdict:
-        return rdict['ibSplist'][0]
-    else:
-        return {}
+    return read_ib_db(resname, debug=debug)
 
 
 def _save_ib_port_state(resname, switch_ports, debug=False):
