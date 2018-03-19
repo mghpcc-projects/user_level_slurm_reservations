@@ -13,35 +13,9 @@ March 2018, Tim Donahue    tdonahue@mit.edu
 import json
 import requests
 from urlparse import urljoin
-from ulsr_settings import IB_DB_URL, IB_DB_KEY, IB_DB_CONTENT_TYPE
+from ulsr_settings import (IB_DB_URL, IB_DB_KEY, IB_DB_CONTENT_TYPE, 
+                           IB_DB_GET_TIMEOUT)
 from ulsr_logging import log_info, log_debug, log_error
-
-
-def _decode_list(data):
-    rv = []
-    for item in data:
-        if isinstance(item, unicode):
-            item = item.encode('utf-8')
-        elif isinstance(item, list):
-            item = _decode_list(item)
-        elif isinstance(item, dict):
-            item = _decode_dict(item)
-        rv.append(item)
-    return rv
-
-def _decode_dict(data):
-    rv = {}
-    for key, value in data.iteritems():
-        if isinstance(key, unicode):
-            key = key.encode('utf-8')
-        if isinstance(value, unicode):
-            value = value.encode('utf-8')
-        elif isinstance(value, list):
-            value = _decode_list(value)
-        elif isinstance(value, dict):
-            value = _decode_dict(value)
-        rv[key] = value
-    return rv
 
 
 def read_ib_db(resname, debug=False):
@@ -49,10 +23,13 @@ def read_ib_db(resname, debug=False):
     Read IB port state for the named reservation using a REST GET
     interface
     '''
+    try:
+        resp = requests.get(urljoin(IB_DB_URL, resname), headers={'X-Api-Key': IB_DB_KEY},
+                            timeout=IB_DB_GET_TIMEOUT)
+    except Exception as e:
+        log_error('GET failed: %s' % e)
+        return {}
 
-# $$$    NEEDS TIMEOUT
-
-    resp = requests.get(urljoin(IB_DB_URL, resname), headers={'X-Api-Key': IB_DB_KEY})
     if not resp.ok:
         log_error('GET failed: `[%s] %s`' % (resp.status_code, resp.reason))
         return {}
@@ -62,21 +39,16 @@ def read_ib_db(resname, debug=False):
         log_error('No port state data found for `%s`' % resname)
         return {}
 
-    # Convert Unicode to ASCII and validate the reservation name
-    switch_ports = resp.json()['ibSplist']
-    print type(switch_ports)
-    return
+    # Decode the response:
+    #   Step 1: JSON => {'ibSplist': Switch port dict string}
+    #   Step 2: Switch port dict string => {Switch port dict}
 
+    rdict = resp.json()
     if (rdict['resId'] != resname):
         log_error('Reservation name mismatch (`%s`)' % rdict['resID'])
         return {}
 
-    del rdict['resId']
-    if 'foo' in rdict:
-        del rdict['foo']
-
-    print json.loads(rdict['ibSplist'])
-    return rdict
+    return json.loads(rdict['ibSplist'])
 
 
 def write_ib_db(resname, switch_ports, debug=False):
@@ -94,7 +66,7 @@ def write_ib_db(resname, switch_ports, debug=False):
     headers = {'X-Api-Key': IB_DB_KEY, 'Content-Type': IB_DB_CONTENT_TYPE}
     resdata = {}
     resdata['resid'] = resname
-    resdata['ib_splist'] = [switch_ports]
+    resdata['ib_splist'] = switch_ports
 
     if True:
         log_debug('Updating IB state for `%s' % resname)
@@ -109,3 +81,10 @@ def write_ib_db(resname, switch_ports, debug=False):
     return status
 
 # EOF
+
+if False:
+    write_ib_db('flexalloc_moc_cc_1000_test1', 
+                {'0x1000200030004000': {'1': 'up', '2': 'down'}, 
+                 '0x1000200030004001': {'3': 'down', '2': 'up'}}, debug=True)
+    switch_ports = read_ib_db('flexalloc_moc_cc_1000_test1', debug=True)
+    print switch_ports
