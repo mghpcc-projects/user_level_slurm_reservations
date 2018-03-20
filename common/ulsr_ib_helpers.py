@@ -171,15 +171,39 @@ def _parse_iblinkinfo_line(node, line):
     '''
     lhs, _, peer_guid_token = line.partition('==>')
 
-    if 'LinkUp' not in lhs:
-        log_error('Down IB link found on %s' % node)
-        return None, None
-
+    if 'LinkUp' in lhs:
+        state = 'up'
+    else:
+        state = 'down'
+        log_warning('Down IB link found on node `%s`' % node)
+    
     peer_guid = peer_guid_token.lstrip()[:18]
     port_number_token, _, _ = peer_guid_token.rpartition('[')
     port_number = port_number_token.split()[2].strip()
 
-    return peer_guid, port_number
+    return peer_guid, port_number, state
+
+
+def _add_port_to_switch_ports(node, line, switch_port_dict):
+    '''
+    Add switch GUID, port number, and port state to the 
+    switch port dictionary
+    '''
+    switch_guid, port_no, port_state = _parse_iblinkinfo_line(node, line)
+    if not switch_guid:
+        log_error('No switch GUID')
+        return False
+
+    if switch_guid in switch_port_dict[node]:
+        if port_no in switch_port_dict[node][switch_guid]:
+            log_error('Duplicate port (%s) node `%s` switch %s' % (port_no, node, switch_guid))
+            return False
+        else:
+            switch_port_dict[node][switch_guid][port_no] = port_state
+    else:
+        switch_port_dict[node][switch_guid] = {port_no: port_state}
+
+    return True
 
 
 def _retrieve_ib_port_state(resname, debug=False):
@@ -263,8 +287,11 @@ def _get_switch_ports_direct(nodelist, user, debug=False):
     # So far as we know, ibportstate accepts a single (GUID, port, verb) tuple
     # Loop over the set of GUIDs and ports and issue one command per (GUID, port)
     #
-    # switch_ports dict format:
-    # {node: {switch1_guid: [port_number, ...], switch2_guid: [...], ...}, node2: {}}
+    # Output switch_ports dict format:
+    # {node1: {switch1_guid: {port_number: 'up' | 'down', port_number: 'up' | 'down'], 
+    #          switch2_guid: {...}, ...}, 
+    #  node2: {switch1_guid: {port_number: 'up' | 'down', port_number: 'up' | 'down'], 
+    #          switch2_guid: {...}, ...
 
     switch_ports = {node: {} for node in nodelist}
 
@@ -286,21 +313,17 @@ def _get_switch_ports_direct(nodelist, user, debug=False):
                 status = False
                 break
 
-            switch_guid, switch_port = _parse_iblinkinfo_line(node, stdout_data.split('\n')[0])
-            if not switch_guid:
-                status = False
+            status = _add_port_to_switch_ports(node, stdout_data.split('\n')[0], switch_ports)
+            if not status:
                 break
-
-            if switch_guid in switch_ports[node]:
-                switch_ports[node][switch_guid].append(switch_port)
-            else:
-                switch_ports[node] = {switch_guid: [switch_port]}
 
         if not status:
             switch_ports = {}
             break
 
-    # {node: {switch1_guid: [port_number, ...], switch2_guid: [...], ...}, node2: {}}
+    # {node1: {switch1_guid: {port1: <state>, ...}, switch2_guid: {port: <state>, ...}}, 
+    #  node2: {switch1_guid: {port1: <state>, ...}, ...}}
+
     return status, switch_ports
 
 
@@ -396,15 +419,11 @@ def _get_switch_ports_via_ss(nodelist, user, debug=False):
             if not line:
                 continue
 
-            switch_guid, switch_port = _parse_iblinkinfo_line(node, line)
-            if not switch_guid:
-                status = False
+            status = _add_port_to_switch_ports(node, line, switch_ports)
+            if not status:
                 break
 
-            if switch_guid in switch_ports[node]:
-                switch_ports[node][switch_guid].append(switch_port)
-            else:
-                switch_ports[node] = {switch_guid: [switch_port]}
+        # All lines processed, check status, return empty dict if error
 
         if not status:
             switch_ports = {}
@@ -431,12 +450,10 @@ def _control_switch_ports_via_ss(switch_ports, user, args, enable=False, disable
     #
     # switch_ports dict format:
     # {node: {switch1_guid: [port_number, ...], switch2_guid: [...], ...}, node2: {}}
-
     cmd_input = ''
-
     for node in switch_ports:
         for switch_guid in switch_ports[node]:
-            for port in switch_ports[node][switch_guid]:
+            for port, state in switch_ports[node][switch_guid].iteritems():
                 cmd_input += '{} {} {}\n'.format(switch_guid, port, verb)
 
     local_cmd = SS_PORTSTATE_CMD
@@ -451,14 +468,15 @@ def _control_switch_ports_via_ss(switch_ports, user, args, enable=False, disable
         # have written to stdout.
         log_error('Failed to update IB switch ports (%s)' % stderr_data)
         if args.debug:
-            for line in stdout_data.split('#'):
-                log_debug('  %s' % line.strip(), separator=False)
+            if stdout_data:
+                for line in stdout_data.split('#'):
+                    log_debug('  Stdout: %s' % line.strip(), separator=False)
         return False
 
     return True
 
 
-def update_ib_links(nodelist, user, args, enable=False, disable=False):
+def update_ib_links(resname, nodelist, user, args, enable=False, disable=False):
     '''
     Update the reservation's Infiniband links, if any.
     Check if direct IB access is enabled.
@@ -514,6 +532,12 @@ def update_ib_links(nodelist, user, args, enable=False, disable=False):
 
         status = _control_switch_ports_via_ss(switch_ports, user, args,
                                               enable=True, disable=False)
+
+    # If all that worked record the prior switch port state in the DB
+    if status:
+        if disable:
+            status = _save_ib_port_state(resname, switch_ports, debug=args.debug)
+            
     return status
 
 # EOF
