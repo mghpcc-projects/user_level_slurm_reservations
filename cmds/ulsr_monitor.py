@@ -60,7 +60,8 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list, args):
         # If this fails, stop processing this reservation,
         # and continue with the next reservation
 
-        status = update_ib_links(nodelist, user, args, enable=True, disable=False)
+        status = update_ib_links(resname, nodelist, user, args, 
+                                 enable=True, disable=False)
         if not status:
             log_error('Infiniband update failed for `%s`' % resname, separator=False)
             continue
