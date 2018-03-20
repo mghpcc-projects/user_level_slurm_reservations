@@ -450,17 +450,20 @@ def _control_switch_ports_via_ss(switch_ports, user, args, enable=False, disable
     #
     # switch_ports dict format:
     # {node: {switch1_guid: [port_number, ...], switch2_guid: [...], ...}, node2: {}}
-    cmd_input = ''
+    cmd_input = []
     for node in switch_ports:
         for switch_guid in switch_ports[node]:
             for port, state in switch_ports[node][switch_guid].iteritems():
-                cmd_input += '{} {} {}\n'.format(switch_guid, port, verb)
+                cmd_input.append('{} {} {}\n'.format(switch_guid, port, verb))
 
     local_cmd = SS_PORTSTATE_CMD
 
-    log_info('IB link control command: `%s %s`' % (local_cmd, cmd_input.strip()))
+    log_info('IB link control command: `%s`' % shlex.split(local_cmd)[0])
+    log_info('Standard input:')
+    for i in cmd_input:
+        log_info('    %s' % i.strip())
 
-    stdout_data, stderr_data = exec_subprocess_cmd(shlex.split(local_cmd), input=cmd_input,
+    stdout_data, stderr_data = exec_subprocess_cmd(local_cmd, input=cmd_input,
                                                    perror_fn=_ss_perror_string,
                                                    debug=args.debug)
     if len(stderr_data):

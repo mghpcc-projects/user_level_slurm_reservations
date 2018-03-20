@@ -48,20 +48,26 @@ def _debug_display_stack(prefix):
         log_debug('%s %s' % (prefix, frame.strip()))
 
 
-def exec_subprocess_cmd(cmd, input=None, perror_fn=None, debug=False):
+def exec_subprocess_cmd(cmd, input=[], perror_fn=None, debug=True):
     '''
     Execute a command in a subprocess and wait for completion or timeout
+    Write to stdin if any input is supplied
+    Command arguments should be elements in the cmd list
     '''
-    stdin = PIPE if input else None
     timeout = {'value': False}
     timer = None
 
+    print 'ESC: cmd %s' % cmd
+    print 'ESC: stdin %s' % input
     try:
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=stdin)
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE if input else None)
+        for i in input:
+            p.stdin.write(i)
+
         timer = Timer(SUBPROCESS_TIMEOUT, _kill_subprocess, [p, timeout, cmd])
         timer.start()
 
-        (stdout_data, stderr_data) = p.communicate(input=input)
+        (stdout_data, stderr_data) = p.communicate()
 
         if timeout['value']:
             stderr_data = '[Errno 62] Timer expired'
@@ -73,7 +79,7 @@ def exec_subprocess_cmd(cmd, input=None, perror_fn=None, debug=False):
     except Exception as e:
         stdout_data = None
         stderr_data = 'Exception in Popen or communicate'
-        log_error('`%s` subprocess exec exception' % cmd[:3])
+        log_error('`%s` subprocess exec exception' % cmd)
 
     finally:
         if timer:
