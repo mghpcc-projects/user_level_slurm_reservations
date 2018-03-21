@@ -68,7 +68,7 @@ def write_ib_db(resname, switch_ports, debug=False):
     resdata['resid'] = resname
     resdata['ib_splist'] = switch_ports
 
-    if True:
+    if debug:
         log_debug('Updating IB state for `%s' % resname)
         log_debug('  %s' % json.dumps(resdata))
 

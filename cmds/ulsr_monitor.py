@@ -47,7 +47,7 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list, args):
 
         # Invoke HIL client to reserve nodes in HIL
         # If this fails, stop processing this reservation,
-        #  and continue with next reserve reservation
+        #  and continue with the next reserve reservation
         try:
             hil_reserve_nodes(nodelist, HIL_SLURM_PROJECT, hil_client)
 
@@ -58,10 +58,12 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list, args):
 
         # Attempt to update IB links 
         # If this fails, stop processing this reservation,
-        # and continue with the next reservation
+        #  and continue with the next reservation
 
-        if not update_ib_links(resname, nodelist, user, args, action=IbAction.IB_DISABLE):
-            log_error('Infiniband update failed for `%s`' % resname, separator=False)
+        action = IbAction.IB_NONE if args.just_check else IbAction.IB_DISABLE
+
+        if not update_ib_links(resname, nodelist, user, args, action):
+            log_error('Infiniband update failed for `%s`' % resname)
             continue
 
         # Construct release reservation name and attempt to create
@@ -115,8 +117,9 @@ def _process_release_reservations(hil_client, release_res_dict_list, args):
         # If this fails, stop processing this reservation,
         #  and continue with the next reservation
 
-        status = update_ib_links(nodelist, user, args, enable=False, disable=False)
-        if not status:
+        action = IbAction.IB_NONE if args.just_check else IbAction.IB_RESTORE
+
+        if not update_ib_links(resname, nodelist, user, args, action):
             log_error('Infiniband update failed for `%s`' % resname)
             continue
 

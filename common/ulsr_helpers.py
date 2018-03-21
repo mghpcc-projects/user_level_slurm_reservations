@@ -73,7 +73,6 @@ def exec_subprocess_cmd(cmd, input=[], perror_fn=None, debug=True):
             stderr_data = '[Errno 62] Timer expired'
 
         elif p.returncode:
-#           print 'OO %s %s' % (stdout_data, p.returncode)
             if perror_fn:
                 stderr_data = perror_fn(cmd, p.returncode)
             else:
