@@ -57,8 +57,8 @@ def exec_subprocess_cmd(cmd, input=[], perror_fn=None, debug=True):
     timeout = {'value': False}
     timer = None
 
-    print 'ESC: cmd %s' % cmd
-    print 'ESC: stdin %s' % input
+#   print 'ESC: cmd %s' % cmd
+#   print 'ESC: stdin %s' % input
     try:
         p = Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=PIPE if input else None)
         for i in input:
@@ -73,8 +73,12 @@ def exec_subprocess_cmd(cmd, input=[], perror_fn=None, debug=True):
             stderr_data = '[Errno 62] Timer expired'
 
         elif p.returncode:
+#           print 'OO %s %s' % (stdout_data, p.returncode)
             if perror_fn:
                 stderr_data = perror_fn(cmd, p.returncode)
+            else:
+                stderr_data = stdout_data
+                stdout_data = None
 
     except Exception as e:
         stdout_data = None

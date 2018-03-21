@@ -19,6 +19,7 @@ import ulsr_importpath
 
 from ulsr_helpers import (generate_ssh_remote_cmd_template, exec_subprocess_cmd,
                           is_ib_available)
+from ulsr_constants import IbAction
 from ulsr_ib_db import read_ib_db, write_ib_db
 from ulsr_settings import (IB_UMAD_DEVICE_NAME_PREFIX,
                            IBLINKINFO_CMD, IBPORTSTATE_CMD, IBSTAT_CMD,
@@ -35,7 +36,7 @@ def _check_ib_umad_access():
     umad_list = glob.glob(umad_name_match_pattern)
 
     if (len(umad_list) == 0):
-        log_error('No Infiniband UMAD devices matching `%s` found' % umad_name_match_pattern)
+        log_info('No Infiniband UMAD devices matching `%s` found' % umad_name_match_pattern)
         return False
 
     for umad in umad_list:
@@ -169,29 +170,32 @@ def _parse_iblinkinfo_line(node, line):
     Note that command 'iblinkinfo -l -D 1' run on a host with multiple IB links does
     not return information for all of the links.
     '''
+#   print 'Line is %s' % line
     lhs, _, peer_guid_token = line.partition('==>')
 
-    if 'LinkUp' in lhs:
-        state = 'up'
-    else:
-        state = 'down'
-        log_warning('Down IB link found on node `%s`' % node)
-    
+    port_state = 'up' if 'LinkUp' in lhs else 'down'
+
     peer_guid = peer_guid_token.lstrip()[:18]
+#   print 'Peer GUID token %s' % peer_guid_token
     port_number_token, _, _ = peer_guid_token.rpartition('[')
+#   print 'Port number token %s' % port_number_token
     port_number = port_number_token.split()[2].strip()
 
-    return peer_guid, port_number, state
+    return peer_guid, port_number, port_state
 
 
 def _add_port_to_switch_ports(node, line, switch_port_dict):
     '''
-    Add switch GUID, port number, and port state to the 
+    Add switch GUID, port number, and port state to the
     switch port dictionary
     '''
     switch_guid, port_no, port_state = _parse_iblinkinfo_line(node, line)
     if not switch_guid:
         log_error('No switch GUID')
+        return False
+
+    if port_state is 'down':
+        log_error('Down IB link found on node `%s`' % node)
         return False
 
     if switch_guid in switch_port_dict[node]:
@@ -206,18 +210,32 @@ def _add_port_to_switch_ports(node, line, switch_port_dict):
     return True
 
 
+def _log_ib_network_stats(switch_ports):
+    '''
+    '''
+    nports = 0
+    nnodes = len(switch_ports)
+    nswitches = sum(len(node) for node in switch_ports.values())
+    for node in switch_ports.values():
+        nports += sum(len(switch) for switch in node.values())
+
+    log_info('Collected IB link info (%s node%s, %s switch%s, %s port%s)' %
+             (nnodes, 's'[nnodes==1:], nswitches, ['','es'][nswitches != 1],
+              nports, 's'[nports==1:]))
+
+
 def _retrieve_ib_port_state(resname, debug=False):
     '''
-    Retrieve previously-stored IB port state information for the 
+    Retrieve previously-stored IB port state information for the
     named reservation
 
-    Should return a dict of the form 
+    Should return a dict of the form
     {switch1_GUID: {port1_no: 'up' | 'down', ...}, switch2_GUID: {...}, ...}
     '''
     return read_ib_db(resname, debug=debug)
 
 
-def _save_ib_port_state(resname, switch_ports, debug=False):
+def _archive_ib_port_state(resname, switch_ports, debug=False):
     '''
     Store IB port state information for the named reservation
     in the database
@@ -266,8 +284,13 @@ def _get_switch_ports_direct(nodelist, user, debug=False):
     obtain the GUIDs of the peer switches, and the port numbers of the peer switch
     ports.
 
-    Return a dict containing the nodes, the switch GUIDs, and the port numbers:
-    {node1: {switch1_guid: [ports], switch2_guid: [ports]}, node2: ...}
+    Return a dict containing the nodes, the switch GUIDs, the port numbers, and
+    the port states:
+    {node1: {switch1_guid: {port1: state, port2: state, ...},
+             switch2_guid: {port1: state, ...}},
+     node2: {switch1_guid: {port1: state, port2: state, ...},
+             switch2_guid: {port1: state, ...}},
+     ...}
 
     RESTRICTIONS:
       1. Works for a single HCA per host
@@ -284,13 +307,13 @@ def _get_switch_ports_direct(nodelist, user, debug=False):
     if not node_ib_ports:
         return False, {}
 
-    # So far as we know, ibportstate accepts a single (GUID, port, verb) tuple
+    # So far as we know, iblinkinfo accepts a single (GUID, port) tuple
     # Loop over the set of GUIDs and ports and issue one command per (GUID, port)
     #
     # Output switch_ports dict format:
-    # {node1: {switch1_guid: {port_number: 'up' | 'down', port_number: 'up' | 'down'], 
-    #          switch2_guid: {...}, ...}, 
-    #  node2: {switch1_guid: {port_number: 'up' | 'down', port_number: 'up' | 'down'], 
+    # {node1: {switch1_guid: {port_number: 'up' | 'down', port_number: 'up' | 'down'],
+    #          switch2_guid: {...}, ...},
+    #  node2: {switch1_guid: {port_number: 'up' | 'down', port_number: 'up' | 'down'],
     #          switch2_guid: {...}, ...
 
     switch_ports = {node: {} for node in nodelist}
@@ -321,7 +344,7 @@ def _get_switch_ports_direct(nodelist, user, debug=False):
             switch_ports = {}
             break
 
-    # {node1: {switch1_guid: {port1: <state>, ...}, switch2_guid: {port: <state>, ...}}, 
+    # {node1: {switch1_guid: {port1: <state>, ...}, switch2_guid: {port: <state>, ...}},
     #  node2: {switch1_guid: {port1: <state>, ...}, ...}}
 
     return status, switch_ports
@@ -408,6 +431,7 @@ def _get_switch_ports_via_ss(nodelist, user, debug=False):
         stdout_data = ''
         stderr_data = ''
         stdout_data, stderr_data = exec_subprocess_cmd(shlex.split(remote_cmd), debug=debug)
+
         if len(stderr_data):
             log_error('Failed to retrieve peer IB switch port info from `%s`, aborting' % node)
             log_error('  %s' % stderr_data)
@@ -418,7 +442,8 @@ def _get_switch_ports_via_ss(nodelist, user, debug=False):
             line = line.strip()
             if not line:
                 continue
-
+#            else:
+#                print 'Line %s' % line
             status = _add_port_to_switch_ports(node, line, switch_ports)
             if not status:
                 break
@@ -430,6 +455,7 @@ def _get_switch_ports_via_ss(nodelist, user, debug=False):
             break
 
     # {node: {switch1_guid: [port_number, ...], switch2_guid: [...], ...}, node2: {}}
+
     return status, switch_ports
 
 
@@ -479,9 +505,9 @@ def _control_switch_ports_via_ss(switch_ports, user, args, enable=False, disable
     return True
 
 
-def update_ib_links(resname, nodelist, user, args, enable=False, disable=False):
+def _X_update_ib_links(resname, nodelist, user, args, enable=False, disable=False):
     '''
-    Update the reservation's Infiniband links, if any.
+    Disable Infiniband links on the nodes in the reservation, if any.
     Check if direct IB access is enabled.
     If so, use IB direct access.
     If not, use the separately installed, privileged scripts.
@@ -503,6 +529,8 @@ def update_ib_links(resname, nodelist, user, args, enable=False, disable=False):
         status, switch_ports = _get_switch_ports_direct(nodelist, user, debug=args.debug)
         if not status:
             return status
+
+        _log_ib_network_stats(switch_ports)
 
         # Check file access modes
 
@@ -531,6 +559,8 @@ def update_ib_links(resname, nodelist, user, args, enable=False, disable=False):
         if not status:
             return status
 
+        _log_ib_network_stats(switch_ports)
+
         # Update the switch ports by invoking privileged scripts
 
         status = _control_switch_ports_via_ss(switch_ports, user, args,
@@ -540,7 +570,128 @@ def update_ib_links(resname, nodelist, user, args, enable=False, disable=False):
     if status:
         if disable:
             status = _save_ib_port_state(resname, switch_ports, debug=args.debug)
-            
+
     return status
+
+
+def update_ib_links(resname, nodelist, user, args, action=IbAction.IB_NONE):
+    '''
+    Update any Infiniband links found to be LinkUp on the nodes in
+    the reservation.
+
+    Actions:
+      IB_NONE: Survey links but take no action
+      IB_DISABLE: Survey links and disable any which are LinkUp,
+                  record prior state in DB
+      IB_RESTORE: Retrieve state from DB, restore any links
+                  which were previously LinkUp
+
+      Reservation information remains in DB.
+    '''
+    status = True
+
+    # Check if IB subsystem is present
+
+    if not is_ib_available():
+        log_info('Infiniband unavailable, all IB operations will appear to succeed')
+        return status
+
+    # Check if we have direct UMAD access and direct access is selected (-p)
+
+    direct_ib_access = True if (args.priv_ib_access and _check_ib_umad_access()) else False
+
+    # Select IB network survey and control functions
+
+    if direct_ib_access:
+        log_info('Privileged mode (`-p`), UMADs accessible, using direct IB access')
+        survey_fn = _get_switch_ports_direct
+        control_fn = _control_switch_ports_direct
+    else:
+        log_info('Using privileged shell scripts for IB access')
+        survey_fn = _get_switch_ports_via_ss
+        control_fn = _control_switch_ports_via_ss
+
+    # Normally, we disable links when creating a reservation and
+    # restore them during reservation deletion.
+    #
+    # After disabling links, save their initial state to a DB
+    # Before restoring links, retrieve their prior state from the DB
+    # Set control prolog / epilog functions appropriately
+    #
+    # Parse the IB permit file before links are disabled or restored
+
+    _restore_prolog_fn, _disable_epilog_fn = None, None
+
+    if (action == IbAction.IB_NONE):
+        pass
+
+    elif (action == IbAction.IB_DISABLE):
+        permit_any, permitted_ports = _parse_ib_permit_file(args.ib_permitfile, args.debug)
+        _disable_epilog_fn = _archive_ib_port_state
+
+    elif (action == IbAction.IB_RESTORE):
+        permit_any, permitted_ports = _parse_ib_permit_file(args.ib_permitfile, args.debug)
+        _restore_prolog_fn = _retrieve_ib_port_state
+
+    else:
+        log_error('Invalid IB control operation selected')
+        return False
+
+    # For each node in the reservation, collect the peer switch GUID, port number,
+    # and link state
+    #
+    # $$$ May want to do this only when IbAction.DISABLE
+    #
+    status, switch_ports = survey_fn(nodelist, user, debug=args.debug)
+    if not status:
+        return status
+
+    _log_ib_network_stats(switch_ports)
+
+    # Check switch and port operations permissions.
+    #
+    # First check if ANY was found in the permit file.
+    #
+    # If ANY was not found, and direct IB access allowed, compare the switches
+    # and ports found against the list we are permitted to work on
+    #
+    # If direct IB access not allowed, leave the permission check to the
+    # privileged shell script
+
+    if permit_any:
+        log_info('Permit file (`%s`) contains `ANY`,' % args.ib_permitfile)
+        log_info('  any switch port may be modified')
+
+    elif direct_ib_access:
+        if not _check_ib_ports_permitted(switch_ports, permitted_ports):
+            return False
+    else:
+        pass
+
+    # Call the prolog, if required, then update switch ports
+
+    if _restore_prolog_fn:
+        prior_switch_ports_state = _restore_prolog_fn(resname, switch_ports)
+        if not prior_switch_ports_state:
+            return False
+        else:
+            switch_ports = prior_switch_ports_state
+
+    if not _control_fn(switch_ports, user, args, action):
+        return False
+
+    # Call the epilog, if required, passing the surveyed network state
+
+    if disable_epilog_fn:
+        status = disable_epilog_fn(resname, switch_ports)
+
+    return status
+
+
+def restore_ib_links(resname, nodelist, user, args):
+    '''
+    '''
+    status = _control_switch_ports_via_ss(switch_ports, user, args, action=IB_RESTORE)
+
 
 # EOF

@@ -28,4 +28,10 @@ ULSR_RESERVATION_COMMANDS = ['hil_%s' % op for op in ULSR_RESERVATION_OPERATIONS
 ULSR_RESNAME_PREFIX = 'flexalloc_MOC_'
 ULSR_RESNAME_FIELD_SEPARATOR = '_'
 
+
+class IbAction(object):
+    IB_NONE = 'none'
+    IB_DISABLE = 'disable'
+    IB_RESTORE = 'restore'
+
 # EOF

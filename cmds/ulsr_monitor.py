@@ -22,7 +22,7 @@ from ulsr_settings import (ULSR_MONITOR_LOGFILE, HIL_ENDPOINT, HIL_SLURM_PROJECT
                            DEFAULT_IB_PERMIT_CFGFILE)
 from ulsr_constants import (SHOW_OBJ_TIME_FMT, ULSR_RESERVE, ULSR_RELEASE,
                             RES_CREATE_FLAGS, RES_CREATE_HIL_FEATURES,
-                            RES_CREATE_TIME_FMT)
+                            RES_CREATE_TIME_FMT, IbAction)
 from ulsr_helpers import (exec_scontrol_show_cmd, parse_ulsr_reservation_name, 
                           create_slurm_reservation, delete_slurm_reservation,
                           get_ulsr_reservations, log_ulsr_reservation,
@@ -60,9 +60,7 @@ def _process_reserve_reservations(hil_client, reserve_res_dict_list, args):
         # If this fails, stop processing this reservation,
         # and continue with the next reservation
 
-        status = update_ib_links(resname, nodelist, user, args, 
-                                 enable=True, disable=False)
-        if not status:
+        if not update_ib_links(resname, nodelist, user, args, action=IbAction.IB_DISABLE):
             log_error('Infiniband update failed for `%s`' % resname, separator=False)
             continue
 
