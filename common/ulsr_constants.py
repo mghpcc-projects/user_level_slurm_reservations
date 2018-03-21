@@ -30,8 +30,8 @@ ULSR_RESNAME_FIELD_SEPARATOR = '_'
 
 
 class IbAction(object):
-    IB_NONE = 'none'
+    IB_NONE = ''
     IB_DISABLE = 'disable'
-    IB_RESTORE = 'restore'
+    IB_RESTORE = 'enable'
 
 # EOF

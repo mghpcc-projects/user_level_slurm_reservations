@@ -295,7 +295,7 @@ def is_ulsr_reservation(resname, restype_in, debug=False):
     prefix, restype, uname, uid, _ = parse_ulsr_reservation_name(resname)
     if (prefix != ULSR_RESNAME_PREFIX):
         if debug:
-            log_error('No ULSR reservation prefix')
+            log_debug('Reservation `%s` lacks ULSR reservation prefix' % resname)
         return False
 
     if restype_in:
@@ -304,15 +304,14 @@ def is_ulsr_reservation(resname, restype_in, debug=False):
                 log_error('Reservation type mismatch')
             return False
     elif restype not in ULSR_RESERVATION_OPERATIONS:
-        log_error('Unknown reservation type')
+        log_error('Unknown reservation type (`%s`)' % restype)
         return False
 
     try:
         pwdbe1 = getpwnam(uname)
         pwdbe2 = getpwuid(int(uid))
         if pwdbe1 != pwdbe2:
-            if debug:
-                log_error('Reservation `%s`: User and UID inconsistent' % resname)
+            log_error('Reservation `%s`: User / UID mismatch' % resname)
             return False
 
     except KeyError:
