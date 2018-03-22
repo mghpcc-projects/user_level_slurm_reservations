@@ -270,7 +270,7 @@ def _ss_perror_string(cmd, exit_code):
     return perror_string
 
 
-def _get_node_ib_ports_direct(nodelist, user, args):
+def _get_node_ib_ports_direct(nodelist, args):
     '''
     Via SSH, issue a remote, UN-privileged IB management command to
     each node in the nodelist. Obtain the number of IB ports and
@@ -279,7 +279,7 @@ def _get_node_ib_ports_direct(nodelist, user, args):
     status = True
     node_ib_ports = {node: [] for node in nodelist}
 
-    ibstat_cmd_template = generate_ssh_remote_cmd_template(user, IBSTAT_CMD)
+    ibstat_cmd_template = generate_ssh_remote_cmd_template(args.ssh_user, IBSTAT_CMD)
 
     for node in nodelist:
         remote_cmd = ibstat_cmd_template.format(node)
@@ -305,7 +305,7 @@ def _get_node_ib_ports_direct(nodelist, user, args):
         return {}
 
 
-def _get_switch_ports_direct(nodelist, user, args):
+def _get_switch_ports_direct(nodelist, args):
     '''
     Via SSH, issue remote IB management command to each node in the nodelist and
     obtain the GUIDs of the peer switches, and the port numbers of the peer switch
@@ -330,7 +330,7 @@ def _get_switch_ports_direct(nodelist, user, args):
     # The length of the port list is the number of ports, which
     # impacts the formatting of the iblinkinfo command
 
-    node_ib_ports = _get_node_ib_ports_direct(nodelist, user, args)
+    node_ib_ports = _get_node_ib_ports_direct(nodelist, args)
     if not node_ib_ports:
         return False, {}
 
@@ -345,7 +345,7 @@ def _get_switch_ports_direct(nodelist, user, args):
 
     switch_ports = {node: {} for node in nodelist}
 
-    ib_cmd_template = generate_ssh_remote_cmd_template(user, IBLINKINFO_CMD)
+    ib_cmd_template = generate_ssh_remote_cmd_template(args.ssh_user, IBLINKINFO_CMD)
 
     for node in nodelist:
 
@@ -379,7 +379,7 @@ def _get_switch_ports_direct(nodelist, user, args):
     return status, switch_ports
 
 
-def _control_switch_ports_direct(switch_ports, user, args, action=IbAction.IB_NONE):
+def _control_switch_ports_direct(switch_ports, args, action=IbAction.IB_NONE):
     '''
     If action is IB_NONE, just perform a 'dry run' (no change), of IB
     switch ports listed in the switch_ports dictionary.
@@ -418,7 +418,7 @@ def _control_switch_ports_direct(switch_ports, user, args, action=IbAction.IB_NO
     return status
 
 
-def _get_switch_ports_via_ss(nodelist, user, args):
+def _get_switch_ports_via_ss(nodelist, args):
     '''
     Via SSH, issue a remote privileged command to each node in the nodelist
     and obtain the GUID of the peer switch, and the port number of the peer
@@ -431,7 +431,7 @@ def _get_switch_ports_via_ss(nodelist, user, args):
       1. Works for a single interface, and single HCA per host
     '''
     status = True
-    ss_cmd_template = generate_ssh_remote_cmd_template(user, SS_LINKINFO_CMD)
+    ss_cmd_template = generate_ssh_remote_cmd_template(args.ssh_user, SS_LINKINFO_CMD)
 
     switch_ports = {node: {} for node in nodelist}
 
@@ -469,7 +469,7 @@ def _get_switch_ports_via_ss(nodelist, user, args):
     return status, switch_ports
 
 
-def _control_switch_ports_via_ss(switch_ports, user, args, action=IbAction.IB_NONE):
+def _control_switch_ports_via_ss(switch_ports, args, action=IbAction.IB_NONE):
     '''
     Enable or disable, or just perform a 'dry run' (no change) of IB switch
     ports listed in the switch_ports directory.
@@ -510,7 +510,7 @@ def _control_switch_ports_via_ss(switch_ports, user, args, action=IbAction.IB_NO
     return True
 
 
-def update_ib_links(resname, nodelist, user, args, action):
+def update_ib_links(resname, nodelist, args, action):
     '''
     Update any Infiniband links found to be LinkUp on the nodes in
     the reservation.
@@ -561,8 +561,6 @@ def update_ib_links(resname, nodelist, user, args, action):
     if (action == IbAction.IB_NONE):
         permit_any = False
 
-        NEED TO FIX PERMIT_ANY
-
     elif (action == IbAction.IB_DISABLE):
         permit_any, permitted_ports = _parse_ib_permit_file(args)
         _disable_epilog_fn = _archive_ib_port_state
@@ -580,7 +578,7 @@ def update_ib_links(resname, nodelist, user, args, action):
     #
     # $$$ May want to do this only when IB_DISABLE
     #
-    status, switch_ports = _survey_fn(nodelist, user, args)
+    status, switch_ports = _survey_fn(nodelist, args)
     if not status:
         return status
 
@@ -606,7 +604,8 @@ def update_ib_links(resname, nodelist, user, args, action):
     else:
         pass
 
-    # Call the prolog, if required, then update switch ports
+    # Call the link control prolog, if required, to:
+    #   Retrieve IB port state information for this reservation
 
     if _restore_prolog_fn:
         prior_switch_ports_state = _restore_prolog_fn(resname, switch_ports)
@@ -615,7 +614,7 @@ def update_ib_links(resname, nodelist, user, args, action):
         else:
             switch_ports = prior_switch_ports_state
 
-    if not _control_fn(switch_ports, user, args, action):
+    if not _control_fn(switch_ports, args, action):
         return False
 
     # Call the epilog, if required, passing the surveyed network state
