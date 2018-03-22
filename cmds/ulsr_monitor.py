@@ -222,12 +222,11 @@ def main(argv=[]):
 
     # Find singleton RESERVE and RELEASE reservations
     # If none found, there's nothing to do
-
     reserve_res_dict_list = _find_ulsr_singleton_reservations(all_ulsr_reservations_dict, 
                                                               ULSR_RESERVE)
     release_res_dict_list = _find_ulsr_singleton_reservations(all_ulsr_reservations_dict, 
                                                               ULSR_RELEASE)
-    if not len(reserve_res_dict_list) and not len(reserve_res_dict_list):
+    if not len(reserve_res_dict_list) and not len(release_res_dict_list):
         if args.debug:
             log_debug('No singleton ULSR reserve or release reservations found')
         return
