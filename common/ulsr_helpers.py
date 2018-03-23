@@ -381,7 +381,7 @@ def get_ulsr_reservations(debug=False):
                                                                              debug=debug)
     else:
         if debug:
-            log_info('Slurm unavailable, using test job and reservation data')
+            log_debug('Slurm unavailable, using test job and reservation data')
             log_debug('  %s' % TEST_RESDATA)
         resdata_dict_list = TEST_RESDATA
 
