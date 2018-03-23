@@ -29,13 +29,21 @@ from ulsr_ib_helpers import update_ib_links
 from ulsr_logging import log_init, log_info, log_debug, log_error
 
 
-def _get_release_resname(resname, res_dict):
+def _get_reserve_resname(release_resname, res_dict):
+    '''
+    '''
+    return release_resname.replace(ULSR_RELEASE, ULSR_RESERVE, 1)
+
+
+def _get_release_resname(reserve_resname, res_dict):
     '''
     Construct a release reservation name from the passed
     reserve reservation name.  Return release reservation name,
     reservation start time, and reservation end time
+
+    $$$ RELEASE RESERVATION SHOULD NOT TIME OUT
     '''
-    release_resname = resname.replace(ULSR_RESERVE, ULSR_RELEASE, 1)
+    release_resname = reserve_resname.replace(ULSR_RESERVE, ULSR_RELEASE, 1)
 
     t_start_s = strftime(RES_CREATE_TIME_FMT, gmtime(time()))
     t_end_s = res_dict['EndTime']
@@ -67,9 +75,6 @@ def _process_ulsr_reservations(hil_client, res_dict_list, restype, args):
         log_error('Invalid reservation type (`%s`)' % restype)
         return
 
-    if args.just_check:
-        action = IbAction.IB_NONE
-
     # Process each reservation dict in the list of reservation dicts
 
     for res_dict in res_dict_list:
@@ -89,17 +94,18 @@ def _process_ulsr_reservations(hil_client, res_dict_list, restype, args):
         # Update IB links
         # Disable if reserve reservation, restore if release reservation
 
-        if not update_ib_links(resname, nodelist, args, ib_action):
+        ib_resname = (resname if (restype == ULSR_RESERVE) else 
+                      _get_reserve_resname(resname, res_dict))
+
+        if not update_ib_links(ib_resname, nodelist, args, ib_action):
             log_error('Infiniband update failed for `%s`' % resname)
             continue
 
-        # Postprocessing 
-        # If a reserve reservation, create the Slurm delete reservation
-        # If a release reservation, delete the Slurm delete reservation
+        # If processing a reserve reservation, create the release reservation.
+        # If processing a release reservation, delete the release reservation.
         
         if (restype == ULSR_RESERVE):
             release_resname, t_start_s, t_end_s = _get_release_resname(resname, res_dict)
-            print release_resname
             stdout_data, stderr_data = create_slurm_reservation(release_resname,
                                                                 res_dict['Users'],
                                                                 t_start_s, t_end_s,
