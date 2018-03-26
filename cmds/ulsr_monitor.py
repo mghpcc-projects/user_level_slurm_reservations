@@ -41,14 +41,13 @@ def _get_release_resname(reserve_resname, res_dict):
     reserve reservation name.  Return release reservation name,
     reservation start time, and reservation end time
 
-    $$$ RELEASE RESERVATION SHOULD NOT TIME OUT
+    To prevent the release reservation from timing out, set the 
+    end_time_s to None, which should force 'Duration=Unlimited'
     '''
     release_resname = reserve_resname.replace(ULSR_RESERVE, ULSR_RELEASE, 1)
 
     t_start_s = strftime(RES_CREATE_TIME_FMT, gmtime(time()))
-    t_end_s = res_dict['EndTime']
-    if t_start_s >= t_end_s:
-        t_end_s = strftime(RES_CREATE_TIME_FMT, gmtime(time() + HIL_RESERVATION_DEFAULT_DURATION))
+    t_end_s = None
 
     return release_resname, t_start_s, t_end_s
 
@@ -102,7 +101,6 @@ def _process_ulsr_reservations(hil_client, res_dict_list, restype, args):
             continue
 
         # If processing a reserve reservation, create the release reservation.
-        # If processing a release reservation, delete the release reservation.
         
         if (restype == ULSR_RESERVE):
             release_resname, t_start_s, t_end_s = _get_release_resname(resname, res_dict)
@@ -117,6 +115,9 @@ def _process_ulsr_reservations(hil_client, res_dict_list, restype, args):
             n += 1
 
         else: 	# restype == ULSR_RELEASE
+
+            # If processing a release reservation, delete the release reservation.
+
             stdout_data, stderr_data = delete_slurm_reservation(resname, debug=args.debug)
             if (len(stderr_data) == 0):
                 log_info('Deleted ULSR release reservation `%s`' % resname)
