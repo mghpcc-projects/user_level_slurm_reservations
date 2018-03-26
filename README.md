@@ -1,15 +1,16 @@
 # MOC HIL User Level Slurm Reservations (ULSR)
 
-V3.1  8-Jan-2018
+V3.2  26-Mar-2018
 
 # Introduction
 
 ULSR software allows a non-privileged Slurm user to reserve Slurm
-compute nodes for HIL operations.  The nodes may be later released and
-returned to the pool of Slurm compute nodes for use by others.
+compute nodes for HIL operations, including bare-metal operations.
+The nodes may be later released and returned to the pool of Slurm
+compute nodes for use by others.
 
-At present, two commands, run in the Slurm batch scheduler
-environment, are used to manage Slurm HIL ULSR reservations:
+Two user-level commands, run in the Slurm batch scheduler environment,
+manage ULSR node reservations:
 
   * ```hil_reserve```
   * ```hil_release```
@@ -17,18 +18,21 @@ environment, are used to manage Slurm HIL ULSR reservations:
 These commands are executed as Slurm jobs via ```srun(1)``` and
 ```sbatch(1).```
 
-Other software components perform HIL node and network management
-operations on nodes reserved and freed using the above commands.  The 
-primary function of the ULSR software is to automate these operations
-so that privileged user or administrator intervention is not required.
+Other software components perform HIL node management, Ethernet
+network management, and Infiniband network management operations on
+nodes reserved and freed using the above commands.  
+
+The primary function of the ULSR software is to automate these
+operations so that privileged user or administrator intervention is
+not required.  The 
 
 ## Supported Targets
 
-ULSR is supported on CentOS 7 on x86_64 systems, using Python 2.7.  It
-may work on Red Hat Enterprise Linux, but it has not been tested in
-that distribution environment.
+ULSR is supported on CentOS 7 on x86_64 systems, using Python 2.7 and
+Slurm release 15 or greater.  It may work on Red Hat Enterprise Linux,
+but it has not been tested in that distribution environment.
 
-## Usage
+## Creating a Reservation
 
 To reserve a HIL node, specify the ```hil_reserve``` command as a job
 to the Slurm ```srun(1)``` or ```sbatch(1)``` command:
@@ -47,29 +51,33 @@ should appear:
 ReservationName=flexalloc_MOC_reserve_centos_1000_1498512332
 StartTime=2017-06-26T21:25:32 EndTime=2017-06-27T21:25:32
 Duration=1-00:00:00 Nodes=server1 NodeCnt=1 CoreCnt=1 Features=(null)
-PartitionName=(null) Flags=MAINT,IGNORE_JOBS,S PEC_NODES,ALL_NODES
+PartitionName=(null) Flags=MAINT,IGNORE_JOBS,SPEC_NODES,ALL_NODES
 TRES=cpu=1 Users=centos Accounts=(null) Licenses=(null) State=ACTIVE
 BurstBuffer=(null) Watts=n/a 
 ```
-This is called the ULSR reserve reservation.  The name token
+This is called the ULSR reserve reservation.  The name component
 ```1000``` corresponds to the UID of the ```centos``` user, whereas
-the name token ```1498512332``` is the integer portion of the Unix
+the name component ```1498512332``` is the integer portion of the Unix
 epoch time when the reservation was created.
 
-Some time later, after the periodic execution of the ULSR monitor, a
-paired release reservation similiar to the following should appear:
+Some time later, after the execution of the ULSR periodic monitor
+(described in more detail below), a paired release reservation
+similiar to the following should appear:
 
 ```
 ReservationName=flexalloc_MOC_release_centos_1000_1498512630
-StartTime=2017-06-26T21:30:30 EndTime=2017-06-27T21:30:30
-Duration=1-00:00:00 Nodes=server1 NodeCnt=1 CoreCnt=1 Features=(null)
-PartitionName=(null) Flags=MAINT,IGNORE_JOBS,S PEC_NODES,ALL_NODES
+StartTime=2017-06-26T21:30:30 EndTime=2018-06-27T21:30:29
+Duration=365-00:00:00 Nodes=server1 NodeCnt=1 CoreCnt=1 Features=(null)
+PartitionName=(null) Flags=MAINT,IGNORE_JOBS,SPEC_NODES,ALL_NODES
 TRES=cpu=1 Users=centos Accounts=(null) Licenses=(null) State=ACTIVE
 BurstBuffer=(null) Watts=n/a 
 ```
 
-Note that Slurm allows these reservations to temporally overlap due to
-the use of the ```MAINT``` flag during reservation creation.
+The reserve and release reservations overlap in time.  The Slurm
+scheduler allows this when the ```MAINT``` flag is specified during
+reservation creation.
+
+## Releasing a Reservation
 
 When finished, to release a HIL node, specify the ```hil_release```
 command to ```srun(1)``` or ```sbatch(1)```, additionally specifying
@@ -79,38 +87,48 @@ run the job:
 ```
 $ srun --reservation=flexalloc_MOC_reserve_centos_1000_1498512332 hil_release
 ```
-This will ultimately remove both the reserve and release reservations.
+This should ultimately remove both the reserve and release reservations.
 
-Note that failure to specify ```--reservation=<name>``` as an
-argument, e.g., without the leading ```--``` characters, will cause
-the job to be queued, waiting for resources.
-
-## Resource Sharing
-
-Nodes placed in a Slurm HIL reservation are marked as exclusive and
-may not be shared among users.
+Note that failure to specify ```--reservation=<name>``` as an argument
+will cause the job to be queued, waiting for resources.  It will not
+delete the reserve reservation nor free the reserved nodes.
 
 ## Reservation Naming
 
-HIL reservations created using ```hil_reserve``` are named as follows:
+ULSR reservations created using ```hil_reserve``` are named as follows:
 ```
-flexalloc_MOC_reserve_<username>_<uid>_<Unix epoch time 1>
+flexalloc_MOC_reserve_<username>_<uid>_<Unix epoch time>
 ```
 and
 ```
-flexalloc_MOC_release_<username>_<uid>_<Unix epoch time 2>
+flexalloc_MOC_release_<username>_<uid>_<Unix epoch time>
 ```
 An example:
 ```
 flexalloc_MOC_reserve_centos_1000_1498497632
 ```
-In the first case, ```Unix epoch time 1``` corresponds to the start
-time of the reservation, or approximately at the time the
-```srun hil_reserve``` command is executed.   
+In the first case, the ```Unix epoch time``` corresponds to the start
+time of the reservation, or approximately at the time the ```srun
+hil_reserve``` command is executed.
 
-In the second case, ```Unix epoch time 2``` corresponds to the time at
-which the periodic reservation monitor runs after the ```srun hil
-reserve``` command is executed.
+In the second case, the ```Unix epoch time``` is taken from the
+corresponding reserve reservation.
+
+## Slurm Reservation Creation
+
+The ULSR reserve and release reservations are not created nor deleted
+by the ```hil_reserve``` and ```hil_release``` commands.  Rather, the
+ULSR reservations are created and deleted *as a consequence* of the
+user running the ```hil_reserve``` and ```hil_release``` command.  The
+actual creation and deletion operations are carried out on behalf of
+the end user by Slurm control software, specifically a Slurm control
+daemon prolog, a control daemon epilog, and a separate periodic
+processor known as the ```ULSR monitor```.
+
+## Resource Sharing
+
+Nodes placed in a Slurm HIL reservation are marked as exclusive and
+may not be shared among users.
 
 ## Restrictions on User Names and UIDs
 
@@ -119,27 +137,27 @@ hil_reserve``` command.  The user's name and UID are passed to the
 Slurmctld prolog and epilog through the ```SLURM_JOB_USER``` and
 ```SLURM_JOB_UID``` environment variables.
 
-Priviliged users may specify the user ID with which to create Slurm
+Priviliged users may specify the user ID with which to create ULSR
 reservations by specifying the ```--uid=<name>``` argument.  It is
 recommended that the ```srun``` and ```sbatch``` commands **not** be
-specified with the ```--uid``` argument, however, as processing Slurm
-HIL reservations with alternate or additional user names has not been
+specified with the ```--uid``` argument, however, as processing ULSR
+reservations with alternate or additional user names has not been
 tested.
 
 At present, only the user named in the reservation may release the
 reservation via ```hil_release```.  Of course, a privileged user may
-update or delete reservations using ```scontrol```, but the system
-state after such an operation will be **undefined**.
+update or delete reservations using ```scontrol```, **but the system
+state after such an operation will be undefined**.
 
 ## Reservation Start and End Times
 
 The reserve and release reservation start times may differ from the
-time at which the ```hil_reserve``` command is run.  Reservations are
-created by the ```slurmctld``` prolog and epilog and the ULSR periodic
-monitor only when the requested resources become available and the job
-is scheduled for execution.  Thus the reservation start times may be
-substantially different from the time-of-day at which the ```srun```
-command is invoked.
+time at which the ```hil_reserve``` command is run.  This is because
+reservations are created by the ```slurmctld``` prolog and epilog and
+the ULSR periodic monitor only when the requested resources become
+available and the job is scheduled for execution.  Thus the
+reservation start times may be substantially different from the
+time-of-day at which the ```srun``` command is invoked.
 
 
 ## Two-Screen Management Model
@@ -149,11 +167,11 @@ functions and to the HIL management functions.  The nodes exist in
 both the Slurm partition and the HIL partition simultaneously, in
 advance of any reservation and release operations.
 
-In the Slurm partition, nodes marked with the HIL property and perhaps
-otherwise designated by system administration may be thought of as
-either available for loan to HIL, or actually on loan to a HIL and
-either available for use in a HIL end user project, or in use in a HIL
-end user project:
+In the Slurm domain and more specifically in a Slurm partition, nodes
+marked with the ```HIL``` property and perhaps otherwise designated by
+system administration may be thought of as either available for loan
+to HIL, or actually on loan to a HIL and either available for use in a
+HIL end user project, or in use in a HIL end user project:
 
   * Nodes which have been placed in a Slurm HIL reservation may be
     considered as on loan to HIL.  They may exist in the HIL free pool
@@ -171,30 +189,67 @@ end user to run HIL management commands to cause the server node to
 fully participate in a HIL user project.  This requirement may be
 interpreted as consistent with a 'two-screen' management model.
 
+
 # HIL Project Operations
+
+The Slurm gang scheduler schedules jobs among shared compute
+resources.  By contrast, the Hardware Isolation Layer, or HIL,
+automates allocation and management of bare-metal compute resources to
+users.  Nodes which are eligible for loan via ULSR must be part of 
+a Slurm partition and a HIL cluster simultaneously.
+
+ULSR control components interact with HIL to isolate nodes, including
+from shared Ethernet networks.  From a HIL user's perspective, nodes
+placed in or released from a ULSR reservation are moved between HIL
+projects and the HIL free pool.
+
+See [the HIL page](https://massopen.cloud/blog/project-hil/) for more
+information on HIL.
 
 # Network Operations
 
+Generally, nodes placed in a ULSR reservation are isolated from
+attached Ethernet and Infiniband networks.  Upon release, network
+connections to ULSR nodes are restored to their prior state.
+
 ## Ethernet
 
-To be supplied.
+Ethernet network management operations are performed by HIL on behalf
+of the ULSR control software.  The ULSR control software initiates HIL
+operations via the HIL client API.
+
+For more information on HIL network management, refer to the [HIL
+documentation](https://github.com/CCI-MOC/hil/blob/master/README.rst).
 
 ## Infiniband
 
-By default, during a reserve operation, the Infiniband interfaces on
-each reserved compute nodes will be shut down at the far end.
+By default, Infiniband network isolation and restoration operations
+are performed by a set of separate, privileged utilities.  These are
+implemented in a way which is designed to minimize the amount of
+software which must be installed with elevated privileges.
+
+These privileged utilities ultimately rely on [Linux RDMA / Infiniband
+diags](https://github.com/linux-rdma) package utilities to perform
+Infiniband device operations.  Specifically, the ```iblinkinfo(8)```
+and ```ibportstate(8)``` commands are used.
+
+Optionally, the ULSR control software (and Infiniband devices) may be
+configured such that Infiniband diags utilities are invoked directly
+by the ULSR control software, with requiring installation of the
+privileged utilities.
+
+By default, during a ULSR reserve operation, the Infiniband interfaces
+on each reserved compute node will be shut down, by shutting down the
+port of the attached Infiniband switch.  This blocks unauthorized
+access to the Infiniband network by the ULSR node borrower.
 
 Shutdown is accomplished by spawning a remote shell on each reserved
 compute node and invoking the ```ibportstate ... disable``` command,
 specifying the Infiniband links and switches which connect to the
 compute node.
 
-Whether Infiniband interfaces are shut down or not modified is
-controlled by the value of the ```DISABLE_IB_LINKS``` parameter in the
-```ulsr_settings.py``` file.
-
-How Infiniband interfaces are restored after release of ULSR resources
-is to be determined.
+During such time as the ULSR reservation exists, initial Infiniband
+network state is stored in an external database, as described below.
 
 # Assumptions, Restrictions, Notes
 
@@ -214,7 +269,7 @@ ULSR software:
   3. The Slurm controller node in the partition is not available for
   HIL operations and is **not** marked with the ```HIL``` feature.
 
-  4. HIL nodes may be released from a HIL reservation through
+  4. Nodes may be released from a ULSR reservation through
   ```hil_release```, even though they are not up and running Linux.
   Some error messages may appear in the Slurmctld log file.  Note that
   detailed system behavior has not been fully evaluated and is likely
@@ -224,7 +279,7 @@ ULSR software:
 
   6. The ```hil_reserve``` and ```hil_release``` commands must be
   available on both the Slurm controller node and on the compute nodes
-  which form the target of the HIL bare node operations.  This is
+  which form the target of the ULSR bare node operations.  This is
   accomplished during the ULSR software installation process.
 
 
