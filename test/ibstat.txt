@@ -1,0 +1,17 @@
+CA 'mlx4_0'
+	CA type: MT4099
+	Number of ports: 1
+	Firmware version: 2.40.7000
+	Hardware version: 0
+	Node GUID: 0xf45214030095cdc0
+	System image GUID: 0xf45214030095cdc3
+	Port 1:
+		State: Active
+		Physical state: LinkUp
+		Rate: 56
+		Base lid: 28
+		LMC: 0
+		SM lid: 5
+		Capability mask: 0x02594868
+		Port GUID: 0xf45214030095cdc1
+		Link layer: InfiniBand

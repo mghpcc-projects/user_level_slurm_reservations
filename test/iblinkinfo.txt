@@ -1,0 +1,4 @@
+0xf452140300f55051 "              ib-test-7 mlx4_0"     37    1[  ] == ( 4X       14.0625 Gbps Active/  LinkUp)==>  0xf45214030067c630      5   16[  ] "MF0;switch-e1be74:SX6036/U1" ( )
+0xf452140300f55052 "              ib-test-7 mlx4_0"     37    1[  ] == ( 4X       14.0625 Gbps Active/  LinkUp)==>  0xf45214030067c631      5   17[  ] "MF0;switch-e1be74:SX6036/U1" ( )
+0xf452140300f55053 "              ib-test-7 mlx4_0"     37    1[  ] == ( 4X       14.0625 Gbps Active/  LinkUp)==>  0xf45214030067c630      5   18[  ] "MF0;switch-e1be74:SX6036/U1" ( )
+
