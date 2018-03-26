@@ -21,7 +21,7 @@ from ulsr_helpers import (generate_ssh_remote_cmd_template, exec_subprocess_cmd,
                           is_ib_available)
 from ulsr_constants import IbAction
 from ulsr_ib_db import read_ib_db, write_ib_db
-from ulsr_settings import (IB_UMAD_DEVICE_NAME_PREFIX,
+from ulsr_settings import (IB_UMAD_DEVICE_NAME_PREFIX, IB_FAIL_ON_DOWN_LINKS,
                            IBLINKINFO_CMD, IBPORTSTATE_CMD, IBSTAT_CMD,
                            SS_LINKINFO_CMD, SS_PORTSTATE_CMD)
 from ulsr_logging import log_info, log_warning, log_error, log_debug
@@ -192,8 +192,12 @@ def _add_port_to_switch_ports(node, line, switch_port_dict):
         return False
 
     if (port_state == 'down'):
-        log_error('Down IB link found on node `%s`' % node)
-        return False
+        s = 'Down IB link found on node `%s`' % node
+        if IB_FAIL_ON_DOWN_LINKS:
+            log_error(s)
+            return False
+        else:
+            log_warning(s)
 
     if switch_guid in switch_port_dict[node]:
         if port_no in switch_port_dict[node][switch_guid]:
