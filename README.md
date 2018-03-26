@@ -58,9 +58,9 @@ BurstBuffer=(null) Watts=n/a
 This is called the ULSR reserve reservation.  The name component
 ```1000``` corresponds to the UID of the ```centos``` user, whereas
 the name component ```1498512332``` is the integer portion of the Unix
-epoch time when the reservation was created.
+epoch time captured during reservation creation.
 
-Some time later, after the execution of the ULSR periodic monitor
+Some time later, after execution of the ULSR periodic monitor
 (described in more detail below), a paired release reservation
 similiar to the following should appear:
 
@@ -73,16 +73,16 @@ TRES=cpu=1 Users=centos Accounts=(null) Licenses=(null) State=ACTIVE
 BurstBuffer=(null) Watts=n/a 
 ```
 
-The reserve and release reservations overlap in time.  The Slurm
-scheduler allows this when the ```MAINT``` flag is specified during
-reservation creation.
+Note that the reserve and release reservations are for the same set of
+nodes and overlap in time.  The Slurm scheduler allows this when the
+```MAINT``` flag is specified during reservation creation.
 
 ## Releasing a Reservation
 
 When finished, to release a HIL node, specify the ```hil_release```
 command to ```srun(1)``` or ```sbatch(1)```, additionally specifying
-**the HIL reserve reservation name** as the reservation in which to
-run the job:
+the HIL reserve reservation name as the reservation in which to run
+the job:
 
 ```
 $ srun --reservation=flexalloc_MOC_reserve_centos_1000_1498512332 hil_release
@@ -90,8 +90,8 @@ $ srun --reservation=flexalloc_MOC_reserve_centos_1000_1498512332 hil_release
 This should ultimately remove both the reserve and release reservations.
 
 Note that failure to specify ```--reservation=<name>``` as an argument
-will cause the job to be queued, waiting for resources.  It will not
-delete the reserve reservation nor free the reserved nodes.
+may cause the job to be queued, waiting for resources.  It is unlikely
+to delete the reserve reservation or free the reserved nodes.
 
 ## Reservation Naming
 
@@ -107,28 +107,25 @@ An example:
 ```
 flexalloc_MOC_reserve_centos_1000_1498497632
 ```
-In the first case, the ```Unix epoch time``` corresponds to the start
-time of the reservation, or approximately at the time the ```srun
-hil_reserve``` command is executed.
+In the first case, the ```<Unix epoch time>``` corresponds to the
+start time of the reservation, or approximately at the time the
+```srun hil_reserve``` command is executed.
 
-In the second case, the ```Unix epoch time``` is taken from the
+In the second case, the ```<Unix epoch time>``` is taken from the
 corresponding reserve reservation.
 
 ## Slurm Reservation Creation
 
 The ULSR reserve and release reservations are not created nor deleted
-by the ```hil_reserve``` and ```hil_release``` commands.  Rather, the
-ULSR reservations are created and deleted *as a consequence* of the
-user running the ```hil_reserve``` and ```hil_release``` command.  The
-actual creation and deletion operations are carried out on behalf of
-the end user by Slurm control software, specifically a Slurm control
-daemon prolog, a control daemon epilog, and a separate periodic
-processor known as the ```ULSR monitor```.
+directly by the ```hil_reserve``` and ```hil_release``` commands.
+Rather, the ULSR reservations are created and deleted *as a
+consequence* of the user running the ```hil_reserve``` and
+```hil_release``` commands.  
 
-## Resource Sharing
-
-Nodes placed in a Slurm HIL reservation are marked as exclusive and
-may not be shared among users.
+The actual creation and deletion operations are carried out on behalf
+of the end user by Slurm control software, specifically a Slurm
+control daemon prolog, a control daemon epilog, and a separate
+periodic processor (```cron``` job) known as the ```ULSR monitor```.
 
 ## Restrictions on User Names and UIDs
 
@@ -145,9 +142,12 @@ reservations with alternate or additional user names has not been
 tested.
 
 At present, only the user named in the reservation may release the
-reservation via ```hil_release```.  Of course, a privileged user may
-update or delete reservations using ```scontrol```, **but the system
-state after such an operation will be undefined**.
+reservation via ```hil_release```.  Of course, a privileged Slrum user
+may update or delete Slurm / ULSR reservations using the
+```scontrol``` command, **but the ULSR system state after such an
+operation will be undefined and may pose a security risk**.
+Furthermore, complete network restoration will likely require action
+by system administrators.
 
 ## Reservation Start and End Times
 
@@ -155,38 +155,42 @@ The reserve and release reservation start times may differ from the
 time at which the ```hil_reserve``` command is run.  This is because
 reservations are created by the ```slurmctld``` prolog and epilog and
 the ULSR periodic monitor only when the requested resources become
-available and the job is scheduled for execution.  Thus the
-reservation start times may be substantially different from the
-time-of-day at which the ```srun``` command is invoked.
+available and the job is scheduled for execution.
 
+## Resource Sharing
+
+Nodes placed in a Slurm HIL reservation are marked as exclusive and
+may not be shared among users.
 
 ## Two-Screen Management Model
 
 All HIL nodes are known, by common names, to the Slurm management
-functions and to the HIL management functions.  The nodes exist in
-both the Slurm partition and the HIL partition simultaneously, in
-advance of any reservation and release operations.
+functions and to the HIL management functions.  The nodes must exist
+in both the Slurm partition and the HIL partition simultaneously, in
+advance of any ULSR reservation and release operations.
 
-In the Slurm domain and more specifically in a Slurm partition, nodes
+In the Slurm domain and, more specifically, in a Slurm partition nodes
 marked with the ```HIL``` property and perhaps otherwise designated by
-system administration may be thought of as either available for loan
-to HIL, or actually on loan to a HIL and either available for use in a
-HIL end user project, or in use in a HIL end user project:
+system administration may be thought of as either available 'for loan'
+to HIL, or actually 'on loan' to a HIL. They are either available for
+use in a HIL end user project, or are in use in a HIL end user project:
 
-  * Nodes which have been placed in a Slurm HIL reservation may be
-    considered as on loan to HIL.  They may exist in the HIL free pool
-    or be allocated to a HIL project and a HIL end user.
+  * Nodes which have been placed in a ULSR reservation may be
+    considered as 'on loan' to HIL.  In the HIL domain they may exist
+    in a reserved HIL project, the HIL free pool, or in HIL end user
+    project.
 
-  * Nodes which are not in a Slurm HIL reservation, but which are
-    marked with the ```HIL``` property, may be considered as available
-    for loan to HIL instance. They do not reside in the HIL free pool, 
-    but reside in a special HIL project.  This project is referred to
-    as the 'Slurm project' or the 'Slurm loaner project'.
+  * Nodes which are not in a ULSR reservation, but which are marked
+    with the ```HIL``` property, may be considered as available for
+    loan to HIL end user. They do not reside in the HIL free pool, but
+    reside in a special HIL project.  This project is referred to as
+    the 'ULSR project' or the 'ULSR loaner project'.
 
-Once a Slurm server node has been placed in a Slurm HIL reservation
-through the use of ```hil_reserve```, it may be necessary for the HIL
-end user to run HIL management commands to cause the server node to
-fully participate in a HIL user project.  This requirement may be
+Once a Slurm node has been placed in a ULS reservation through the use
+of ```hil_reserve```, it is necessary for the HIL end user to run HIL
+management commands to cause the server node to fully participate in a
+HIL user project.  The decription of these commands is beyond the
+scope of this document.  Nevertheless, this requirement may be
 interpreted as consistent with a 'two-screen' management model.
 
 
@@ -195,8 +199,8 @@ interpreted as consistent with a 'two-screen' management model.
 The Slurm gang scheduler schedules jobs among shared compute
 resources.  By contrast, the Hardware Isolation Layer, or HIL,
 automates allocation and management of bare-metal compute resources to
-users.  Nodes which are eligible for loan via ULSR must be part of 
-a Slurm partition and a HIL cluster simultaneously.
+users.  As described, nodes which are eligible for loan via ULSR must
+be part of a Slurm partition and a HIL cluster simultaneously.
 
 ULSR control components interact with HIL to isolate nodes, including
 from shared Ethernet networks.  From a HIL user's perspective, nodes
@@ -263,8 +267,9 @@ ULSR software:
   2. Slurm compute nodes must be marked with the ```HIL``` feature in
   order to be placed in a ULSR reservation.  Features are defined in
   the ```slurm.conf``` file or may be added to a node by a privileged
-  user via the ```scontrol update``` command.  Refer to the Slurm
-  documentation for a description of how to do this.
+  user via the ```scontrol update``` command.  Refer to the [scontrol
+  man page](https://slurm.schedmd.com/scontrol.html) for more
+  information on using node features.
 
   3. The Slurm controller node in the partition is not available for
   HIL operations and is **not** marked with the ```HIL``` feature.
@@ -279,19 +284,21 @@ ULSR software:
 
   6. The ```hil_reserve``` and ```hil_release``` commands must be
   available on both the Slurm controller node and on the compute nodes
-  which form the target of the ULSR bare node operations.  This is
-  accomplished during the ULSR software installation process.
-
+  which form the target of the ULSR reservations. This is a
+  requirement of the Slurm job scheduler and the ```sbatch(1)``` and
+  ```srun(1)``` commands.  Distribution of ```hil_reserve``` and
+  ```hil_release``` is accomplished during the ULSR software
+  installation process.
 
 # Logging
 
 Slurm and the HIL reservation system maintain several log files which
-may be reviewed as necessary to gain insight into system behavior.
+archive system behavior.  These are:
 
   * The Slurm control daemon (```slurmctld```) running on the Slurm
-  controller node writes to a log file, the location of which is
-  defined by the ```SlurmctldLogFile``` parameter in the
-  ```slurm.conf``` file.
+    controller node writes to a log file, the location of which is
+    defined by the ```SlurmctldLogFile``` parameter in the
+    ```slurm.conf``` file.
 
   * HIL reservation operations performed by the Slurmctld prolog and
     epilog are logged to a file on the Slurm controller node.  The
@@ -306,7 +313,7 @@ may be reviewed as necessary to gain insight into system behavior.
   ```/var/log/ulsr/ulsr_monitor.log```. 
 
   * The HIL server writes to ```/var/log/hil.log```.  Note the HIL
-    server may or may not reside on Slurm controller node.
+    server typically does not reside on the Slurm controller node.
 
 
 # Implementation Details
@@ -323,18 +330,22 @@ consists of the following:
   the context of the Slurm control daemon on the Slurm controller
   node.
 
-  3. One or more periodic processors, scheduled by ```cron(8)```,
-  which monitor the set of Slurm reservations and invoke HIL control
-  operations to move nodes between HIL projects and the HIL free pool.
+  3. A periodic processor, scheduled by ```cron(8)```. This monitors
+  Slurm ULSR reservations and performs HIL operations to move nodes
+  between HIL projects and the HIL free pool, and Infiniband control
+  operations to isolate and restore loaned nodes.
 
   4. A MOC HIL client interface, used by the ULSR code to remotely
   execute HIL commands on the nodes placed into and freed from HIL
-  reservations, and on the switches terminating the physical network
-  links which interconnect the nodes.
+  reservations, and on the Ethernet switches terminating the physical
+  network links which interconnect the nodes.
+
+  5. An external database, used to maintain Infiniband network state
+ during the time nodes are on loan.
 
   5. A Slurm partition instance.
 
-  6. A MOC HIL ULSR cluster instance.
+  6. A MOC HIL cluster instance.
 
 
 ## Workflow and Functional Partitioning
