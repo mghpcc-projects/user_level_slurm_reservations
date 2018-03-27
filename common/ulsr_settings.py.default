@@ -6,18 +6,22 @@ ULSR Control Settings
 May 2017, Tim Donahue	tdonahue@mit.edu
 """
 
+# Directory in which Slurm commands (scontrol etc.) reside
+
 SLURM_INSTALL_DIR = '/usr/local/bin/'
 
-# Log files
+# ULSR log file names and locations
 
 ULSR_SLURMCTLD_PROLOG_LOGFILE = '/var/log/ulsr/ulsr_prolog.log'
 ULSR_MONITOR_LOGFILE = '/var/log/ulsr/ulsr_monitor.log'
 ULSR_AUDIT_LOGFILE = '/var/log/ulsr/ulsr_audit.log'
-ULSR_IB_MGMT_LOGFILE = '/var/log/ulsr/ulsr_ib_mgmt.log'
 
 # HIL Configuration
+# 
+# HIL_ENDPOINT is the HIL server address
+# HIL_USER and HIL_PW are server access credentials
+# HIL_SLURM_PROJECT is the name of Slurm / ULSR loaner project
 
-HIL_AVAILABLE = False
 HIL_ENDPOINT = ''
 HIL_USER = ''
 HIL_PW = ''
@@ -25,13 +29,20 @@ HIL_SLURM_PROJECT = 'slurm'
 
 ULSR_PARTITION_PREFIX = 'ULSR_partition'
 
+# Test setting - True is HIL server is available
+HIL_AVAILABLE = True
+
 # Slurm Reservation Times
 
+ULSR_RESERVATION_DEFAULT_DURATION = 7 * 24 * 60 * 60    # 7 days, in seconds
+ULSR_RESERVATION_GRACE_PERIOD = 1 * 24 * 60 * 60	# 1 day , in seconds
+
+# Test setting - True if Slurm is available
 SLURM_AVAILABLE = False
-ULSR_RESERVATION_DEFAULT_DURATION = 24 * 60 * 60        # Seconds
-ULSR_RESERVATION_GRACE_PERIOD = 4 * 60 * 60		# Seconds
 
 # Partition validation controls
+#
+# Perform optional checks on the Slurm partition
 
 RES_CHECK_DEFAULT_PARTITION = False
 RES_CHECK_EXCLUSIVE_PARTITION = False
@@ -39,30 +50,47 @@ RES_CHECK_SHARED_PARTITION = False
 RES_CHECK_PARTITION_STATE = True
 
 # Infiniband Management Settings
+#
+# IB_UMAD_DEVICE_DIR - Directory where IB management device resides
+# IB_UMAD_DEVICE_NAME_PREFIX - Base name of Infiniband UMAD
+# DEFAULT_IB_PERMIT_CFGFILE - Path to file containing list of permitted GUIDs and ports
+# IB_FAIL_ON_DOWN_LINKS - Stop IB operations and reservation processing if a 'down' IB
+#                           link is found
 
-IB_AVAILABLE = True
 IB_UMAD_DEVICE_DIR = '/dev/infiniband'
 IB_UMAD_DEVICE_NAME_PREFIX = '/dev/infiniband/umad'
 DEFAULT_IB_PERMIT_CFGFILE = '/usr/local/bin/ulsr_ibproxy.conf'
 IB_FAIL_ON_DOWN_LINKS = True
+
+# Test setting - True if Infiniband network is available
+IB_AVAILABLE = True
+
+# Infiniband State Database
+#
+# IB_DB_URL - DB access URL
+# IB_DB_KEY - DB access key
+# IB_DB_CONTENT_TYPE - Content encoding
+# IB_DB_GET_TIMEOUT - Maximum time wait for HTTP GET response
 
 IB_DB_URL = ''
 IB_DB_KEY =  ''
 IB_DB_CONTENT_TYPE = 'application/json'
 IB_DB_GET_TIMEOUT = 10
 
-# Privileged Mode Commands
+# Infiniband Management Commands - Untrusted Mode
+
+SS_LINKINFO_CMD = '/usr/local/bin/iblinkinfo_me.sh'
+SS_PORTSTATE_CMD = '/usr/local/bin/ibendis.sh'
+
+# Infiniband Management Commands - Trusted Privileged Mode
 
 IBLINKINFO_CMD = '/usr/sbin/iblinkinfo -l -D 0 -P'
 IBPORTSTATE_CMD = '/usr/sbin/ibportstate'
 IBSTAT_CMD = '/usr/sbin/ibstat -p'
 
-# Untrusted Mode Commands
-
-SS_LINKINFO_CMD = '/usr/local/bin/iblinkinfo_me.sh'
-SS_PORTSTATE_CMD = '/usr/local/bin/ibendis.sh'
-
 # SSH Options
+#
+# Supplied with remote commands for IB control operations
 
 SSH_OPTIONS = ['-o UserKnownHostsFile=/dev/null', '-o StrictHostKeyChecking=no']
 SSH_OPTIONS = ['-o UserKnownHostsFile=/dev/null', '-o StrictHostKeyChecking=no', '-q']
