@@ -2,16 +2,31 @@
 
 # Installation Guide
 
-V1.1  5-Jane-2018
+V2.0  27-Mar-2018
 
 
-NOTE: The following assumes Slurm version 15 or greater is installed
-and running in the cluster.   For background on Slurm installation
-refer to the following links:
+## Assumptions and Prerequisites
+
+1. Slurm version 15 or greater is installed and running in the
+cluster.  For background on Slurm installation refer to the following
+links:
 
   * [How to Install Slurm on CentOS 7 Cluster](https://www.slothparadise.com/how-to-install-slurm-on-centos-7-cluster/)
 
   * [Slurm on CentOS 7](https://bitsanddragons.wordpress.com/2016/08/22/slurm-on-centos-7/)
+
+2. MassOpenCloud (MOC) Hardware Interface Layer (HIL) software is
+installed and aware of all the nodes eligible for ULSR loans.
+
+3. Node naming is common among HIL and Slurm.  This implies, but does
+not require, use of DNS.
+
+4. All nodes eligible for ULSR loan, when operating as part of Slurm
+cluster before ULSR software installation, have access to a filesystem
+also shared with the Slurm control node.
+
+
+## Install ULSR Software
 
 The ULSR software is installed in four main steps:
 
