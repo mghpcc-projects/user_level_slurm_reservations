@@ -332,8 +332,9 @@ consists of the following:
 
   3. A periodic processor, scheduled by ```cron(8)```. This monitors
   Slurm ULSR reservations and performs HIL operations to move nodes
-  between HIL projects and the HIL free pool, and Infiniband control
-  operations to isolate and restore loaned nodes.
+  between HIL user projects, the HIL free pool, the HIL ULSR loaner
+  project.  The monitor also performs Infiniband control operations to
+  isolate and restore loaned nodes on the Infiniband network.
 
   4. A MOC HIL client interface, used by the ULSR code to remotely
   execute HIL commands on the nodes placed into and freed from HIL
@@ -368,7 +369,9 @@ release reservations
     * Interacts with the HIL client to reboot the nodes in the ULSR reserve
 reservation, disconnect those nodes from all networks, and move those
 nodes from the Slurm loaner project to the HIL free pool.
-    * Creates ULSR release reservation
+    * Disables Infiniband network connections to each node.
+    * Saves prior Infiniband network state in a database.
+    * Creates the ULSR release reservation.
 
 If a failure is detected by the periodic monitor, the reserve
 reservation will not be created, and the periodic monitor will retry
@@ -385,7 +388,7 @@ $ srun hil_release --reservation <HIL reserve reservation>
 ULSR software actions:
 
   * Slurm Control Daemon ULSR Epilog (running as the Slurm user):
-     * Detects 'hil_release' command and reservation in which the command was run
+     * Detects 'hil_release' command and the name of the reserve reservation in which the command was run 
      * Deletes the Slurm HIL reserve reservation
 
   * ULSR Periodic Monitor:
@@ -393,6 +396,8 @@ ULSR software actions:
      * Interacts with the HIL client to reboot the nodes in the ULSR release
 reservation, disconnect these nodes from all networks, and move these
 nodes from the HIL free pool back to the Slurm loaner project.
+     * Retrieves prior Infiniband network state from the database
+     * Restores Infiniband network state.
 
 
 ## HIL Reservation Management Commands
@@ -449,13 +454,13 @@ The HIL reservation monitor runs periodically on the Slurm controller
 node, as a ```cron(8)``` job, and looks for changes in Slurm HIL ULSR
 reservations.  More specifically, the reservation monitor:
 
-    * Looks for ULSR reserve reservations which do not have
-      corresponding release reservations.  Each such Slurm reservation
-      found represents a new ULSR reservation.
+  * Looks for ULSR reserve reservations which do not have
+   corresponding release reservations.  Each such Slurm reservation
+   found represents a new ULSR reservation.
 
-    * Looks for ULSR release reservations which do not have reserve
-      reservations.  Each such Slurm reservation found identifies a
-      ULSR reservation which has been released by the Slurm user.
+  * Looks for ULSR release reservations which do not have reserve
+    reservations.  Each such Slurm reservation found identifies a
+    ULSR reservation which has been released by the Slurm user.
 
 For each singleton release reservation found, the HIL reservation
 monitor:
@@ -487,21 +492,20 @@ include:
   * Add a node to a HIL project, or remove a node from a HIL project
   * Connect a node to a network or disconnect node from a network
 
-## Development Branching Strategy
 
-The initial source code management strategy involves use of a single
-Git repository and multiple, parallel development branches:
+## Fault Detection and Recovery
 
-  1. The ```master``` branch is considered (relatively) stable and is
-  used as the source for ULSR releases.
+Generally, the periodic reservation monitor will stop processing a
+ULSR reservation upon encountering an error during a Slurm operation,
+a HIL operation, or an Infiniband network operation.  
 
-  2. The ```development``` branch is the common line of development
-  and serves as both the source of, and merge destination for, feature
-  development branches created and used by individual developers.
+Reserve processing will stop before the corresponding release
+reservation is created.  Likewise, release processing will stop before
+the release reservation is deleted.  In this way, the monitor will
+retry the failed operations when it is again scheduled to run.
 
-  3. Individual development branches, per-developer and/or
-  per-feature, which merge back to the ```development`` branch. These
-  should be named in a way which includes the owner's user ID.
-
+Note this behavior will continue indefinitely; currently there is no
+limit on the number of times the monitor will retry a reserve or
+release operation.
 
 <EOF>
