@@ -4,9 +4,8 @@ MassOpenCloud / Hardware Isolation Layer (MOC/HIL)
 HIL Client Interface
 
 August 2017, Tim Donahue	tdonahue@mit.edu
+             Naved Ansari   naved001@bu.edu
 """
-
-import urllib
 
 import time
 
@@ -16,6 +15,7 @@ from ulsr_logging import log_info, log_debug, log_error
 from ulsr_settings import HIL_ENDPOINT, HIL_USER, HIL_PW, OBM_NIC, \
  OBM_NETWORK, MAINTENANCE_PROJECT
 from ulsr_helpers import is_hil_available
+from requests import ConnectionError
 
 # timeout ensures that networking actions are completed in a resonable time.
 HIL_TIMEOUT = 20
@@ -66,14 +66,16 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
     Cause HIL nodes to move from the 'from' project to the HIL free pool.
     Typically, the 'from' project is the Slurm loaner project.
 
-    This methods first powers off the nodes, then disconnects all networks,
-    then moves the node from the 'from' project to the free pool.
+    This method does some state checking and corrections before proceeding:
 
-    We power off the nodes before removing the networks because the IPMI
-    network is also controlled by HIL. If we removed all networks, then we will
-    not be able to perform any IPMI operations on nodes.
+    1. If a node is already in the free pool, it skips processing it.
+    2. If the node is not in the from_project, them a project mismatch error
+    is raised. Though, a node can be in the maintenance project.
+    3. The nodes are connected to the obm_network, and powered off.
+    4. Then the obm_networks are removed.
+    5. Finally, the nodes are moved to the HIL free pool. At this stage, all nodes
+    are powered off.
 
-    If this method is called, the nodes moved to the free pool will be powered off.
     '''
     if not is_hil_available():
         return
@@ -130,14 +132,20 @@ def hil_free_nodes(nodelist, to_project, hil_client=None):
     Cause HIL nodes to move from the HIL free pool and maintenance-project
     to the 'to' project. Typically, the 'to' project is the Slurm loaner project.
 
-    We connect the obm_network while the nodes are in maintenance-project to
-    poweroff the nodes, and then put them in the `to_project`.
+    This method does some state checking and corrections before proceeding:
 
-    With maintenance-project enabled in HIL, when a non-admin user releases their
-    node, it will always go to the maintenance-project rather than the free pool directyl.
-    hil_reserve_nodes will poweroff any nodes that are in the maintenance-project before
-    putting them in the free pool.
-    '''
+    1. If the ndoe is already in the to_project, skip any processing.
+    2. if the node doesn't belong to the free pool, and is not in the maintenance
+    pool, then we *forcibly* remove it from that project and put it in the maintenance project.
+    3. For nodes, that are in the free pool, put them in the maintenance project.
+    4. When all nodes are in the maintennace project. Do the the following:
+        * Connect them to the OBM_network.
+        * Power off the nodes.
+        * Remove the obm network
+        * Remove the nodes from the maintenance project.
+    5. Connect the nodes to the to_project.
+
+     '''
 
     if not is_hil_available():
         return
@@ -159,11 +167,16 @@ def hil_free_nodes(nodelist, to_project, hil_client=None):
         if (project == to_project):
             log_info('HIL release: Node `%s` already in `%s` project, skipping' % (node, to_project))
             nodelist.remove(node)
-        elif (project is not None):
-            log_info('Node %s is not in the free pool! skipping.' % node)
-            nodelist.remove(node)
+        elif (project is not None and project != MAINTENANCE_PROJECT):
+            # if a node was not in the free pool or the maintenance project.
+            # we remove it from that project, which puts it in the maintenance pool.
+            log_info('Node %s is not in the free pool' % node)
+            _remove_all_networks(hil_client, node)
+            _ensure_no_networks(hil_client, node)
+            remove_node_from_project(hil_client, node, project)
         else:
-            # put the nodes in the maintenance project
+            # if the node was in the free pool, then put it in the
+            # maintenance project
             connect_node_to_project(hil_client, node, MAINTENANCE_PROJECT)
 
     for node in nodelist:
