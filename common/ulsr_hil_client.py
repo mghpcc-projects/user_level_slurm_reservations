@@ -252,7 +252,6 @@ def _is_network_connected(hil_client, node, network, channel):
 
 def show_node(hil_client, node):
     """Returns node information and takes care of handling exceptions"""
-    import pdb; pdb.set_trace()
     try:
         node_info = hil_client.node.show(node)
         return node_info
