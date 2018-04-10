@@ -211,9 +211,13 @@ def _remove_all_networks(hil_client, node):
             try:
                 hil_client.port.port_revert(switch, port)
                 log_info('Removed all networks from node `%s`' % node)
-            except (FailedAPICallException, ConnectionError) as e:
+            except FailedAPICallException as e:
                 log_error('Failed to revert port `%s` on node `%s` switch `%s`' % (port, node, switch))
                 raise HILClientFailure(e)
+            except ConnectionError as e:
+                log_error("_remove_all_networks: Couldn't connect to HIL server.")
+                raise HILClientFailure(e)
+
 
 
 def _ensure_no_networks(hil_client, node):
@@ -268,10 +272,11 @@ def show_node(hil_client, node):
     try:
         node_info = hil_client.node.show(node)
         return node_info
-    except (FailedAPICallException, ConnectionError) as e:
-        # log a note for the admins, and the exact exception before raising
-        # an error.
+    except FailedAPICallException as e:
         log_error('show_node for %s failed', node)
+        raise HILClientFailure(e)
+    except ConnectionError as e:
+        log_error("Show Node: Couldn't connect to HIL server.")
         raise HILClientFailure(e)
 
 
@@ -279,8 +284,11 @@ def power_off_node(hil_client, node):
     try:
         hil_client.node.power_off(node)
         log_info('Node `%s` succesfully powered off' % node)
-    except (FailedAPICallException, ConnectionError) as e:
+    except FailedAPICallExceptionas e:
         log_error('Unable to power off node `%s`' % node)
+        raise HILClientFailure(e)
+    except ConnectionError as e:
+        log_error("power_off_node: Couldn't connect to HIL server.")
         raise HILClientFailure(e)
 
 
@@ -288,8 +296,11 @@ def remove_node_from_project(hil_client, node, project):
     try:
         hil_client.project.detach(project, node)
         log_info('Node `%s` removed from project `%s`' % (node, project))
-    except (FailedAPICallException, ConnectionError) as e:
+    except FailedAPICallException as e:
         log_error('Unable to detach node `%s` from project `%s`' % (node, project))
+        raise HILClientFailure(e)
+    except ConnectionError as e:
+        log_error("remove_node_from_project: Couldn't connect to HIL server.")
         raise HILClientFailure(e)
 
 
@@ -297,6 +308,9 @@ def connect_node_to_project(hil_client, node, project):
     try:
         hil_client.project.connect(project, node)
         log_info('Node `%s` connected to project `%s`' % (node, project))
-    except (FailedAPICallException, ConnectionError) as e:
+    except FailedAPICallException as e:
         log_error('Unable to connect node `%s` to project `%s`' % (node, project))
+        raise HILClientFailure(e)
+    except ConnectionError as e:
+        log_error("connect_node_to_project: Couldn't connect to HIL server.")
         raise HILClientFailure(e)
