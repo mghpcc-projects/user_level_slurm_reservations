@@ -26,6 +26,9 @@ HIL_ENDPOINT = ''
 HIL_USER = ''
 HIL_PW = ''
 HIL_SLURM_PROJECT = 'slurm'
+MAINTENANCE_PROJECT = 'maintenance'
+OBM_NIC='eth1'
+OBM_NETWORK='obm_network'
 
 ULSR_PARTITION_PREFIX = 'ULSR_partition'
 
@@ -107,7 +110,7 @@ from ulsr_constants import ULSR_RESNAME_PREFIX
 TEST_USER = 'cc'
 TEST_UID = '1000'
 
-TEST_RESNAME = ULSR_RESNAME_PREFIX + 'reserve' + '_' 
+TEST_RESNAME = ULSR_RESNAME_PREFIX + 'reserve' + '_'
 TEST_RESNAME += TEST_USER + '_' + TEST_UID + '_' + '1520606201'
 
 TEST_NODELIST = ['ib-test-2',]
@@ -115,11 +118,11 @@ TEST_NODELIST = ['ib-test-2',]
 TEST_RESDATA = [{'Users': TEST_USER, 'Nodes': TEST_NODELIST, 'ReservationName': TEST_RESNAME,
                  'StartTime': '2018-01-01T00:00:00', 'EndTime': '2018-12-31T23:59:59'}]
 
-TEST_JOB_DATA = [{'JobName': 'hil_reserve', 'TimeLimit': 'UNLIMITED', 
+TEST_JOB_DATA = [{'JobName': 'hil_reserve', 'TimeLimit': 'UNLIMITED',
                   'StartTime': '2018-01-01T00:00:00', 'EndTime': '2018-12-31T23:59:59',
                   'Reservation': TEST_RESNAME}]
 
-TEST_PARTITION_DATA = [{'Shared': 'NO', 'ExclusiveUser': 'YES', 'Default': 'NO', 
+TEST_PARTITION_DATA = [{'Shared': 'NO', 'ExclusiveUser': 'YES', 'Default': 'NO',
                         'State': 'UP', 'PartitionName': ULSR_PARTITION_PREFIX}]
 
 # EOF
