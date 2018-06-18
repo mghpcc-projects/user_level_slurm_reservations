@@ -21,20 +21,18 @@ import requests
 from os.path import realpath, dirname, isfile, join
 import uuid
 
-libdir = realpath(join(dirname(inspect.getfile(inspect.currentframe())), '../common'))
+libdir = realpath(
+    join(dirname(inspect.getfile(inspect.currentframe())), '../common'))
 sys.path.append(libdir)
 
-import hil_slurm_client
+import ulsr_hil_client
 
 
 # Some constants useful for tests
 nodelist = ['slurm-compute1', 'slurm-compute2', 'slurm-compute3']
-hil_client = hil_slurm_client.hil_init()
+hil_client = ulsr_hil_client.hil_init()
 to_project = 'slurm'
 from_project = 'slurm'
-
-bad_hil_client = hil_slurm_client.hil_client_connect('http://127.3.2.1',
-                                                     'baduser', 'badpassword')
 
 
 class TestHILReserve:
@@ -43,30 +41,16 @@ class TestHILReserve:
     def test_hil_reserve_success(self):
         """test the regular success scenario"""
 
-        # should raise an error if <from_project> doesn't add up.
-        with pytest.raises(hil_slurm_client.ProjectMismatchError):
-            random_project = str(uuid.uuid4())
-            hil_slurm_client.hil_reserve_nodes(nodelist, random_project, hil_client)
-
         # should run without any errors
-        hil_slurm_client.hil_reserve_nodes(nodelist, from_project, hil_client)
-
-        # should raise error if a bad hil_client is passed
-        with pytest.raises(requests.ConnectionError):
-            hil_slurm_client.hil_reserve_nodes(nodelist, from_project, bad_hil_client)
+        ulsr_hil_client.hil_reserve_nodes(nodelist, from_project, hil_client)
 
 
 class TestHILRelease:
     """Test various hil_release cases"""
-    def test_hil_release(self):
-        # should raise error if a bad hil_client is passed
-        with pytest.raises(requests.ConnectionError):
-            hil_slurm_client.hil_free_nodes(nodelist, to_project, bad_hil_client)
 
-        # calling it with a functioning hil_client should work
-        hil_slurm_client.hil_free_nodes(nodelist, to_project, hil_client)
+    def test_hil_release(self):
+        ulsr_hil_client.hil_free_nodes(nodelist, to_project, hil_client)
 
         # At this point, nodes are already owned by the <to_project>
         # calling it again should have no affect.
-        hil_slurm_client.hil_free_nodes(nodelist, to_project, hil_client)
-
+        ulsr_hil_client.hil_free_nodes(nodelist, to_project, hil_client)
