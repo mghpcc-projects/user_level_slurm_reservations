@@ -33,7 +33,7 @@ def hil_client_connect(endpoint_ip, name, pw):
     """"
     Returns an instance of HIL client.
 
-    This call does now check (or connect to) the HIL server.
+    This call does not check (or connect to) the HIL server.
     """
     hil_http_client = RequestsHTTPClient()
     if not hil_http_client:
