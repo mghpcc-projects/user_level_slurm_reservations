@@ -29,12 +29,8 @@ class ProjectMismatchError(Exception):
     """Raised when projects don't match"""
 
 
-def hil_client_connect(endpoint_ip, name, pw):
-    """"
-    Returns an instance of HIL client.
-
-    This call does not check (or connect to) the HIL server.
-    """
+def hil_client_object(endpoint_ip, name, pw):
+    """"Returns a HIL client object"""
     hil_http_client = RequestsHTTPClient()
     if not hil_http_client:
         log_error('Unable to create HIL HTTP client (1)')
@@ -52,7 +48,7 @@ def hil_init():
     '''
     '''
     if is_hil_available():
-        status = hil_client_connect(HIL_ENDPOINT, HIL_USER, HIL_PW)
+        status = hil_client_object(HIL_ENDPOINT, HIL_USER, HIL_PW)
     else:
         log_info('HIL unavailable, all HIL operations will appear to succeed')
         status = True
