@@ -30,7 +30,7 @@ class ProjectMismatchError(Exception):
 
 
 def hil_client_object(endpoint_ip, name, pw):
-    """"Returns a HIL client object"""
+    """Returns a HIL client object"""
     hil_http_client = RequestsHTTPClient()
     if not hil_http_client:
         log_error('Unable to create HIL HTTP client (1)')
@@ -45,8 +45,8 @@ def hil_client_object(endpoint_ip, name, pw):
 
 
 def hil_init():
-    '''
-    '''
+    """Checks if hil is available and then returns a HIL client object on
+    success or a boolean indicating status"""
     if is_hil_available():
         status = hil_client_object(HIL_ENDPOINT, HIL_USER, HIL_PW)
     else:
@@ -127,8 +127,8 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
 
         if project == from_project:
             remove_node_from_project(hil_client, node, from_project)
-
-        if project == MAINTENANCE_PROJECT:
+            remove_node_from_project(hil_client, node, MAINTENANCE_PROJECT)
+        else:
             remove_node_from_project(hil_client, node, MAINTENANCE_PROJECT)
 
 
