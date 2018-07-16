@@ -127,9 +127,8 @@ def hil_reserve_nodes(nodelist, from_project, hil_client=None):
 
         if project == from_project:
             remove_node_from_project(hil_client, node, from_project)
-            remove_node_from_project(hil_client, node, MAINTENANCE_PROJECT)
-        else:
-            remove_node_from_project(hil_client, node, MAINTENANCE_PROJECT)
+
+        remove_node_from_project(hil_client, node, MAINTENANCE_PROJECT)
 
 
 def hil_free_nodes(nodelist, to_project, hil_client=None):
